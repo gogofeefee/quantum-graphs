@@ -1,0 +1,20 @@
+# Ignore the Archives folder
+Archives/
+
+# Python cache & build files
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+build/
+dist/
+
+# Jupyter & editor noise
+.ipynb_checkpoints/
+*.swp
+*.swo
+*.DS_Store
+
+# Example run outputs (keep configs .py, ignore generated folders/files)
+**/examples/**/Graph*_TypicalLength=*/

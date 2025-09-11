@@ -1,0 +1,37 @@
+### Open Quantum Graph Parameters ###
+Graph Name: RingGraph
+Saved on: 2025-07-29 10:25:12.290210
+Total vertices: 4 (virtual: 3)
+Internal bonds: 4
+Leads: 2
+Wavelength range (vacuum): 1.480 – 1.640 µm
+Effective index: 2.4500
+
+### Vertex Scattering Matrices ###
+Vertex 0 (valency 4):
+ (0.0000  +0.0000  j)  (0.0000  +0.0000  j)  (0.4472  +0.0000  j)  (0.0000  +0.8944  j)
+ (0.0000  +0.0000  j)  (0.0000  +0.0000  j)  (0.0000  +0.8944  j)  (0.4472  +0.0000  j)
+ (0.4472  +0.0000  j)  (0.0000  +0.8944  j)  (0.0000  +0.0000  j)  (0.0000  +0.0000  j)
+ (0.0000  +0.8944  j)  (0.4472  +0.0000  j)  (0.0000  +0.0000  j)  (0.0000  +0.0000  j)
+
+Vertex 1 (valency 2):
+0.0000   1.0000  
+1.0000   0.0000  
+
+Vertex 2 (valency 2):
+0.0000   1.0000  
+1.0000   0.0000  
+
+Vertex 3 (valency 2):
+0.0000   1.0000  
+1.0000   0.0000  
+
+
+### Port Map ###
+Vertex 0 ports: [None, (0, 3), None, (0, 1)]
+
+### Bond Lengths ###
+(0, 1) — (1, 0) : 157.0796
+(1, 1) — (2, 0) : 157.0796
+(2, 1) — (3, 0) : 157.0796
+(0, 3) — (3, 1) : 157.0796
