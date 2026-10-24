@@ -8,16 +8,11 @@ self-loops and multiple bonds, directed-bond indexing, save-path logic, and
 parameter saving.
 """
 
-import os
-import sys
 import copy
 import inspect
 import datetime
 import numpy as np
-import networkx as nx
 
-from collections import defaultdict, OrderedDict
-from pathlib import Path
 
 from ..core.base import GraphBase
 from ..core.vertices import resolve_vertex_matrices

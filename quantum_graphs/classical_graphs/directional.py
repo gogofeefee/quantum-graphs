@@ -19,7 +19,6 @@ import networkx as nx
 from .core      import CoreMixin
 from .dynamics  import DynamicsMixin
 from .plotting  import GraphPlotMixin, RhoPlotMixin, AnimationMixin
-from ._utils import _normalize, _perpendicular
 
 
 class DirectionalClassicalGraphs(

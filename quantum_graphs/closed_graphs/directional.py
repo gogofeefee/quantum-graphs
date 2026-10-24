@@ -12,7 +12,6 @@ matching the open_graphs convention (blue for ports 0,1; orange for ports 2,3).
 """
 
 from ..core.config import log, show_figure
-import numpy as np
 
 from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
 from .core           import CoreMixin

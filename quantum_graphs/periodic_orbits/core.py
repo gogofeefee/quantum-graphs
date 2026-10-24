@@ -68,14 +68,13 @@ from ..core.config import resolve
 from ..core.base import GraphBase
 import os
 import warnings
-import sys
 import csv
 import copy
 import hashlib
 import datetime
 
 from pathlib import Path
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 
 import numpy as np
 import matplotlib.pyplot as plt

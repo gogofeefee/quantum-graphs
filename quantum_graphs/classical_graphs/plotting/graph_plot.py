@@ -8,11 +8,9 @@ plot_graph: draws the graph topology (vertices, edges, optional lengths).
 
 from ...core.config import log
 import os
-import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from .._utils import _is_number
 
 
 class GraphPlotMixin:
