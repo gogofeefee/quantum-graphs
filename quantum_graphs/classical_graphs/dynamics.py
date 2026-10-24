@@ -36,34 +36,7 @@ class DynamicsMixin:
         -------
         Sigma_aa : np.ndarray, shape (2B, 2B), complex
         """
-        Sigma_aa = np.zeros(
-            (self.n_directed_bonds, self.n_directed_bonds), dtype=complex
-        )
-        for dbond_in in self.directed_bonds:
-            src, dst = dbond_in
-            v = dst[0]
-            port_in = dst[1]
-
-            sigma_v = self.vertex_scattering_matrix[v]
-            if callable(sigma_v):
-                sigma_v = np.asarray(sigma_v(k), dtype=complex)
-            else:
-                sigma_v = np.asarray(sigma_v, dtype=complex)
-
-            idx_in = self.directed_bond_index[dbond_in]
-
-            for port_out in range(self.valencies[v]):
-                conn = self.virtual_port_map[v][port_out]
-                if conn is None:
-                    raise ValueError(
-                        f"Found None in virtual_port_map at vertex {v}, port {port_out}."
-                    )
-                neighbor, n_port = conn
-                dbond_out = ((v, port_out), (neighbor, n_port))
-                idx_out = self.directed_bond_index[dbond_out]
-                Sigma_aa[idx_out, idx_in] = sigma_v[port_out, port_in]
-
-        return Sigma_aa
+        return np.array(self.model.block("aa", k))
 
     # ==================================================================
     # Perron-Frobenius operator

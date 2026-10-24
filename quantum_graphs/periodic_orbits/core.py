@@ -63,6 +63,8 @@ Conventions inherited from ClassicalGraphs / ClosedGraphs
 # Imports
 # ======================================================================
 
+from ..core.config import resolve
+from ..core.base import GraphBase
 import os
 import sys
 import csv
@@ -108,70 +110,9 @@ def _perpendicular(vec):
     return np.array([-vec[1], vec[0]], dtype=float)
 
 
-def _canonical_port_edge(a, b):
-    """Return a canonical undirected key for an edge between port-endpoints."""
-    return (a, b) if (a[0], a[1]) <= (b[0], b[1]) else (b, a)
-
-
 def _format_float_for_name(x, ndigits=3):
     """Format a float in a deterministic compact way for folder/file names."""
     return f"{float(x):.{ndigits}f}"
-
-
-def _euclidean_distance(p1, p2):
-    """Euclidean distance between two 2D points."""
-    p1 = np.asarray(p1, dtype=float)
-    p2 = np.asarray(p2, dtype=float)
-    return float(np.hypot(*(p2 - p1)))
-
-
-def _validate_closed_port_map(port_map):
-    """Validate that the graph is closed: every port must be connected."""
-    for i, ports in enumerate(port_map):
-        if not isinstance(ports, (list, tuple)):
-            raise ValueError(f"port_map[{i}] must be a list or tuple.")
-        for p, conn in enumerate(ports):
-            if conn is None:
-                raise ValueError(
-                    f"Found None at port_map[{i}][{p}]. "
-                    "PeriodicOrbits only supports closed graphs."
-                )
-            if not (isinstance(conn, (list, tuple)) and len(conn) == 2):
-                raise ValueError(
-                    f"Invalid connection at port_map[{i}][{p}] = {conn}. "
-                    "Each connection must be a tuple (j, q)."
-                )
-
-
-def _validate_vertex_positions(vertex_positions):
-    """Validate vertex positions."""
-    if len(vertex_positions) == 0:
-        raise ValueError("vertex_positions must contain at least one vertex.")
-    for i, pos in enumerate(vertex_positions):
-        if not (isinstance(pos, (list, tuple, np.ndarray)) and len(pos) == 2):
-            raise ValueError(
-                f"vertex_positions[{i}] = {pos} is invalid. "
-                "Each position must be a 2D point."
-            )
-
-
-def _validate_lengths_dict(lengths):
-    """Validate the lengths dictionary format."""
-    if lengths is None:
-        return
-    if not isinstance(lengths, dict):
-        raise ValueError("lengths must be a dict or None.")
-    for key, val in lengths.items():
-        if not (
-            isinstance(key, tuple) and len(key) == 2
-            and isinstance(key[0], tuple) and isinstance(key[1], tuple)
-            and len(key[0]) == 2 and len(key[1]) == 2
-        ):
-            raise ValueError(f"Invalid lengths key: {key}. Expected ((i, p), (j, q)).")
-        if not _is_number(val):
-            raise ValueError(f"Invalid length value for {key}: {val}.")
-        if float(val) <= 0:
-            raise ValueError(f"Bond lengths must be > 0. Invalid value for {key}: {val}.")
 
 
 def _hash_graph_signature(port_map, lengths):
@@ -221,7 +162,7 @@ def _draw_marker_disk(ax, center_xy, radius, color, z=10_000):
 # orbit enumeration, naming, export, and plotting
 # ======================================================================
 
-class PeriodicOrbits:
+class PeriodicOrbits(GraphBase):
     """
     Periodic-orbit enumeration on a closed graph of 4-port directional
     couplers (see module docstring for the exact vertex model).
@@ -260,27 +201,10 @@ class PeriodicOrbits:
         # ------------------------------------------------------------------
         # 1) Validate inputs
         # ------------------------------------------------------------------
-        _validate_vertex_positions(vertex_positions)
-        _validate_closed_port_map(port_map)
-        _validate_lengths_dict(lengths)
-
-        self.vertex_positions = [tuple(map(float, pos)) for pos in vertex_positions]
-        self.port_map = copy.deepcopy(port_map)
-        self.virtual_port_map = copy.deepcopy(port_map)
-
-        self.lengths = copy.deepcopy(lengths)
         self.ng = float(ng) if ng is not None else 1.0
         self.name = str(name)
-
-        self._init_spacing_sequence(virtual_vertex_spacing)
-        self.virtual_vertex_spacing = virtual_vertex_spacing
-
-        self.n_vertices = len(self.vertex_positions)
-        self.valencies = [len(ports) for ports in self.port_map]
-
-        # ------------------------------------------------------------------
-        # 2) Enforce the directional-coupler-only vertex model
-        # ------------------------------------------------------------------
+        self._setup_topology(vertex_positions, copy.deepcopy(port_map), lengths,
+                             virtual_vertex_spacing)
         for i in range(self.n_vertices):
             if self.valencies[i] != 4:
                 raise ValueError(
@@ -288,132 +212,8 @@ class PeriodicOrbits:
                     f"vertices. Vertex {i} has valency {self.valencies[i]} "
                     "(expected 4)."
                 )
-
-        # ------------------------------------------------------------------
-        # 3) Compute raw lengths if not provided
-        # ------------------------------------------------------------------
-        if self.lengths is None:
-            self.lengths = {}
-            for i, ports in enumerate(self.port_map):
-                for pi, conn in enumerate(ports):
-                    j, pj = conn
-                    key = _canonical_port_edge((i, pi), (j, pj))
-                    if key not in self.lengths:
-                        p_i = self.vertex_positions[i]
-                        p_j = self.vertex_positions[j]
-                        self.lengths[key] = _euclidean_distance(p_i, p_j)
-
-        self.total_length = float(np.sum(list(self.lengths.values()))) if len(self.lengths) else 0.0
-        self.virtual_lengths = copy.deepcopy(self.lengths)
-
-        # ------------------------------------------------------------------
-        # 4) Build raw bond list from ORIGINAL port_map
-        # ------------------------------------------------------------------
-        self.bonds = []
-        for i, ports in enumerate(self.port_map):
-            for pi, conn in enumerate(ports):
-                j, pj = conn
-                candidate = (i, pi, j, pj)
-                reverse = (j, pj, i, pi)
-                if reverse not in self.bonds:
-                    self.bonds.append(candidate)
-
-        self.n_bonds = len(self.bonds)
-
-        # ------------------------------------------------------------------
-        # 5) Group bonds by unordered vertex pair
-        # ------------------------------------------------------------------
-        vertex_pair_bonds = defaultdict(list)
-        for (i, pi, j, pj) in self.bonds:
-            pair = tuple(sorted([i, j]))
-            vertex_pair_bonds[pair].append(((i, pi), (j, pj)))
-
-        # ------------------------------------------------------------------
-        # 6) Virtualization of self-loops and multiple bonds
-        # ------------------------------------------------------------------
-        self.virtual_vertices = []
-        self.updated_bonds = []
-
-        for (i, j), bond_list in vertex_pair_bonds.items():
-            if i == j:
-                for bond in bond_list:
-                    self._break_complex_bond(
-                        bond=bond, loop=True, index=0,
-                        n_total=len(bond_list), group_spacing=None,
-                    )
-            elif len(bond_list) == 1:
-                self.updated_bonds.append(bond_list[0])
-            else:
-                group_spacing = self._next_group_spacing()
-                for k, bond in enumerate(bond_list):
-                    self._break_complex_bond(
-                        bond=bond, loop=False, index=k,
-                        n_total=len(bond_list), group_spacing=group_spacing,
-                    )
-
-        self._order_bonds_and_lengths()
-
-        # ------------------------------------------------------------------
-        # 7) Build graph container (virtualized geometry)
-        # ------------------------------------------------------------------
-        self.G = nx.Graph()
-        for i, pos in enumerate(self.vertex_positions):
-            self.G.add_node(i, pos=pos, is_virtual=(i in self.virtual_vertices))
-
-        for a, b in self.updated_bonds:
-            key = _canonical_port_edge(a, b)
-            pa = self.vertex_positions[a[0]]
-            pb = self.vertex_positions[b[0]]
-            self.G.add_edge(a[0], b[0], length=self.virtual_lengths[key], port_edge=key, p0=pa, p1=pb)
-
         self._virtual_vertex_set = set(self.virtual_vertices)
-
-        # ------------------------------------------------------------------
-        # 8) Metadata after virtualization
-        # ------------------------------------------------------------------
-        self.n_vertices_total = len(self.vertex_positions)
-        self.n_virtual_vertices = len(self.virtual_vertices)
-        self.n_internal_bonds = len(self.updated_bonds)
-        self.n_directed_bonds = 2 * self.n_internal_bonds
-
-        # ------------------------------------------------------------------
-        # 9) Directed bonds and indexing
-        # ------------------------------------------------------------------
-        self.directed_bonds = []
-        self.directed_bond_index = {}
-        self.directed_lengths = {}
-        self.directed_optical_lengths = {}
-        self.directed_positions = {}
-        self.reverse_directed_bond = {}
-
-        for idx, (a, b) in enumerate(self.updated_bonds):
-            fwd = (a, b)
-            bwd = (b, a)
-
-            self.directed_bonds.append(fwd)
-            self.directed_bonds.append(bwd)
-
-            self.directed_bond_index[fwd] = idx
-            self.directed_bond_index[bwd] = idx + self.n_internal_bonds
-
-            key = _canonical_port_edge(a, b)
-            L = float(self.virtual_lengths[key])
-            self.directed_lengths[fwd] = L
-            self.directed_lengths[bwd] = L
-            self.directed_optical_lengths[fwd] = L * self.ng
-            self.directed_optical_lengths[bwd] = L * self.ng
-
-            p_a = np.asarray(self.vertex_positions[a[0]], dtype=float)
-            p_b = np.asarray(self.vertex_positions[b[0]], dtype=float)
-            self.directed_positions[fwd] = (p_a, p_b)
-            self.directed_positions[bwd] = (p_b, p_a)
-
-            self.reverse_directed_bond[fwd] = bwd
-            self.reverse_directed_bond[bwd] = fwd
-
-        # ------------------------------------------------------------------
-        # 10) Transition graph on directed bonds (directional-coupler rule)
-        # ------------------------------------------------------------------
+        self.directed_optical_lengths = {db: L * self.ng for db, L in self.directed_lengths.items()}
         self._build_bond_transitions()
 
         # ------------------------------------------------------------------
@@ -425,164 +225,8 @@ class PeriodicOrbits:
         self._orbit_dbond_keys = {}    # canonical dbond-path key -> name
         self._ambiguous_base_names = set()
 
-        # ------------------------------------------------------------------
-        # 12) Save-path logic
-        # ------------------------------------------------------------------
-        if save_path is None:
-            if base_dir is not None:
-                _base = Path(base_dir).resolve()
-            else:
-                argv0 = Path(sys.argv[0]).resolve()
-                if argv0.suffix == ".py" and argv0.exists():
-                    _base = argv0.parent
-                else:
-                    _base = Path.cwd()
-            graph_dir = _base / self.name
-            leaf = self._build_save_dir_name()
-            self.save_path = graph_dir / leaf
-        else:
-            self.save_path = _as_path(save_path)
+        self._setup_save_path(self.name, self._build_save_dir_name(), save_path, base_dir)
 
-        self.save_path.mkdir(parents=True, exist_ok=True)
-        self._save_parameters()
-
-    # ==================================================================
-    # Spacing helpers (virtualization)
-    # ==================================================================
-    def _init_spacing_sequence(self, spacing):
-        self._spacing_sequence = None
-        self._spacing_ptr = 0
-        if spacing is None:
-            return
-        if _is_number(spacing):
-            return
-        seq = list(spacing)
-        if len(seq) == 0:
-            return
-        self._spacing_sequence = [float(x) for x in seq]
-
-    def _next_group_spacing(self):
-        if self._spacing_sequence:
-            val = self._spacing_sequence[self._spacing_ptr % len(self._spacing_sequence)]
-            self._spacing_ptr += 1
-            return val
-        return self.virtual_vertex_spacing
-
-    # ==================================================================
-    # Virtualization of self-loops / multiple bonds
-    # ==================================================================
-    def _break_complex_bond(self, bond, loop=False, index=0, n_total=1, group_spacing=None):
-        """
-        Replace a multiple bond or a self-loop by virtual (pass-through)
-        vertices. Identical philosophy to ClassicalGraphs/ClosedGraphs.
-        """
-        (i, pi), (j, pj) = bond
-
-        xi, yi = self.vertex_positions[i]
-        xj, yj = self.vertex_positions[j]
-
-        p_i = np.array([xi, yi], dtype=float)
-        p_j = np.array([xj, yj], dtype=float)
-
-        direction = _normalize(p_j - p_i if np.linalg.norm(p_j - p_i) > 0 else np.array([1.0, 0.0]))
-        normal = _perpendicular(direction)
-        distance = float(np.linalg.norm(p_j - p_i))
-
-        if group_spacing is not None:
-            spacing = float(group_spacing)
-        elif _is_number(self.virtual_vertex_spacing):
-            spacing = float(self.virtual_vertex_spacing)
-        else:
-            spacing = 0.3 * distance if distance > 0 else 1.0
-
-        if loop:
-            old_key = _canonical_port_edge((i, pi), (j, pj))
-            L_total = float(self.virtual_lengths.pop(old_key, 40.0))
-
-            self.virtual_port_map[i][pi] = None
-            self.virtual_port_map[i][pj] = None
-
-            center = np.array([xi, yi], dtype=float)
-            offset = L_total / (4.0 * np.sqrt(2.0))
-
-            loop_positions = [(-offset, offset), (0.0, 2.0 * offset), (offset, offset)]
-
-            new_vertices = []
-            for dx, dy in loop_positions:
-                v_idx = len(self.vertex_positions)
-                self.vertex_positions.append((center[0] + dx, center[1] + dy))
-                self.valencies.append(2)
-                self.virtual_vertices.append(v_idx)
-                self.virtual_port_map.append([None, None])
-                new_vertices.append(v_idx)
-
-            v1, v2, v3 = new_vertices
-
-            self.virtual_port_map[i][pi] = (v1, 0)
-            self.virtual_port_map[i][pj] = (v3, 1)
-            self.virtual_port_map[v1][0] = (i, pi)
-            self.virtual_port_map[v1][1] = (v2, 0)
-            self.virtual_port_map[v2][0] = (v1, 1)
-            self.virtual_port_map[v2][1] = (v3, 0)
-            self.virtual_port_map[v3][0] = (v2, 1)
-            self.virtual_port_map[v3][1] = (i, pj)
-
-            segment_length = L_total / 4.0
-            new_bonds = [
-                ((i, pi), (v1, 0)), ((v1, 1), (v2, 0)),
-                ((v2, 1), (v3, 0)), ((v3, 1), (i, pj)),
-            ]
-            for a, b in new_bonds:
-                self.updated_bonds.append((a, b))
-                self.virtual_lengths[_canonical_port_edge(a, b)] = segment_length
-            return
-
-        old_key = _canonical_port_edge((i, pi), (j, pj))
-        L_total = float(self.virtual_lengths.pop(old_key, 40.0))
-
-        midpoint = 0.5 * (p_i + p_j)
-        offset_signed = (index - (n_total - 1) / 2.0) * spacing
-        p_virtual = midpoint + offset_signed * normal
-
-        v_idx = len(self.vertex_positions)
-        self.vertex_positions.append((float(p_virtual[0]), float(p_virtual[1])))
-        self.valencies.append(2)
-        self.virtual_vertices.append(v_idx)
-        self.virtual_port_map.append([None, None])
-
-        self.virtual_port_map[i][pi] = None
-        self.virtual_port_map[j][pj] = None
-        self.virtual_port_map[i][pi] = (v_idx, 0)
-        self.virtual_port_map[v_idx][0] = (i, pi)
-        self.virtual_port_map[j][pj] = (v_idx, 1)
-        self.virtual_port_map[v_idx][1] = (j, pj)
-
-        segment_length = L_total / 2.0
-        b1 = ((i, pi), (v_idx, 0))
-        b2 = ((v_idx, 1), (j, pj))
-        self.updated_bonds.append(b1)
-        self.updated_bonds.append(b2)
-        self.virtual_lengths[_canonical_port_edge(*b1)] = segment_length
-        self.virtual_lengths[_canonical_port_edge(*b2)] = segment_length
-
-    def _order_bonds_and_lengths(self):
-        canon_bonds = [_canonical_port_edge(a, b) for (a, b) in self.updated_bonds]
-        canon_bonds.sort(key=lambda ab: (ab[0][0], ab[0][1], ab[1][0], ab[1][1]))
-
-        ordered_lengths = OrderedDict()
-        for a, b in canon_bonds:
-            key = _canonical_port_edge(a, b)
-            if key not in self.virtual_lengths:
-                raise KeyError(f"Missing virtual length for bond {key}.")
-            if key not in ordered_lengths:
-                ordered_lengths[key] = self.virtual_lengths[key]
-
-        for k, v in self.virtual_lengths.items():
-            if k not in ordered_lengths:
-                ordered_lengths[k] = v
-
-        self.updated_bonds = canon_bonds
-        self.virtual_lengths = dict(ordered_lengths)
 
     # ==================================================================
     # Transition graph (directional-coupler rule)
@@ -906,7 +550,7 @@ class PeriodicOrbits:
     # ==================================================================
     # Irreducible orbits (unbounded length; finite in number)
     # ==================================================================
-    def find_irreducible_orbits(self, max_orbits=200_000, verbose=True):
+    def find_irreducible_orbits(self, max_orbits=200_000, verbose=None):
         """
         Enumerate ALL irreducible periodic orbits (no vertex repeated in
         the code). These are finite in number (period <= total vertex
@@ -917,6 +561,7 @@ class PeriodicOrbits:
         -------
         dict : name -> orbit record
         """
+        verbose = resolve("verbose", verbose)
         registry = {}
         for start_dbond in self.directed_bonds:
             visited = {start_dbond[0][0]}
@@ -963,7 +608,7 @@ class PeriodicOrbits:
         L_max_um,
         max_orbits=20_000,
         max_search_nodes=5_000_000,
-        verbose=True,
+        verbose=None,
     ):
         """
         Enumerate ALL periodic orbits (irreducible or not, primitive or
@@ -983,6 +628,7 @@ class PeriodicOrbits:
         -------
         dict : name -> orbit record
         """
+        verbose = resolve("verbose", verbose)
         registry = {}
         counters = {"nodes": 0}
 

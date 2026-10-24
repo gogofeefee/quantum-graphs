@@ -94,12 +94,8 @@ class GraphPlotMixin:
         e_j               = np.zeros((len(self.leads),), dtype=complex)
         e_j[injection_index] = 1.0
 
-        D        = self._build_propagation_matrix(k)
-        Sigma_aa = self._build_sigma_alpha_alpha(k)
-        Sigma_ab = self._build_sigma_alpha_betahat(k)
-
-        resolvent = np.linalg.inv(np.eye(self.n_directed_bonds) - D @ Sigma_aa)
-        a_alpha   = resolvent @ D @ Sigma_ab @ e_j
+        # amplitudes arriving at the end of each directed bond
+        a_alpha = self.model.internal_amplitudes(k, e_j)
 
         # Energy density per undirected bond
         energy_per_bond = np.zeros(self.n_internal_bonds)

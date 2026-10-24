@@ -4,6 +4,7 @@
 ResonancesMixin — σ_min grid, candidate detection, refinement, find_resonances.
 """
 
+from ..core.config import resolve
 import os
 import warnings
 import numpy as np
@@ -11,6 +12,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from scipy.signal import find_peaks
 from scipy.optimize import minimize
+
+from ..core.persistence import use_cache, write_cache_meta
 
 
 class ResonancesMixin:
@@ -56,7 +59,8 @@ class ResonancesMixin:
                          im_min: float, im_max: float,
                          grid_dtype: str = "float32",
                          overwrite: bool = False,
-                         verbose: bool = True):
+                         verbose: bool = None):
+        verbose = resolve("verbose", verbose)
         lam_min, lam_max = self.wavelength_range
         k_min = 2 * np.pi / lam_max
         k_max = 2 * np.pi / lam_min
@@ -64,6 +68,11 @@ class ResonancesMixin:
         im_vals = np.linspace(im_max, im_min, N_im, dtype=np.float64)
         grid_path = self._sigma_grid_path(N_re, N_im, im_min, im_max)
         os.makedirs(self.save_path, exist_ok=True)
+        grid_params = dict(N_re=N_re, N_im=N_im, im_min=im_min, im_max=im_max,
+                           wavelength_range=list(self.wavelength_range))
+        if os.path.exists(grid_path) and not use_cache(grid_path, self.fingerprint, grid_params,
+                                                       overwrite, label="σ_min grid"):
+            overwrite = True
         if overwrite and os.path.exists(grid_path):
             os.remove(grid_path)
             if verbose:
@@ -75,6 +84,7 @@ class ResonancesMixin:
                                             dtype=grid_dtype, shape=(N_im, N_re))
             mem[:] = np.nan
             mem.flush()
+            write_cache_meta(grid_path, self.fingerprint, grid_params)
         else:
             if verbose:
                 print(f"[grid] Reusing existing grid: {grid_path}")
@@ -84,7 +94,8 @@ class ResonancesMixin:
         return mem, re_vals, im_vals, grid_path
 
     def _fill_sigma_grid(self, mem, re_vals, im_vals, grid_path,
-                         verbose: bool = True, flush_every: int = 1):
+                         verbose: bool = None, flush_every: int = 1):
+        verbose = resolve("verbose", verbose)
         N_im, N_re = mem.shape
         n_done = int(np.sum(~np.isnan(mem).any(axis=1)))
         if verbose:
@@ -96,8 +107,7 @@ class ResonancesMixin:
                 continue
             im       = im_vals[i]
             nan_cols = np.where(np.isnan(row))[0]
-            for j in nan_cols:
-                row[j] = self._sigma_min(re_vals[j] + 1j * im)
+            row[nan_cols] = self.model.sigma_min_many(re_vals[nan_cols] + 1j * im)
             flush_counter += 1
             if flush_counter >= flush_every:
                 mem.flush()
@@ -114,7 +124,8 @@ class ResonancesMixin:
     def _find_candidates(self, mem, re_vals, im_vals,
                          peak_prominence: float = 0.0,
                          neighbor_rows: int = 1,
-                         verbose: bool = True):
+                         verbose: bool = None):
+        verbose = resolve("verbose", verbose)
         N_im, N_re = mem.shape
         g      = np.array(mem, dtype=np.float64)
         g_safe = np.where(np.isfinite(g), g, np.inf)
@@ -248,7 +259,7 @@ class ResonancesMixin:
                         overwrite_refined: bool  = False,
                         overwrite_spectrum: bool = False,
                         plot: bool    = True,
-                        verbose: bool = True):
+                        verbose: bool = None):
         """
         Find the complex resonances of the open quantum graph via the σ_min method.
 
@@ -257,6 +268,7 @@ class ResonancesMixin:
         spectrum      : np.ndarray, complex128, shape (N,)
         degeneracies  : np.ndarray, int, shape (N,)
         """
+        verbose = resolve("verbose", verbose)
         os.makedirs(self.save_path, exist_ok=True)
 
         lam_min, lam_max = self.wavelength_range
@@ -268,10 +280,16 @@ class ResonancesMixin:
         raw_path  = self._resonances_path(N_re, N_im, im_min, im_max, tol_step, maxiter)
         spec_path = self._spectrum_path(N_re, N_im, im_min, im_max, tol_step, maxiter,
                                         eps_accept, nullity_tol)
+        raw_params = dict(N_re=N_re, N_im=N_im, im_min=im_min, im_max=im_max,
+                          wavelength_range=list(self.wavelength_range),
+                          peak_prominence=peak_prominence, neighbor_rows=neighbor_rows,
+                          box_re=box_re, box_im=box_im, tol_step=tol_step, maxiter=maxiter)
+        spec_params = dict(raw_params, eps_accept=eps_accept, nullity_tol=nullity_tol)
 
         # ── 0. Early-load from final spectrum ─────────────────────────────────
-        if (not overwrite_spectrum) and (not overwrite_refined) and (not overwrite_grid) \
-                and os.path.exists(spec_path):
+        if use_cache(spec_path, self.fingerprint, spec_params,
+                     overwrite_spectrum or overwrite_refined or overwrite_grid,
+                     label="resonance spectrum"):
             if verbose:
                 print(f"[spectrum] Loading final spectrum from: {spec_path}")
             npz = np.load(spec_path)
@@ -304,7 +322,8 @@ class ResonancesMixin:
         self._fill_sigma_grid(mem, re_vals, im_vals, grid_path, verbose=verbose)
 
         # ── 2. Refined candidates ─────────────────────────────────────────────
-        if (not overwrite_refined) and (not overwrite_grid) and os.path.exists(raw_path):
+        if use_cache(raw_path, self.fingerprint, raw_params, overwrite_refined or overwrite_grid,
+                     label="refined candidates"):
             if verbose:
                 print(f"[refine] Loading raw candidates from: {raw_path}")
             npz   = np.load(raw_path)
@@ -343,6 +362,7 @@ class ResonancesMixin:
                 print()
             np.savez(raw_path, k_refined=k_all, g_refined=g_all,
                      re_vals=re_vals, im_vals=im_vals)
+            write_cache_meta(raw_path, self.fingerprint, raw_params)
             if verbose:
                 print(f"[refine] Raw candidates saved to: {raw_path}")
 
@@ -395,9 +415,10 @@ class ResonancesMixin:
         self.degenerate_spectrum = np.repeat(spectrum, degeneracies)
 
         # ── 8. Save ───────────────────────────────────────────────────────────
-        if (not os.path.exists(spec_path)) or overwrite_spectrum:
+        if not use_cache(spec_path, self.fingerprint, spec_params, overwrite_spectrum):
             np.savez(spec_path, spectrum=spectrum, degeneracies=degeneracies,
                      degenerate_spectrum=self.degenerate_spectrum)
+            write_cache_meta(spec_path, self.fingerprint, spec_params)
             if verbose:
                 print(f"[spectrum] Final spectrum saved to: {spec_path}")
         else:
@@ -436,7 +457,7 @@ class ResonancesMixin:
                               max_cols: int = None,
                               save: bool = True,
                               file_format: str = "pdf",
-                              verbose: bool = True):
+                              verbose: bool = None):
         """
         Plot complex resonances in the k-plane, optionally overlaying the
         σ_min(I − U(k)) heatmap.
@@ -471,6 +492,7 @@ class ResonancesMixin:
         verbose : bool
             Print progress messages.
         """
+        verbose = resolve("verbose", verbose)
         from matplotlib.ticker import ScalarFormatter
 
         if not hasattr(self, "spectrum"):

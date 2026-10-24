@@ -4,8 +4,11 @@
 S-matrix cache utilities shared by plot_S_components and plot_S_complex_plane.
 """
 
+from ..core.config import resolve
 import os
 import numpy as np
+
+from ..core.persistence import cache_status, use_cache, write_cache_meta
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +67,8 @@ def interp_S_cube(lam_src, S_src, lam_tgt):
 # Progress printing helpers
 # ---------------------------------------------------------------------------
 
-def progress_print(idx, total, last_pct, verbose=True, prefix="Computing S..."):
+def progress_print(idx, total, last_pct, verbose=None, prefix="Computing S..."):
+    verbose = resolve("verbose", verbose)
     if not verbose:
         return last_pct
     pct = int(100 * (idx + 1) / total)
@@ -74,7 +78,8 @@ def progress_print(idx, total, last_pct, verbose=True, prefix="Computing S..."):
     return last_pct
 
 
-def finish_progress(verbose=True, prefix="Computing S..."):
+def finish_progress(verbose=None, prefix="Computing S..."):
+    verbose = resolve("verbose", verbose)
     if verbose:
         print(f"\r{prefix} 100%")
 
@@ -119,10 +124,12 @@ def load_full_cache_if_exact(path, lambda_req_exact):
     return S_full_cached
 
 
-def find_covering_cache(workdir, kim_str, lambda_min, lambda_max):
+def find_covering_cache(workdir, kim_str, lambda_min, lambda_max,
+                        max_spacing=np.inf, fingerprint=None):
     """
-    Search for the smallest full-S cache that covers [lambda_min, lambda_max].
-    Returns (path, lam_src, S_src) or (None, None, None).
+    Search for the smallest full-S cache that covers [lambda_min, lambda_max]
+    with a wavelength step ≤ ``max_spacing`` and, if ``fingerprint`` is given,
+    a matching metadata file. Returns (path, lam_src, S_src) or (None, None, None).
     """
     prefix = "cache_Smatrix_full__"
     best_path = None
@@ -153,6 +160,10 @@ def find_covering_cache(workdir, kim_str, lambda_min, lambda_max):
         lam_lo, lam_hi = float(lam_src[0]), float(lam_src[-1])
         if not (lam_lo <= lambda_min and lam_hi >= lambda_max):
             continue
+        if float(np.max(np.diff(lam_src))) > max_spacing * (1 + 1e-9):
+            continue
+        if fingerprint is not None and cache_status(full_path, fingerprint) != "ok":
+            continue
         span = lam_hi - lam_lo
         if best_span is None or span < best_span:
             best_span = span
@@ -168,13 +179,24 @@ def find_covering_cache(workdir, kim_str, lambda_min, lambda_max):
 # ---------------------------------------------------------------------------
 
 def get_S_full(graph, lambda_min, lambda_max, n_points, k_imag,
-               reuse_if_included=True, verbose=True):
+               reuse_if_included=True, verbose=None):
     """
     Return (lambda_req, real_k_req, delta_k, S_full_req) where
-    S_full_req has shape (n_points, n_leads, n_leads), complex128.
+    S_full_req has shape (n_points, n_leads, n_leads), complex128, on a grid
+    uniform in k (n_points values of Re k between 2π/λ_max and 2π/λ_min).
 
-    Loads from cache if possible; otherwise computes and saves.
+    Cache policy
+    ------------
+    1. an exact cache of this grid, verified against the graph fingerprint;
+    2. if ``reuse_if_included``: a cache of a wider window whose grid is at
+       least as fine as the requested one, linearly interpolated (never
+       written back, so an interpolated result is never mistaken for a
+       computed one). A coarser cache is never used: interpolating S between
+       points farther apart than a resonance linewidth would invent the line
+       shapes;
+    3. otherwise S is computed (batched) and cached.
     """
+    verbose = resolve("verbose", verbose)
     k_min = 2.0 * np.pi / lambda_max
     k_max = 2.0 * np.pi / lambda_min
     real_k_req = np.linspace(k_min, k_max, int(n_points))
@@ -182,69 +204,34 @@ def get_S_full(graph, lambda_min, lambda_max, n_points, k_imag,
     k_req      = real_k_req + 1j * float(k_imag)
     delta_k    = real_k_req[1] - real_k_req[0]
 
-    workdir = getattr(graph, "save_path", None)
-    if workdir is None:
-        workdir = os.getcwd()
+    workdir = str(graph.save_path)
     os.makedirs(workdir, exist_ok=True)
+    cache_path = os.path.join(workdir, cache_filename_full(lambda_min, lambda_max, n_points, k_imag))
+    params = dict(lambda_min=lambda_min, lambda_max=lambda_max, n_points=int(n_points),
+                  k_imag=k_imag)
 
-    cache_fname = cache_filename_full(lambda_min, lambda_max, n_points, k_imag)
-    cache_path  = os.path.join(workdir, cache_fname)
-
-    S_full_req = None
+    if use_cache(cache_path, graph.fingerprint, params, label="S-matrix cache"):
+        S_full_req = load_full_cache_if_exact(cache_path, lambda_req)
+        if S_full_req is not None:
+            if verbose:
+                print(f"✓ Loaded exact cached full S(λ) from: {cache_path}")
+            return lambda_req, real_k_req, delta_k, S_full_req
 
     if reuse_if_included:
-        # 1) exact cache
-        S_full_req = load_full_cache_if_exact(cache_path, lambda_req)
-        if S_full_req is not None and verbose:
-            print(f"✓ Loaded exact cached full S(λ) from: {cache_path}")
-
-        # 2) broader covering cache
-        if S_full_req is None:
-            kim_str = sanitize_float(k_imag)
-            best_path, lam_src, S_src = find_covering_cache(
-                workdir, kim_str, lambda_min, lambda_max
-            )
-            if best_path is not None:
-                if verbose:
-                    print(f"✓ Reusing cached full S(λ) via interpolation from: {best_path}")
-                S_full_req = interp_S_cube(lam_src, S_src, lambda_req)
-                save_full_cache(cache_path, lambda_req, S_full_req, k_imag)
-                if verbose:
-                    print(f"✓ Cached interpolated full S(λ) to: {cache_path}")
-
-        # 3) compute
-        if S_full_req is None:
+        best_path, lam_src, S_src = find_covering_cache(
+            workdir, sanitize_float(k_imag), lambda_min, lambda_max,
+            max_spacing=float(np.max(np.abs(np.diff(lambda_req)))),
+            fingerprint=graph.fingerprint)
+        if best_path is not None:
             if verbose:
-                print("⚠ No covering full-S cache found → computing full S(λ) on requested grid.")
-            S_full_req = _compute_S_full(graph, k_req, cache_path, lambda_req, k_imag, verbose)
+                print(f"✓ Reusing cached full S(λ) (finer grid) via interpolation from: {best_path}")
+            return lambda_req, real_k_req, delta_k, interp_S_cube(lam_src, S_src, lambda_req)
 
-    else:
-        S_full_req = load_full_cache_if_exact(cache_path, lambda_req)
-        if S_full_req is not None and verbose:
-            print(f"✓ Loaded exact cached full S(λ) from: {cache_path}")
-        if S_full_req is None:
-            if verbose:
-                print("✓ Computing full S(λ) on requested grid (reuse_if_included=False).")
-            S_full_req = _compute_S_full(graph, k_req, cache_path, lambda_req, k_imag, verbose)
-
-    return lambda_req, real_k_req, delta_k, S_full_req
-
-
-def _compute_S_full(graph, k_req, cache_path, lambda_req, k_imag, verbose):
-    S0 = np.asarray(graph.compute_S_matrix(k_req[0]), dtype=np.complex128)
-    if S0.ndim != 2 or S0.shape[0] != S0.shape[1]:
-        raise ValueError("compute_S_matrix(k) must return a square 2D array.")
-    n_ports    = S0.shape[0]
-    S_full_req = np.empty((len(k_req), n_ports, n_ports), dtype=np.complex128)
-    S_full_req[0] = S0
-    last_pct = -1
-    total    = len(k_req)
-    last_pct = progress_print(0, total, last_pct, verbose)
-    for idx_k in range(1, total):
-        S_full_req[idx_k] = np.asarray(graph.compute_S_matrix(k_req[idx_k]), dtype=np.complex128)
-        last_pct = progress_print(idx_k, total, last_pct, verbose)
-    finish_progress(verbose)
+    if verbose:
+        print("Computing full S(λ) on the requested grid ...")
+    S_full_req = graph.model.S_many(k_req)
     save_full_cache(cache_path, lambda_req, S_full_req, k_imag)
+    write_cache_meta(cache_path, graph.fingerprint, params)
     if verbose:
         print(f"✓ Cached full S(λ) to: {cache_path}")
-    return S_full_req
+    return lambda_req, real_k_req, delta_k, S_full_req

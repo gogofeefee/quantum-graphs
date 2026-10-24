@@ -13,6 +13,7 @@ matching the open_graphs convention (blue for ports 0,1; orange for ports 2,3).
 
 import numpy as np
 
+from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
 from .core           import CoreMixin
 from .spectrum       import SpectrumMixin
 from .spectral_stats import SpectralStatsMixin
@@ -56,9 +57,11 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
                  save_path=None,
                  base_dir=None):
 
+        if vertex_couplings is None:
+            raise ValueError("vertex_couplings is required: a float C, a function C(k), "
+                             "a list (one C per vertex) or a dict {vertex: C}.")
         self.vertex_couplings = vertex_couplings
-
-        vertex_matrices   = self._build_vertex_matrices(vertex_positions, port_map)
+        vertex_matrices = self._build_vertex_matrices(vertex_positions, port_map)
         self.coupling_info = self._get_coupling_description()
 
         super().__init__(
@@ -80,51 +83,24 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
     # =========================================================================
 
     def _build_vertex_matrices(self, vertex_positions, port_map):
-        n         = len(vertex_positions)
-        valencies = [len(ports) for ports in port_map]
-        matrices  = {}
+        n = len(vertex_positions)
+        for v, ports in enumerate(port_map):
+            if len(ports) != 4:
+                raise ValueError(f"Only 4-port directional couplers supported; "
+                                 f"vertex {v} has valency {len(ports)}.")
+        couplings = couplings_for_vertices(self.vertex_couplings, n)
+        missing = [v for v, C in enumerate(couplings) if C is None]
+        if missing:
+            raise ValueError(f"Missing coupling constant for vertices {missing}.")
+        return {v: directional_coupler_matrix(C) for v, C in enumerate(couplings)}
 
-        for v in range(n):
-            val = valencies[v]
-            if val != 4:
-                raise ValueError(
-                    f"Only 4-port directional couplers supported; "
-                    f"vertex {v} has valency {val}."
-                )
-            if isinstance(self.vertex_couplings, (dict, list)):
-                if v not in self.vertex_couplings:
-                    raise ValueError(f"Missing coupling constant for vertex {v}.")
-                C = self.vertex_couplings[v]
-            else:
-                C = self.vertex_couplings
-
-            matrices[v] = self._directional_coupler_matrix(C)
-        return matrices
-
-    def _directional_coupler_matrix(self, C):
-        """
-        4×4 directional coupler scattering matrix.
-
-        σ = [[0,    0,    √(1-C),  i√C ],
-             [0,    0,    i√C,   √(1-C)],
-             [√(1-C), i√C, 0,    0    ],
-             [i√C, √(1-C), 0,    0    ]]
-        """
-        def matrix_fn(k=None):
-            c_val = C(k) if callable(C) else C
-            sC    = np.sqrt(c_val)
-            s1C   = np.sqrt(1 - c_val)
-            return np.array([
-                [0,      0,      s1C,     1j * sC],
-                [0,      0,      1j * sC, s1C    ],
-                [s1C,  1j * sC,  0,       0      ],
-                [1j * sC, s1C,   0,       0      ],
-            ], dtype=complex)
-
-        return matrix_fn if callable(C) else matrix_fn()
+    @staticmethod
+    def _directional_coupler_matrix(C):
+        """4×4 directional coupler matrix (see quantum_graphs.core.directional_coupler_matrix)."""
+        return directional_coupler_matrix(C)
 
     def _get_coupling_description(self):
-        if isinstance(self.vertex_couplings, (dict, list)):
+        if isinstance(self.vertex_couplings, (dict, list, tuple)):
             return "custom_vertex_couplings"
         C = self.vertex_couplings
         if callable(C):

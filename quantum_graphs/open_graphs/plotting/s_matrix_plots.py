@@ -15,6 +15,7 @@ All methods share the same S-matrix cache via ``open_graphs.cache.get_S_full``.
 Style helpers are imported from ``open_graphs.plotting.style``.
 """
 
+from ...core.config import resolve
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -218,13 +219,14 @@ class SMatrixPlotsMixin:
     # ------------------------------------------------------------------
 
     def _get_S_data(self, lambda_min, lambda_max, n_points, k_imag=0.0,
-                    reuse_if_included=True, verbose=True):
+                    reuse_if_included=True, verbose=None):
         """
         Return ``(lambda_values, real_k, delta_k, S_full)`` for the grid.
 
         ``S_full`` shape: ``(n_points, n_leads, n_leads)``, complex128.
         Delegates caching to ``cache.get_S_full``.
         """
+        verbose = resolve("verbose", verbose)
         return get_S_full(self, lambda_min, lambda_max, n_points, k_imag,
                           reuse_if_included=reuse_if_included, verbose=verbose)
 
@@ -246,7 +248,7 @@ class SMatrixPlotsMixin:
     def plot_S_amplitude(self, lambda_min, lambda_max, n_points, components,
                          spectrum=None, k_imag=0.0, x_axis="wavelength",
                          save=False, file_format="pdf",
-                         reuse_if_included=True, verbose=True):
+                         reuse_if_included=True, verbose=None):
         """
         Plot |S_ij|² versus wavelength or frequency.
 
@@ -273,6 +275,7 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
+        verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
 
@@ -317,7 +320,7 @@ class SMatrixPlotsMixin:
     def plot_S_phase(self, lambda_min, lambda_max, n_points, components,
                      spectrum=None, k_imag=0.0, x_axis="wavelength",
                      save=False, file_format="pdf",
-                     reuse_if_included=True, verbose=True):
+                     reuse_if_included=True, verbose=None):
         """
         Plot arg(S_ij) versus wavelength or frequency.
 
@@ -328,6 +331,7 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
+        verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
 
@@ -373,7 +377,7 @@ class SMatrixPlotsMixin:
     def plot_S_amplitude_phase(self, lambda_min, lambda_max, n_points, components,
                                 spectrum=None, k_imag=0.0, x_axis="wavelength",
                                 save=False, file_format="pdf",
-                                reuse_if_included=True, verbose=True):
+                                reuse_if_included=True, verbose=None):
         """
         Two-panel figure: |S_ij|² (top) and arg(S_ij) (bottom), shared x-axis.
 
@@ -381,6 +385,7 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
+        verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
 
@@ -448,7 +453,7 @@ class SMatrixPlotsMixin:
     def plot_S_fourier(self, lambda_min, lambda_max, n_points, components,
                        k_imag=0.0, xlim_um=(0, 8000),
                        save=False, file_format="pdf",
-                       reuse_if_included=True, verbose=True):
+                       reuse_if_included=True, verbose=None):
         """
         Fourier transform of |S_ij|² in the optical-length domain.
 
@@ -476,6 +481,7 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
+        verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 
         lambda_vals, real_k, delta_k, S_full = self._get_S_data(
@@ -564,7 +570,7 @@ class SMatrixPlotsMixin:
     def plot_S_complex_plane(self, lambda_min, lambda_max, n_points, components,
                               spectrum=None, k_imag=0.0,
                               save=False, file_format="pdf",
-                              reuse_if_included=False, verbose=True):
+                              reuse_if_included=False, verbose=None):
         """
         Plot S_ij(λ) as a curve in the complex plane.
 
@@ -599,6 +605,7 @@ class SMatrixPlotsMixin:
         fig : Figure
         axs : ndarray of Axes  (shape ``(1, n_components)``)
         """
+        verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 
         lambda_vals, real_k, _, S_full = self._get_S_data(

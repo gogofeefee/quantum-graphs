@@ -4,10 +4,13 @@
 ExperimentalMixin — experimental resonance detection via d²T/dk² peaks.
 """
 
+from ..core.config import resolve
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+
+from ..core.persistence import use_cache, write_cache_meta
 
 
 class ExperimentalMixin:
@@ -201,7 +204,7 @@ class ExperimentalMixin:
         plot_figures: bool = True,
         save: bool = True,
         overwrite: bool = False,
-        verbose: bool = True,
+        verbose: bool = None,
         file_format: str = "pdf",
     ):
         """
@@ -235,6 +238,7 @@ class ExperimentalMixin:
         self.exp_spectrum : np.ndarray
             Sorted array of detected resonances (k in µm⁻¹).
         """
+        verbose = resolve("verbose", verbose)
 
         # ------------------------------------------------------------------
         # Local helpers
@@ -318,11 +322,19 @@ class ExperimentalMixin:
 
         S_filename = f"cache_Sij__S{i}{j}__{lam_tag}__{N_tag}__{kim_tag}.npz"
         S_path     = os.path.join(workdir, S_filename)
+        S_params   = dict(component=[i, j], wavelength_range=list(self.wavelength_range),
+                          n_points=int(n_points), k_imag=float(k_imag))
+        res_params = dict(S_params, prominence=prominence, distance=int(distance),
+                          amp_threshold=float(amp_threshold),
+                          manual_lambda_peaks=sorted(manual_lambda_peaks or []),
+                          exclude_lambda_peaks=sorted(exclude_lambda_peaks or []),
+                          exclude_tol_nm=float(exclude_tol_nm))
 
         # ------------------------------------------------------------------
         # Fast path: load resonances only (no plotting requested)
         # ------------------------------------------------------------------
-        if (not plot_figures) and save and (not overwrite) and os.path.exists(res_path):
+        if (not plot_figures) and save and use_cache(res_path, self.fingerprint, res_params,
+                                                     overwrite, label="experimental resonances"):
             if verbose:
                 print(f"✓ Loaded experimental resonances from file: {res_path}")
             self.exp_spectrum = np.load(res_path)
@@ -333,7 +345,8 @@ class ExperimentalMixin:
         # ------------------------------------------------------------------
         loaded_resonances = False
         k_resonances      = None
-        if save and (not overwrite) and os.path.exists(res_path):
+        if save and use_cache(res_path, self.fingerprint, res_params, overwrite,
+                              label="experimental resonances"):
             try:
                 k_resonances      = np.load(res_path)
                 loaded_resonances = True
@@ -351,7 +364,7 @@ class ExperimentalMixin:
         S_ij = None
         if need_S:
             loaded_S = False
-            if (not overwrite) and os.path.exists(S_path):
+            if use_cache(S_path, self.fingerprint, S_params, overwrite, label="S_ij cache"):
                 try:
                     data = np.load(S_path, allow_pickle=False)
                     if "k_real" in data and "S_ij" in data:
@@ -369,14 +382,7 @@ class ExperimentalMixin:
             if not loaded_S:
                 if verbose:
                     print(f"✓ Computing S[{i},{j}](k) on {k_real.size} points (uniform k grid).")
-                S_ij    = np.empty(k_real.size, dtype=np.complex128)
-                last_pct = -1
-                total    = k_eval.size
-                for idx_k, k in enumerate(k_eval):
-                    S            = self.compute_S_matrix(k)
-                    S_ij[idx_k]  = S[i, j]
-                    last_pct     = _progress_print(idx_k, total, last_pct, prefix="Computing S...")
-                _finish_progress(prefix="Computing S...")
+                S_ij = self.model.S_many(k_eval)[:, i, j]
 
                 if save:
                     payload = {
@@ -389,6 +395,7 @@ class ExperimentalMixin:
                         "meta_k_imag":     float(k_imag),
                     }
                     np.savez_compressed(S_path, **payload)
+                    write_cache_meta(S_path, self.fingerprint, S_params)
                     if verbose:
                         print(f"✓ Cached S[{i},{j}](k) to: {S_path}")
 
@@ -468,6 +475,7 @@ class ExperimentalMixin:
 
             if save:
                 np.save(res_path, k_resonances)
+                write_cache_meta(res_path, self.fingerprint, res_params)
                 if verbose:
                     print(f"✓ Experimental resonances saved to {res_path}")
 
