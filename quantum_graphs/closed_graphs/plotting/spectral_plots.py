@@ -8,6 +8,7 @@ sub-window (same API as open_graphs). Staircase and Weyl-deviation plots carry
 a secondary x-axis (λ ↔ frequency).
 """
 
+from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -79,7 +80,7 @@ class SpectralPlotsMixin:
         if spectrum.size == 0:
             raise ValueError("Empty spectrum after selection / filtering.")
 
-        print(f"[Staircase:{method}] {note}")
+        log(f"[Staircase:{method}] {note}")
 
         N_modes       = spectrum.size
         N_k           = np.arange(N_modes + 1)
@@ -128,8 +129,8 @@ class SpectralPlotsMixin:
             fname = f"staircase_function__{method}{range_tag}.{file_format}"
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Staircase plot saved to: {fpath}")
-        plt.show()
+            log(f"✓ Staircase plot saved to: {fpath}")
+        show_figure()
 
         # ---- Weyl deviation plots (optional) ----------------------------------
         if weyl_diff:
@@ -152,8 +153,8 @@ class SpectralPlotsMixin:
                 fname2 = f"staircase_diff_index__{method}{range_tag}.{file_format}"
                 fpath2 = os.path.join(self.save_path, fname2)
                 fig2.savefig(fpath2, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Staircase diff (index) saved to: {fpath2}")
-            plt.show()
+                log(f"✓ Staircase diff (index) saved to: {fpath2}")
+            show_figure()
 
             # (b) Δ vs wavelength (nm)
             fig3, ax3 = plt.subplots(figsize=(10, 8))
@@ -169,8 +170,8 @@ class SpectralPlotsMixin:
                 fname3 = f"staircase_diff_lambda__{method}{range_tag}.{file_format}"
                 fpath3 = os.path.join(self.save_path, fname3)
                 fig3.savefig(fpath3, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Staircase diff (λ) saved to: {fpath3}")
-            plt.show()
+                log(f"✓ Staircase diff (λ) saved to: {fpath3}")
+            show_figure()
 
     # =========================================================================
     # Short-range correlations (NNSD)
@@ -212,7 +213,7 @@ class SpectralPlotsMixin:
         spectrum_used = np.sort(np.real(spectrum_used))
         if spectrum_used.size < 2:
             raise ValueError("Too few modes after selection / filtering.")
-        print(f"[NNSD:{method}] {note}")
+        log(f"[NNSD:{method}] {note}")
 
         unfolded = self._compute_unfolded_spectrum(spectrum_used, mode=method)
         spacings = np.diff(unfolded)
@@ -300,8 +301,8 @@ class SpectralPlotsMixin:
                      f"{cumul_part}__{method}{range_tag}.{file_format}")
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ NNSD plot saved to: {fpath}")
-        plt.show()
+            log(f"✓ NNSD plot saved to: {fpath}")
+        show_figure()
 
     # =========================================================================
     # Long-range correlations (Σ² and Δ₃)
@@ -341,7 +342,7 @@ class SpectralPlotsMixin:
         spectrum_used = np.sort(np.real(spectrum_used))
         if spectrum_used.size < 2:
             raise ValueError("Too few modes after selection / filtering.")
-        print(f"[LongRange:{method}] {note}")
+        log(f"[LongRange:{method}] {note}")
 
         unfolded  = self._compute_unfolded_spectrum(spectrum_used, mode=method)
         has_sigma = correlation_type in ("number_variance", "both")
@@ -426,8 +427,8 @@ class SpectralPlotsMixin:
                      f"Lmax{L_max}_Lstep{L_step}__{method}{range_tag}.{file_format}")
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Long-range correlation plot saved to: {fpath}")
-        plt.show()
+            log(f"✓ Long-range correlation plot saved to: {fpath}")
+        show_figure()
 
     # =========================================================================
     # Length spectrum
@@ -512,5 +513,5 @@ class SpectralPlotsMixin:
             fname = f"LengthSpectrum_Lmax{L_max}_N{n_points}{source_tag}.{file_format}"
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Length spectrum saved to {fpath}")
-        plt.show()
+            log(f"✓ Length spectrum saved to {fpath}")
+        show_figure()

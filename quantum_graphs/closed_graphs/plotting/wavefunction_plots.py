@@ -7,6 +7,7 @@ WavefunctionPlotsMixin — plot_wavefunction, plot_entropy, plot_ipr.
 ``_compute_mode_quantities``.
 """
 
+from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -97,7 +98,7 @@ class WavefunctionPlotsMixin:
             a = np.asarray(a).ravel()
 
             if a.size != 2 * N_b:
-                print(f"⚠ Skipping k={k:.6f}: unexpected coeff length {a.size}.")
+                log(f"⚠ Skipping k={k:.6f}: unexpected coeff length {a.size}.")
                 continue
 
             rho_pos = np.abs(a[:N_b])**2
@@ -240,8 +241,8 @@ class WavefunctionPlotsMixin:
                             f"_S_{S:.3f}_Snorm_{S_norm:.3f}.{file_format}")
                 fpath    = os.path.join(self.save_path, fname)
                 plt.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Wavefunction plot saved to {fpath}")
-            plt.show()
+                log(f"✓ Wavefunction plot saved to {fpath}")
+            show_figure()
 
     # =========================================================================
     # Entropy
@@ -275,7 +276,7 @@ class WavefunctionPlotsMixin:
 
         Sn_mean = float(np.mean(S_norm_vals))
         Sn_std  = float(np.std(S_norm_vals, ddof=1)) if S_norm_vals.size >= 2 else 0.0
-        print(f"⟨S_norm⟩ = {Sn_mean:.6f} ± {Sn_std:.6f}   (N={S_norm_vals.size}, {title_range})")
+        log(f"⟨S_norm⟩ = {Sn_mean:.6f} ± {Sn_std:.6f}   (N={S_norm_vals.size}, {title_range})")
 
         smooth_y   = _moving_average(S_norm_vals, smooth_window) if show_smooth else None
         smooth_tag = f"__smoothW{smooth_window}" if show_smooth and smooth_y is not None else ""
@@ -304,8 +305,8 @@ class WavefunctionPlotsMixin:
                 fname = f"entropy_vs_{xtag}{range_tag}{smooth_tag}.{file_format}"
                 fpath = os.path.join(self.save_path, fname)
                 fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Entropy ({xtag}) saved to: {fpath}")
-            plt.show()
+                log(f"✓ Entropy ({xtag}) saved to: {fpath}")
+            show_figure()
 
     # =========================================================================
     # IPR
@@ -339,7 +340,7 @@ class WavefunctionPlotsMixin:
 
         I_mean = float(np.mean(I_vals))
         I_std  = float(np.std(I_vals, ddof=1)) if I_vals.size >= 2 else 0.0
-        print(f"⟨I⟩ = {I_mean:.6f} ± {I_std:.6f}   (N={I_vals.size}, {title_range})")
+        log(f"⟨I⟩ = {I_mean:.6f} ± {I_std:.6f}   (N={I_vals.size}, {title_range})")
 
         smooth_y   = _moving_average(I_vals, smooth_window) if show_smooth else None
         smooth_tag = f"__smoothW{smooth_window}" if show_smooth and smooth_y is not None else ""
@@ -371,5 +372,5 @@ class WavefunctionPlotsMixin:
                 fname = f"ipr_vs_{xtag}{range_tag}{smooth_tag}.{file_format}"
                 fpath = os.path.join(self.save_path, fname)
                 fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ IPR ({xtag}) saved to: {fpath}")
-            plt.show()
+                log(f"✓ IPR ({xtag}) saved to: {fpath}")
+            show_figure()

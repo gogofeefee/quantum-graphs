@@ -7,6 +7,7 @@ GraphPlotMixin — plot_graph (base ClosedGraphs), plot_zeta_B.
 ``layout="constrained"``.
 """
 
+from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -98,8 +99,8 @@ class GraphPlotMixin:
             filename = f"{self.name}_graph_{suffix}.{file_format}"
             filepath = os.path.join(self.save_path, filename)
             plt.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"Graph plot saved to {filepath}")
-        plt.show()
+            log(f"Graph plot saved to {filepath}")
+        show_figure()
 
     # =========================================================================
     # Secular determinant (zeta_B)
@@ -171,5 +172,5 @@ class GraphPlotMixin:
                      f"{'_with_spectrum' if spectrum is not None else ''}.{file_format}")
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300)
-            print(f"✓ Zeta_B plot saved to: {fpath}")
-        plt.show()
+            log(f"✓ Zeta_B plot saved to: {fpath}")
+        show_figure()

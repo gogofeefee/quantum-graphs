@@ -4,6 +4,7 @@
 ExperimentalMixin — experimental resonance detection via d²T/dk² peaks.
 """
 
+from ..core.config import log, show_figure
 from ..core.config import resolve
 import os
 import numpy as np
@@ -251,7 +252,7 @@ class ExperimentalMixin:
                 return last_pct
             pct = int(100 * (idx + 1) / total)
             if pct != last_pct and (pct % 1 == 0):
-                print(f"\r{prefix} {pct:3d}%", end="", flush=True)
+                log(f"\r{prefix} {pct:3d}%", end="", flush=True)
                 return pct
             return last_pct
 
@@ -523,7 +524,7 @@ class ExperimentalMixin:
                              format=file_format, dpi=300, bbox_inches="tight")
             if verbose:
                 print(f"✓ λ full-range 3-panel saved to {os.path.join(workdir, fig_name)}")
-        plt.show()
+        show_figure()
 
         lam_range = lam_max - lam_min
         if lam_range > 0.02:
@@ -547,7 +548,7 @@ class ExperimentalMixin:
                            format=file_format, dpi=300, bbox_inches="tight")
             if verbose:
                 print(f"✓ λ zoom (no markers) saved to {os.path.join(workdir, zoom_name)}")
-        plt.show()
+        show_figure()
 
         mask_zoom    = (lam_res_plot >= zoom_min) & (lam_res_plot <= zoom_max)
         lam_res_zoom = lam_res_plot[mask_zoom]
@@ -567,7 +568,7 @@ class ExperimentalMixin:
                            format=file_format, dpi=300, bbox_inches="tight")
             if verbose:
                 print(f"✓ λ zoom (with markers) saved to {os.path.join(workdir, zoom_name2)}")
-        plt.show()
+        show_figure()
 
         # (B) k-domain plot
         def _plot_three_panel_k(k, T, d1k, d2k, k_peaks=None, title=None):
@@ -632,6 +633,6 @@ class ExperimentalMixin:
                           format=file_format, dpi=300, bbox_inches="tight")
             if verbose:
                 print(f"✓ k full-range 3-panel saved to {os.path.join(workdir, figk_name)}")
-        plt.show()
+        show_figure()
 
         return self.exp_spectrum

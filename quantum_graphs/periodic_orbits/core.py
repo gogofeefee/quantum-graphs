@@ -63,6 +63,7 @@ Conventions inherited from ClassicalGraphs / ClosedGraphs
 # Imports
 # ======================================================================
 
+from ..core.config import log
 from ..core.config import resolve
 from ..core.base import GraphBase
 import os
@@ -420,7 +421,7 @@ class PeriodicOrbits(GraphBase):
             filename = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
             filepath = os.path.join(self.save_path, filename)
             fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight", pad_inches=0)
-            print(f"Graph plot saved to {filepath}")
+            log(f"Graph plot saved to {filepath}")
 
         return fig, ax
 
@@ -773,7 +774,7 @@ class PeriodicOrbits(GraphBase):
                     "primitive_name": r["primitive_name"] if r["primitive_name"] is not None else "",
                 })
 
-        print(f"Exported {len(rows)} orbits to {path}")
+        log(f"Exported {len(rows)} orbits to {path}")
         return path
 
     # ==================================================================
@@ -902,6 +903,6 @@ class PeriodicOrbits(GraphBase):
             filename = f"{self.name}_orbit_{safe_name}_{marker_tag}{xl_tag}.{file_format}"
             filepath = os.path.join(self.save_path, filename)
             fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight", pad_inches=0)
-            print(f"Orbit plot saved to {filepath}")
+            log(f"Orbit plot saved to {filepath}")
 
         return fig, ax

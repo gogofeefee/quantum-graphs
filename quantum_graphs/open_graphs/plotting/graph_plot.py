@@ -4,6 +4,7 @@
 GraphPlotMixin — plot_graph (base OpenGraphs version) and plot_energy_distribution.
 """
 
+from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -70,9 +71,9 @@ class GraphPlotMixin:
             filename = f"{self.name}_graph_{suffix}.{file_format}"
             filepath = os.path.join(self.save_path, filename)
             plt.savefig(filepath, format=file_format, dpi=300, bbox_inches='tight')
-            print(f"Graph plot saved to {filepath}")
+            log(f"Graph plot saved to {filepath}")
 
-        plt.show()
+        show_figure()
 
     def plot_energy_distribution(self, k, injection_port, show_leads=True,
                                  cmap=None, save=False, file_format="pdf"):
@@ -240,6 +241,6 @@ class GraphPlotMixin:
                             f"lambda{lambda0:.5f}.{file_format}")
             filepath = os.path.join(self.save_path, filename)
             plt.savefig(filepath, format=file_format, dpi=300, bbox_inches='tight')
-            print(f"✓ Energy distribution figure saved to {filepath}")
+            log(f"✓ Energy distribution figure saved to {filepath}")
 
-        plt.show()
+        show_figure()

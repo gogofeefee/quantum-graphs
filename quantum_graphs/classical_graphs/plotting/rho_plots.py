@@ -7,6 +7,7 @@ Arrow-style helpers and static rho visualisation methods:
   plot_rho, plot_rho_after_steps.
 """
 
+from ...core.config import log
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -349,7 +350,7 @@ class RhoPlotMixin:
         if save_fig:
             out = self.save_path / filename
             fig.savefig(out, dpi=dpi, bbox_inches="tight")
-            print(f"✓ Figure saved to: {out}")
+            log(f"✓ Figure saved to: {out}")
 
         return fig, ax
 

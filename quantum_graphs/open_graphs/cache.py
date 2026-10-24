@@ -4,6 +4,7 @@
 S-matrix cache utilities shared by plot_S_components and plot_S_complex_plane.
 """
 
+from ..core.config import log
 from ..core.config import resolve
 import os
 import numpy as np
@@ -73,7 +74,7 @@ def progress_print(idx, total, last_pct, verbose=None, prefix="Computing S..."):
         return last_pct
     pct = int(100 * (idx + 1) / total)
     if pct != last_pct:
-        print(f"\r{prefix} {pct:3d}%", end="", flush=True)
+        log(f"\r{prefix} {pct:3d}%", end="", flush=True)
         return pct
     return last_pct
 

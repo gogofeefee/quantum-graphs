@@ -7,6 +7,7 @@ Depends on SpectralStatsMixin (spectral_stats.py) for Weyl-law and
 unfolding computations.
 """
 
+from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -67,7 +68,7 @@ class SpectralPlotsMixin:
         N_modes       = spectrum.size
         N_k           = np.arange(N_modes + 1)
         plot_spectrum = np.insert(spectrum, 0, spectrum[0])
-        print(f"[Staircase:{method}] {note}")
+        log(f"[Staircase:{method}] {note}")
 
         fig, ax = plt.subplots(figsize=(10, 8))
         ax.step(plot_spectrum, N_k, where="post",
@@ -102,8 +103,8 @@ class SpectralPlotsMixin:
             fp = os.path.join(self.save_path,
                               f"staircase_function__{method}{tag}{range_tag}.{file_format}")
             fig.savefig(fp, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Staircase plot saved to: {fp}")
-        plt.show()
+            log(f"✓ Staircase plot saved to: {fp}")
+        show_figure()
 
         if weyl_diff:
             N_weyl_k  = self.N_weyl_scaled(spectrum,
@@ -128,8 +129,8 @@ class SpectralPlotsMixin:
                 fp2 = os.path.join(self.save_path,
                                    f"staircase_diff_index__{method}{tag}{range_tag}.{file_format}")
                 fig2.savefig(fp2, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Staircase diff (index) saved to: {fp2}")
-            plt.show()
+                log(f"✓ Staircase diff (index) saved to: {fp2}")
+            show_figure()
 
             # vs wavelength
             lambda_nm = 2 * np.pi / spectrum * 1e3
@@ -149,8 +150,8 @@ class SpectralPlotsMixin:
                 fp3 = os.path.join(self.save_path,
                                    f"staircase_diff_lambda__{method}{tag}{range_tag}.{file_format}")
                 fig3.savefig(fp3, format=file_format, dpi=300, bbox_inches="tight")
-                print(f"✓ Staircase diff (λ) saved to: {fp3}")
-            plt.show()
+                log(f"✓ Staircase diff (λ) saved to: {fp3}")
+            show_figure()
 
     # -------------------------------------------------------------------------
     # Short-range: NNSD
@@ -309,8 +310,8 @@ class SpectralPlotsMixin:
                      f"{cumulative_part}{yscale_part}{range_tag}.{file_format}")
             fp = os.path.join(self.save_path, fname)
             fig.savefig(fp, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ NNSD plot saved to: {fp}")
-        plt.show()
+            log(f"✓ NNSD plot saved to: {fp}")
+        show_figure()
 
     # -------------------------------------------------------------------------
     # Long-range: Sigma2 and Delta3
@@ -374,7 +375,7 @@ class SpectralPlotsMixin:
             if spectrum_used.size == 0:
                 raise ValueError("Empty spectrum after wavelength_range_stats filtering.")
 
-        print(f"[LongRange:{method}] {note}")
+        log(f"[LongRange:{method}] {note}")
 
         unfolded = self._compute_unfolded_spectrum(
             spectrum=spectrum_used, mode=chosen_mode,
@@ -463,8 +464,8 @@ class SpectralPlotsMixin:
                      f"Lmax{L_max}_Lstep{L_step}__{method}{tag}{range_tag}.{file_format}")
             fp = os.path.join(self.save_path, fname)
             fig.savefig(fp, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Long-range correlation plot saved to: {fp}")
-        plt.show()
+            log(f"✓ Long-range correlation plot saved to: {fp}")
+        show_figure()
 
     # -------------------------------------------------------------------------
     # Length spectrum
@@ -511,17 +512,17 @@ class SpectralPlotsMixin:
                 )
             k_vals = np.asarray(self.exp_spectrum, dtype=np.complex128)
             tag = "__exp"
-            print(f"[LengthSpectrum] Using experimental spectrum ({k_vals.size} peaks).")
+            log(f"[LengthSpectrum] Using experimental spectrum ({k_vals.size} peaks).")
         else:
             # Auto: prefer complex spectrum, fall back to experimental
             if hasattr(self, "spectrum") and np.asarray(self.spectrum).size > 0:
                 k_vals = np.asarray(self.spectrum, dtype=np.complex128)
                 tag = ""
-                print(f"[LengthSpectrum] Using numerical spectrum ({k_vals.size} resonances).")
+                log(f"[LengthSpectrum] Using numerical spectrum ({k_vals.size} resonances).")
             elif hasattr(self, "exp_spectrum") and np.asarray(self.exp_spectrum).size > 0:
                 k_vals = np.asarray(self.exp_spectrum, dtype=np.complex128)
                 tag = "__exp"
-                print(f"[LengthSpectrum] Complex spectrum not found; "
+                log(f"[LengthSpectrum] Complex spectrum not found; "
                       f"using experimental spectrum ({k_vals.size} peaks).")
             else:
                 raise AttributeError(
@@ -577,6 +578,6 @@ class SpectralPlotsMixin:
                      f".{file_format}")
             fp = os.path.join(self.save_path, fname)
             fig.savefig(fp, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Length spectrum saved to: {fp}")
-        plt.show()
+            log(f"✓ Length spectrum saved to: {fp}")
+        show_figure()
         return fig, ax

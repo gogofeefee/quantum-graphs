@@ -8,6 +8,7 @@ to add colored disk port markers (blue for ports 0/1, orange for ports 2/3),
 matching the ClosedGraphs / OpenGraphs convention.
 """
 
+from ..core.config import log
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -170,6 +171,6 @@ class DirectionalClassicalGraphs(
             fname = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Graph plot saved to {fpath}")
+            log(f"✓ Graph plot saved to {fpath}")
 
         return fig, ax

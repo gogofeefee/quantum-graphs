@@ -11,6 +11,7 @@ The ``plot_graph`` method uses disk markers ("pastilles") for port indicators,
 matching the open_graphs convention (blue for ports 0,1; orange for ports 2,3).
 """
 
+from ..core.config import log, show_figure
 import numpy as np
 
 from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
@@ -238,6 +239,6 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
             filename  = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
             filepath  = os.path.join(self.save_path, filename)
             plt.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"Graph plot saved to {filepath}")
+            log(f"Graph plot saved to {filepath}")
 
-        plt.show()
+        show_figure()

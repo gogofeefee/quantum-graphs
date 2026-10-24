@@ -6,6 +6,7 @@ plotting/graph_plot.py — GraphPlotMixin for classical_graphs.
 plot_graph: draws the graph topology (vertices, edges, optional lengths).
 """
 
+from ...core.config import log
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -108,6 +109,6 @@ class GraphPlotMixin:
             fname = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
             fpath = os.path.join(self.save_path, fname)
             fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"✓ Graph plot saved to {fpath}")
+            log(f"✓ Graph plot saved to {fpath}")
 
         return fig, ax

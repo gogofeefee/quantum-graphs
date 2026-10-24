@@ -15,6 +15,7 @@ All methods share the same S-matrix cache via ``open_graphs.cache.get_S_full``.
 Style helpers are imported from ``open_graphs.plotting.style``.
 """
 
+from ...core.config import show_figure
 from ...core.config import resolve
 import os
 import numpy as np
@@ -311,7 +312,7 @@ class SMatrixPlotsMixin:
             if verbose:
                 print(f"✓ Amplitude figure saved to {filepath}")
 
-        plt.show()
+        show_figure()
 
     # ------------------------------------------------------------------
     # plot_S_phase
@@ -368,7 +369,7 @@ class SMatrixPlotsMixin:
             if verbose:
                 print(f"✓ Phase figure saved to {filepath}")
 
-        plt.show()
+        show_figure()
 
     # ------------------------------------------------------------------
     # plot_S_amplitude_phase
@@ -444,7 +445,7 @@ class SMatrixPlotsMixin:
             if verbose:
                 print(f"✓ Amplitude+phase figure saved to {filepath}")
 
-        plt.show()
+        show_figure()
 
     # ------------------------------------------------------------------
     # plot_S_fourier
@@ -561,7 +562,7 @@ class SMatrixPlotsMixin:
             if verbose:
                 print(f"✓ Fourier figure saved to {filepath}")
 
-        plt.show()
+        show_figure()
 
     # ------------------------------------------------------------------
     # plot_S_complex_plane
@@ -665,5 +666,5 @@ class SMatrixPlotsMixin:
             if verbose:
                 print(f"✓ Complex-plane figure saved to {filepath}")
 
-        plt.show()
+        show_figure()
         return fig, axs

@@ -8,6 +8,7 @@ Animated visualisation of the Perron-Frobenius evolution:
   - "flow" style: smooth motion + fade-out/fade-in between steps.
 """
 
+from ...core.config import log
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
@@ -435,6 +436,6 @@ class AnimationMixin:
                     )
             else:
                 anim.save(out, writer=PillowWriter(fps=fps), dpi=dpi)
-            print(f"✓ Animation saved to: {out}")
+            log(f"✓ Animation saved to: {out}")
 
         return anim, trajectory

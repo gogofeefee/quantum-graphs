@@ -4,6 +4,7 @@
 ResonancesMixin — σ_min grid, candidate detection, refinement, find_resonances.
 """
 
+from ..core.config import show_figure
 from ..core.config import resolve
 import os
 import warnings
@@ -589,4 +590,4 @@ class ResonancesMixin:
             if verbose:
                 print(f"✓ Figure saved to {fig_path}")
 
-        plt.show()
+        show_figure()

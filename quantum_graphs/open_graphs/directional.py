@@ -6,6 +6,7 @@ directional coupler.  Inherits all OpenGraphs functionality; scattering
 matrices are built automatically from coupling constants.
 """
 
+from ..core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -498,6 +499,6 @@ class DirectionalGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
             filename = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
             filepath = os.path.join(self.save_path, filename)
             plt.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            print(f"Graph plot saved to {filepath}")
+            log(f"Graph plot saved to {filepath}")
 
-        plt.show()
+        show_figure()
