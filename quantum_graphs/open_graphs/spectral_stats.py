@@ -5,10 +5,10 @@ SpectralStatsMixin — Weyl law, unfolding, NNSD, Σ², Δ₃.
 Module-level: NNSD_func (also re-exported from open_graphs.__init__).
 """
 
-import os
-import sys
 import numpy as np
-import matplotlib.pyplot as plt
+
+from ..stats.rmt import nnsd as _nnsd
+from ..stats.spectral import number_variance, spectral_rigidity, weyl_staircase
 
 
 # ---------------------------------------------------------------------------
@@ -16,30 +16,9 @@ import matplotlib.pyplot as plt
 # ---------------------------------------------------------------------------
 
 def NNSD_func(s, wigner="GOE"):
-    """
-    Nearest-Neighbor Spacing Distribution based on the Wigner surmise.
-
-    Parameters
-    ----------
-    s : float or array-like
-    wigner : str
-        'poissonian', 'GOE', 'GUE', or 'GSE' (case-insensitive).
-
-    Returns
-    -------
-    float or ndarray
-    """
-    wigner = wigner.lower()
-    if wigner == "poissonian":
-        return np.exp(-s)
-    elif wigner == "goe":
-        return (np.pi / 2) * s * np.exp(-np.pi / 4 * s**2)
-    elif wigner == "gue":
-        return (32 / np.pi**2) * s**2 * np.exp(-4 / np.pi * s**2)
-    elif wigner == "gse":
-        return (2**18 / 3**6 / np.pi**3) * s**4 * np.exp(-64 / (9 * np.pi) * s**2)
-    else:
-        raise ValueError("Invalid wigner type. Choose from 'poissonian', 'GOE', 'GUE', or 'GSE'.")
+    """Nearest-neighbour spacing distribution: 'poissonian', 'GOE', 'GUE' or 'GSE'
+    (see quantum_graphs.stats.nnsd)."""
+    return _nnsd(s, wigner)
 
 
 def _get_rmt_funcs():
@@ -129,64 +108,11 @@ class SpectralStatsMixin:
     # Weyl law
     # -------------------------------------------------------------------------
 
-    def N_weyl_scaled2(self, k, length_scale=1.0):
-        """Weyl staircase (non-dispersive) with optional length scale."""
-        if callable(self.neff):
-            n_eff = self.neff(np.real(k))
-        else:
-            n_eff = self.neff
-        return n_eff * (self.total_length * length_scale) / np.pi * np.real(k)
 
     def N_weyl_scaled(self, k, length_scale: float = 1.0, k0: float = 0.0):
-        """
-        Dispersive Weyl staircase:
-            N_Weyl(k; k0) = (L_eff / π) ∫_{k0}^{k} ng(κ) dκ
-        """
-        if np.isscalar(k):
-            k_real = float(np.real(k))
-        else:
-            k_real = np.asarray(k, dtype=float).real
+        """Dispersive Weyl staircase N(k; k0) = (L_eff/π) ∫_{k0}^{k} ng(κ) dκ."""
+        return weyl_staircase(k, self.total_length, self.ng, length_scale, k0)
 
-        k0_real = float(np.real(k0))
-        L_eff   = float(self.total_length) * float(length_scale)
-
-        def eval_ng(kk):
-            if callable(self.ng):
-                return np.asarray(self.ng(kk), dtype=float)
-            return np.full_like(np.asarray(kk, dtype=float), float(self.ng), dtype=float)
-
-        if np.isscalar(k_real):
-            if callable(self.ng):
-                ks       = np.linspace(k0_real, k_real, 512)
-                integral = np.trapezoid(eval_ng(ks), ks)
-            else:
-                integral = float(self.ng) * (k_real - k0_real)
-            return (L_eff / np.pi) * integral
-
-        k_arr  = np.asarray(k_real, dtype=float)
-        k_flat = k_arr.ravel()
-
-        if callable(self.ng):
-            ks_full   = np.concatenate([k_flat, np.array([k0_real], dtype=float)])
-            ks_sorted = np.unique(ks_full)
-            ng_sorted = eval_ng(ks_sorted)
-            dks       = np.diff(ks_sorted)
-            mids      = 0.5 * (ng_sorted[1:] + ng_sorted[:-1])
-            F_sorted  = np.concatenate([[0.0], np.cumsum(mids * dks)])
-            k0_idx    = np.searchsorted(ks_sorted, k0_real)
-            F_sorted -= F_sorted[k0_idx]
-            idx       = np.searchsorted(ks_sorted, k_flat)
-            F_at_k    = F_sorted[idx]
-            return ((L_eff / np.pi) * F_at_k).reshape(k_arr.shape)
-
-        return (L_eff / np.pi) * float(self.ng) * (k_arr - k0_real)
-
-    def rho_weyl_scaled(self, k, length_scale: float = 1.0):
-        """Dispersive Weyl density: ρ_Weyl(k) = (L_eff / π) ng(k)."""
-        k_real = float(np.real(k)) if np.isscalar(k) else np.asarray(k, dtype=float).real
-        L_eff  = float(self.total_length) * float(length_scale)
-        ng_val = self.ng(k_real) if callable(self.ng) else float(self.ng)
-        return (L_eff / np.pi) * np.asarray(ng_val, dtype=float)
 
     # -------------------------------------------------------------------------
     # Unfolding
@@ -219,48 +145,9 @@ class SpectralStatsMixin:
     # -------------------------------------------------------------------------
 
     def _compute_sigma2(self, eigvals, dE, L_max):
-        """Compute number variance Σ²(L)."""
-        E0    = eigvals[0]
-        Emax  = eigvals[-1]
-        NR    = int(np.floor((Emax - E0) / dE))
-        grid  = E0 + np.arange(1, NR + 1) * dE
-        Ngrid = np.searchsorted(eigvals, grid, side='left').astype(float)
+        """Number variance Σ²(L) of an unfolded spectrum (quantum_graphs.stats.number_variance)."""
+        return number_variance(eigvals, dE, L_max)
 
-        IR_max      = min(NR - 1, int(np.floor(L_max / dE)))
-        L_vals      = np.arange(0, IR_max + 1) * dE
-        sigma2_vals = np.empty_like(L_vals)
-
-        for IR in range(1, IR_max + 1):
-            counts          = Ngrid[IR:] - Ngrid[:-IR]
-            sigma2_vals[IR] = np.mean((counts - IR * dE) ** 2)
-
-        sigma2_vals[0] = 0.0
-        return L_vals, sigma2_vals
-
-    def _compute_delta3(self, eigvals, dE, L_max):
-        """Compute spectral rigidity Δ₃(L)."""
-        NR     = int(np.floor((eigvals[-1] - eigvals[0]) / dE))
-        IR_max = min(NR - 1, int(np.floor(L_max / dE)))
-        L_vals      = np.arange(1, IR_max + 1) * dE
-        delta3_vals = np.zeros(len(L_vals))
-
-        for i, L in enumerate(L_vals):
-            delta3 = []
-            for j in range(len(eigvals)):
-                if eigvals[j] + L > eigvals[-1]:
-                    continue
-                sub   = eigvals[(eigvals > eigvals[j]) & (eigvals <= eigvals[j] + L)]
-                sub  -= eigvals[j] + L / 2
-                count = len(sub)
-                sum1  = -1 / L**2 * np.sum(sub)**2
-                sum2  = 3 * count / (2 * L**2) * np.sum(sub**2)
-                sum3  = -3 / L**4 * np.sum(sub**2)**2
-                int_array = np.flip(np.arange(-count + 1, count + 1, step=2))
-                sum4  = 1 / L * np.sum(int_array * sub)
-                total = count**2 / 16 + sum1 + sum2 + sum3 + sum4
-                delta3.append(total)
-            delta3_vals[i] = np.mean(delta3)
-
-        L_vals      = np.insert(L_vals,      0, 0.0)
-        delta3_vals = np.insert(delta3_vals, 0, 0.0)
-        return L_vals, delta3_vals
+    def _compute_delta3(self, eigvals, dE, L_max, windows="level"):
+        """Spectral rigidity Δ₃(L) of an unfolded spectrum (quantum_graphs.stats.spectral_rigidity)."""
+        return spectral_rigidity(eigvals, dE, L_max, windows=windows)
