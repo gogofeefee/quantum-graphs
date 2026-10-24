@@ -6,9 +6,9 @@ Usage
 -----
     python tests/reference/generate_reference.py OUT.npz
 
-Computes a broad set of physical quantities with the package found on
-``sys.path`` (through the historical import names ``closed_graphs``,
-``open_graphs``, ``classical_graphs``, ``periodic_orbits``) and stores them in
+Computes a broad set of physical quantities with ``quantum_graphs`` (or, for
+versions up to 83ca561, with the historical top-level packages
+``closed_graphs``... found on ``sys.path``) and stores them in
 one ``.npz`` file. ``tests/reference/compare_reference.py`` compares two such
 files with physically meaningful tolerances.
 
@@ -40,10 +40,19 @@ plt.show = lambda *a, **k: None
 
 warnings.filterwarnings("ignore")
 
-from closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG       # noqa: E402
-from open_graphs import DirectionalGraphs as OpenDG                         # noqa: E402
-from classical_graphs import DirectionalClassicalGraphs                     # noqa: E402
-from periodic_orbits import PeriodicOrbits                                  # noqa: E402
+try:                                                                        # current layout
+    sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
+    from quantum_graphs.closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG
+    from quantum_graphs.open_graphs import DirectionalGraphs as OpenDG
+    from quantum_graphs.classical_graphs import DirectionalClassicalGraphs
+    from quantum_graphs.periodic_orbits import PeriodicOrbits
+    import quantum_graphs
+    quantum_graphs.set_options(verbose=False, show=False)
+except ImportError:                                                         # versions <= 83ca561
+    from closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG
+    from open_graphs import DirectionalGraphs as OpenDG
+    from classical_graphs import DirectionalClassicalGraphs
+    from periodic_orbits import PeriodicOrbits
 
 
 OUT = {}
