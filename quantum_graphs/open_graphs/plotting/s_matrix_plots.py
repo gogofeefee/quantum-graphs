@@ -248,7 +248,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_amplitude(self, lambda_min, lambda_max, n_points, components,
                          spectrum=None, k_imag=0.0, x_axis="wavelength",
-                         save=False, file_format="pdf",
+                         save=False, save_fig=None, file_format="pdf",
                          reuse_if_included=True, verbose=None):
         """
         Plot |S_ij|² versus wavelength or frequency.
@@ -276,6 +276,8 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -320,7 +322,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_phase(self, lambda_min, lambda_max, n_points, components,
                      spectrum=None, k_imag=0.0, x_axis="wavelength",
-                     save=False, file_format="pdf",
+                     save=False, save_fig=None, file_format="pdf",
                      reuse_if_included=True, verbose=None):
         """
         Plot arg(S_ij) versus wavelength or frequency.
@@ -332,6 +334,8 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -377,7 +381,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_amplitude_phase(self, lambda_min, lambda_max, n_points, components,
                                 spectrum=None, k_imag=0.0, x_axis="wavelength",
-                                save=False, file_format="pdf",
+                                save=False, save_fig=None, file_format="pdf",
                                 reuse_if_included=True, verbose=None):
         """
         Two-panel figure: |S_ij|² (top) and arg(S_ij) (bottom), shared x-axis.
@@ -386,6 +390,8 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -453,7 +459,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_fourier(self, lambda_min, lambda_max, n_points, components,
                        k_imag=0.0, xlim_um=(0, 8000),
-                       save=False, file_format="pdf",
+                       save=False, save_fig=None, file_format="pdf",
                        reuse_if_included=True, verbose=None):
         """
         Fourier transform of |S_ij|² in the optical-length domain.
@@ -482,6 +488,8 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 
@@ -570,7 +578,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_complex_plane(self, lambda_min, lambda_max, n_points, components,
                               spectrum=None, k_imag=0.0,
-                              save=False, file_format="pdf",
+                              save=False, save_fig=None, file_format="pdf",
                               reuse_if_included=False, verbose=None):
         """
         Plot S_ij(λ) as a curve in the complex plane.
@@ -606,6 +614,8 @@ class SMatrixPlotsMixin:
         fig : Figure
         axs : ndarray of Axes  (shape ``(1, n_components)``)
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 

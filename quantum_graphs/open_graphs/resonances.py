@@ -456,7 +456,7 @@ class ResonancesMixin:
                               overwrite_grid: bool = False,
                               grid_dtype: str = "float32",
                               max_cols: int = None,
-                              save: bool = True,
+                              save: bool = True, save_fig=None,
                               file_format: str = "pdf",
                               verbose: bool = None):
         """
@@ -493,6 +493,8 @@ class ResonancesMixin:
         verbose : bool
             Print progress messages.
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         verbose = resolve("verbose", verbose)
         from matplotlib.ticker import ScalarFormatter
 

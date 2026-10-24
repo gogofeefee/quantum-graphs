@@ -76,11 +76,13 @@ class GraphPlotMixin:
         show_figure()
 
     def plot_energy_distribution(self, k, injection_port, show_leads=True,
-                                 cmap=None, save=False, file_format="pdf"):
+                                 cmap=None, save=False, save_fig=None, file_format="pdf"):
         """
         Plot the energy distribution on the graph bonds for a given injection port
         and wavenumber.
         """
+        if save_fig is not None:          # same keyword as the other modules
+            save = save_fig
         from matplotlib.colors import LinearSegmentedColormap
 
         # Identify injection port
