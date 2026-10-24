@@ -45,6 +45,19 @@ def index_function(f, x):
     return np.array([float(f(float(xi))) for xi in x.ravel()]).reshape(x.shape)
 
 
+def _map_chunks(work, ks, chunk):
+    """Apply ``work`` to consecutive chunks of ``ks`` (in threads if the
+    ``n_workers`` option is > 1) and concatenate the results in order."""
+    from concurrent.futures import ThreadPoolExecutor
+    from .config import get_option
+    parts = [ks[s:s + chunk] for s in range(0, ks.size, chunk)] or [ks]
+    workers = min(get_option("n_workers"), len(parts))
+    if workers <= 1:
+        return np.concatenate([work(p) for p in parts])
+    with ThreadPoolExecutor(workers) as ex:
+        return np.concatenate(list(ex.map(work, parts)))
+
+
 class ScatteringModel:
     """Σ blocks and derived operators of a graph (see module docstring)."""
 
@@ -123,46 +136,52 @@ class ScatteringModel:
         """Smallest singular value of I − U(k) (inf if the SVD fails)."""
         return float(self.sigma_min_many(np.atleast_1d(k))[0])
 
-    def sigma_min_many(self, ks, chunk=4096):
+    def sigma_min_many(self, ks, chunk=2048):
         """σ_min(I − U(k)) for an array of (real or complex) k."""
         ks = np.atleast_1d(np.asarray(ks, dtype=complex))
-        out = np.empty(ks.size)
         eye = np.eye(self.n)
-        for s in range(0, ks.size, chunk):
-            A = eye - self._U_many(ks[s:s + chunk])
+
+        def work(kc):
+            A = eye - self._U_many(kc)
             try:
-                out[s:s + chunk] = np.linalg.svd(A, compute_uv=False)[:, -1]
+                return np.linalg.svd(A, compute_uv=False)[:, -1]
             except np.linalg.LinAlgError:
+                out = np.empty(len(kc))
                 for j, a in enumerate(A):
                     try:
-                        out[s + j] = np.linalg.svd(a, compute_uv=False)[-1]
+                        out[j] = np.linalg.svd(a, compute_uv=False)[-1]
                     except np.linalg.LinAlgError:
-                        out[s + j] = np.inf
+                        out[j] = np.inf
+                return out
+
+        out = _map_chunks(work, ks, chunk)
         out[~np.isfinite(out)] = np.inf
         return out
 
     def S(self, k):
         return self.S_many(np.atleast_1d(k))[0]
 
-    def S_many(self, ks, chunk=4096):
+    def S_many(self, ks, chunk=2048):
         """S(k) for an array of k, shape (m, n_leads, n_leads)."""
         ks = np.atleast_1d(np.asarray(ks, dtype=complex))
-        out = np.empty((ks.size, self.n_leads, self.n_leads), dtype=complex)
         eye = np.eye(self.n)
-        for s in range(0, ks.size, chunk):
-            kc = ks[s:s + chunk]
+        if self.constant:                    # build the constant blocks once, outside the threads
+            blocks = tuple(self.block(b) for b in ("aa", "ab", "ba", "bb"))
+
+        def work(kc):
             d = self.phases(kc)
             if self.constant:
-                aa, ab, ba, bb = (self.block(b) for b in ("aa", "ab", "ba", "bb"))
-                A = eye - d[:, :, None] * aa[None]
-                X = np.linalg.solve(A, d[:, :, None] * ab[None])
-                out[s:s + chunk] = bb[None] + ba[None] @ X
-            else:
-                for j, k in enumerate(kc):
-                    aa, ab, ba, bb = (self.block(b, k) for b in ("aa", "ab", "ba", "bb"))
-                    X = np.linalg.solve(eye - d[j][:, None] * aa, d[j][:, None] * ab)
-                    out[s + j] = bb + ba @ X
-        return out
+                aa, ab, ba, bb = blocks
+                X = np.linalg.solve(eye - d[:, :, None] * aa[None], d[:, :, None] * ab[None])
+                return bb[None] + ba[None] @ X
+            out = np.empty((len(kc), self.n_leads, self.n_leads), dtype=complex)
+            for j, k in enumerate(kc):
+                aa, ab, ba, bb = (self.block(b, k) for b in ("aa", "ab", "ba", "bb"))
+                X = np.linalg.solve(eye - d[j][:, None] * aa, d[j][:, None] * ab)
+                out[j] = bb + ba @ X
+            return out
+
+        return _map_chunks(work, ks, chunk)
 
     def internal_amplitudes(self, k, lead_amplitudes):
         """Amplitudes on the directed bonds (arriving convention) for given incoming

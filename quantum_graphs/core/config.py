@@ -9,12 +9,23 @@ Package-wide options: verbosity and interactive display of figures.
 Defaults reproduce the historical behaviour (messages printed, ``plt.show()``
 called after each figure). They can also be set with the environment
 variables ``QUANTUM_GRAPHS_VERBOSE=0`` and ``QUANTUM_GRAPHS_SHOW=0``.
+``n_workers`` (default: half the CPU cores, at most 8; environment variable
+``QUANTUM_GRAPHS_WORKERS``) is the number of threads used for the batched
+SVDs / solves of spectrum and resonance scans; results are identical for any
+value.
 Every plotting method also accepts ``show=`` and most computations
 ``verbose=``; an explicit argument always wins over the global option.
 """
 
 import contextlib
 import os
+
+
+def _default_workers():
+    env = os.environ.get("QUANTUM_GRAPHS_WORKERS")
+    if env:
+        return max(1, int(env))
+    return max(1, min(8, (os.cpu_count() or 2) // 2))
 
 
 def _env_flag(name, default):
@@ -27,6 +38,9 @@ def _env_flag(name, default):
 _OPTIONS = {
     "verbose": _env_flag("QUANTUM_GRAPHS_VERBOSE", True),
     "show": _env_flag("QUANTUM_GRAPHS_SHOW", True),
+    # threads used for batched linear algebra (LAPACK releases the GIL;
+    # results do not depend on this number)
+    "n_workers": _default_workers(),
 }
 
 
@@ -39,7 +53,7 @@ def set_options(**kwargs):
     for key, val in kwargs.items():
         if key not in _OPTIONS:
             raise KeyError(f"Unknown option {key!r}; available: {sorted(_OPTIONS)}.")
-        _OPTIONS[key] = bool(val)
+        _OPTIONS[key] = max(1, int(val)) if key == "n_workers" else bool(val)
 
 
 @contextlib.contextmanager

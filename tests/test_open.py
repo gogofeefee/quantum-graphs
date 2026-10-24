@@ -68,3 +68,14 @@ def test_resonance_cache_detects_changed_detection_parameters(save):
     g.find_resonances(**kw)
     with pytest.warns(RuntimeWarning, match="different parameters"):
         ring1(save).find_resonances(**kw, peak_prominence=0.5)
+
+
+def test_results_do_not_depend_on_the_number_of_threads(save):
+    g = qg.OpenDirectionalGraphs(**qg.layouts.flower_graph(open=True), internal_coupling=0.5,
+                                 external_coupling=0.3, neff=3.97, wavelength_range=(1.55, 1.56), **save)
+    ks = np.linspace(4.03, 4.06, 9000) - 1e-5j
+    out = {}
+    for w in (1, 4):
+        with qg.options(n_workers=w):
+            out[w] = (g.model.sigma_min_many(ks), g.compute_S_matrices(ks))
+    assert np.array_equal(out[1][0], out[4][0]) and np.array_equal(out[1][1], out[4][1])
