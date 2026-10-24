@@ -4,20 +4,20 @@ Python tools to simulate **quantum graphs** — networks of one-dimensional
 waveguides joined at vertices — in the vertex scattering-matrix formalism
 (Kottos & Smilansky; Gnutzmann & Smilansky). The code was written to model
 integrated photonic circuits made of waveguides and directional couplers, but
-every module accepts arbitrary unitary vertex scattering matrices.
+every module accepts arbitrary vertex scattering matrices.
 
 The same graph can be studied from four complementary points of view:
 
-| Module | Package | What it computes |
-|--------|---------|------------------|
-| [`ClosedGraphs/`](ClosedGraphs)       | `closed_graphs`    | Spectrum of a closed graph (real eigenwavenumbers), eigenvectors, spectral statistics (Weyl law, NNSD, Σ², Δ₃), length spectrum |
-| [`OpenGraphs/`](OpenGraphs)           | `open_graphs`      | Scattering matrix S(k) of a graph with external leads, complex resonances, transmission spectra, resonance statistics |
-| [`ClassicalGraphs/`](ClassicalGraphs) | `classical_graphs` | Classical (ray) dynamics: Perron-Frobenius operator, ergodicity, mixing, animated probability flow |
-| [`PeriodicOrbits/`](PeriodicOrbits)   | `periodic_orbits`  | Enumeration of the periodic orbits of a directional-coupler graph, with their physical and optical lengths |
+| Subpackage | What it computes |
+|------------|------------------|
+| `quantum_graphs.closed_graphs`    | Spectrum of a closed graph, eigenvectors, spectral statistics (Weyl law, NNSD, Σ², Δ₃), length spectrum |
+| `quantum_graphs.open_graphs`      | Scattering matrix S(k) of a graph with external leads, complex resonances, transmission spectra, resonance statistics |
+| `quantum_graphs.classical_graphs` | Classical (ray) dynamics: Perron-Frobenius operator, ergodicity, mixing, animated probability flow |
+| `quantum_graphs.periodic_orbits`  | Enumeration of the periodic orbits of a directional-coupler graph, with physical and optical lengths |
 
-`wigner/` holds the random-matrix-theory reference curves (GOE, GUE, GSE,
-Poisson) used by the spectral statistics, and `data/` a waveguide dispersion
-used by some examples.
+plus `quantum_graphs.stats` (unfolding, NNSD, Σ², Δ₃ and random-matrix
+reference curves), `quantum_graphs.layouts` (ready-made geometries) and
+`quantum_graphs.dispersion` (tabulated n_eff(k), n_g(k)).
 
 ---
 
@@ -28,52 +28,44 @@ Python ≥ 3.10.
 ```bash
 git clone https://github.com/gogofeefee/quantum-graphs.git
 cd quantum-graphs
-pip install -r requirements.txt      # numpy>=2.0, scipy, matplotlib>=3.7, networkx>=3.2, numdifftools
+pip install -e .                 # or: pip install -e ".[test]" to run the tests
 ```
-
-There is no install step: each example script adds its package directory to
-`sys.path` itself. Keep the folder structure as it is (the packages find
-`wigner/` and `data/` relative to their own location).
 
 [ffmpeg](https://ffmpeg.org) is only needed to save the ClassicalGraphs
 animations as `.mp4` (use `writer="gif"` otherwise).
 
 ## Quick start
 
-```bash
-python ClosedGraphs/examples/DoubleRing/config_nconst.py
-```
-
 ```python
-import sys
-sys.path.insert(0, "ClosedGraphs")
-from closed_graphs import DirectionalGraphs
+import quantum_graphs as qg
 
-# one directional coupler whose two arms are closed on themselves: two rings
-R1, R2 = 100.0, 100.0 / 2**0.5                       # um
-graph = DirectionalGraphs(
-    vertex_positions = [(0.0, 0.0)],                 # um, for drawing
-    port_map         = [[(0, 2), (0, 3), (0, 0), (0, 1)]],
-    lengths          = {((0, 0), (0, 2)): 2 * 3.14159265 * R1,
-                        ((0, 1), (0, 3)): 2 * 3.14159265 * R2},
-    vertex_couplings = 0.5,                          # power cross-coupling C
-    neff             = 1.0,                          # float or function neff(k)
-    wavelength_range = (1.48, 1.64),                 # vacuum wavelength, um
-    name             = "MyDoubleRing",
+layout = qg.layouts.double_ring()              # vertex_positions, port_map, lengths (µm)
+graph = qg.ClosedDirectionalGraphs(
+    **layout,
+    vertex_couplings=0.5,                      # power cross-coupling C of every coupler
+    neff=1.0,                                  # float, or a function neff(k)
+    wavelength_range=(1.48, 1.64),             # vacuum wavelength window, µm
+    name="MyDoubleRing",
 )
 spectrum, degeneracies = graph.compute_spectrum(N_scan=200_000)
 graph.plot_graph(show_lengths=True, save_fig=True)
-graph.short_range_correlations(save_fig=True)        # NNSD vs Poisson / GOE / GUE
+graph.short_range_correlations(save_fig=True)  # NNSD vs Poisson / GOE
 ```
 
-Results (figures, cached spectra, a `graph_parameters.txt` summary) are
-written to a folder next to the calling script whose name encodes the
-parameters. Every plotting method calls `plt.show()`; to run without opening
-windows (ssh, cluster, background job):
+Results (figures, cached computations, a `graph_parameters.txt` summary) are
+written to `<script folder>/<name>/<parameters>/`. To start a study on your
+own graph, copy [`examples/new_study_template.py`](examples/new_study_template.py).
 
-```bash
-MPLBACKEND=Agg python ClosedGraphs/examples/DoubleRing/config_nconst.py
+**Options.** Every plotting method calls `plt.show()` and computations print
+progress messages. For batch runs:
+
+```python
+qg.set_options(show=False, verbose=False)      # or: with qg.options(show=False): ...
 ```
+
+or the environment variables `QUANTUM_GRAPHS_SHOW=0`,
+`QUANTUM_GRAPHS_VERBOSE=0`. Scans run in `n_workers` threads (default: half
+the cores, at most 8; `QUANTUM_GRAPHS_WORKERS`); results do not depend on it.
 
 ---
 
@@ -81,57 +73,58 @@ MPLBACKEND=Agg python ClosedGraphs/examples/DoubleRing/config_nconst.py
 
 ```
 quantum-graphs/
-├── ClosedGraphs/
-│   ├── closed_graphs/        ClosedGraphs, DirectionalGraphs, NNSD_func
-│   └── examples/             SingleRing, DoubleRing, Tetrahedron, FlowerGraph, BowTieGraph
-├── OpenGraphs/
-│   ├── open_graphs/          OpenGraphs, DirectionalGraphs, NNSD_func
-│   └── examples/             ring (1 or 2 access couplers), FlowerGraph, BowTieGraph
-├── ClassicalGraphs/
-│   ├── classical_graphs/     ClassicalGraphs, DirectionalClassicalGraphs
-│   └── examples/             FlowerGraph, BowTieGraph
-├── PeriodicOrbits/
-│   ├── periodic_orbits/      PeriodicOrbits
-│   └── examples/             FlowerGraph, BowTieGraph
-├── wigner/                   RMT reference curves for Σ²(L) and Δ₃(L)
-└── data/                     MPB dispersion neff(k), ng(k) of a silicon waveguide
+├── quantum_graphs/
+│   ├── core/              topology & validation, vertex matrices, scattering model, caches, options
+│   ├── closed_graphs/     ClosedGraphs, DirectionalGraphs
+│   ├── open_graphs/       OpenGraphs, DirectionalGraphs
+│   ├── classical_graphs/  ClassicalGraphs, DirectionalClassicalGraphs
+│   ├── periodic_orbits/   PeriodicOrbits
+│   ├── stats/             spectral statistics + RMT tables
+│   ├── plotting/          shared figure style
+│   ├── layouts.py         reference geometries, remove_access_coupler
+│   └── dispersion.py      MPB / tabulated dispersion loaders
+├── examples/              one folder per subpackage, one sub-folder per graph
+├── data/                  MPB dispersion of a silicon waveguide (used by examples)
+├── tests/                 pytest suite + numerical reference data set
+└── docs/                  architecture and scientific notes
 ```
+
+The top-level namespace gives unambiguous names to the main classes:
+`qg.ClosedGraphs`, `qg.ClosedDirectionalGraphs`, `qg.OpenGraphs`,
+`qg.OpenDirectionalGraphs`, `qg.ClassicalGraphs`,
+`qg.DirectionalClassicalGraphs`, `qg.PeriodicOrbits`.
 
 ## Examples
 
-Every example is a self-contained script: the geometry is written out
-explicitly and nothing outside the repository is needed. The scripts are split
-into numbered blocks guarded by `if True:`; set one to `False` to skip it.
-Expensive results (spectra, σ_min grids, S-matrices) are cached, so a second
-run only redraws the figures.
+Every example is a self-contained script; the scripts are split into numbered
+blocks guarded by `if True:` (set one to `False` to skip it). Expensive
+results are cached, so a second run only redraws the figures.
 
-| Script | Graph | Shows | First run |
-|--------|-------|-------|-----------|
-| `ClosedGraphs/examples/SingleRing/config_nconst.py`   | one ring (Neumann vertex)                | equally spaced (picket-fence) spectrum; generic `ClosedGraphs` class | ~1.5 min |
-| `ClosedGraphs/examples/SingleRing/config_nfunc.py`    | same                                      | dispersive `neff(k)`, `ng(k)` from MPB data | ~1.5 min |
-| `ClosedGraphs/examples/DoubleRing/config_nconst.py`   | one coupler, two rings                    | full closed-graph pipeline, exact 2-fold degeneracies | ~1.5 min |
-| `ClosedGraphs/examples/DoubleRing/config_nfunc.py`    | same                                      | dispersive index | ~2 min |
-| `ClosedGraphs/examples/Tetrahedron/config_nconst.py`  | complete graph K₄, 3-port vertices        | arbitrary vertex matrices (Neumann-Kirchhoff) | ~1.5 min |
-| `ClosedGraphs/examples/FlowerGraph/config_nconst.py`  | 5 couplers, 10 bonds (all doubled)        | ~1600 levels, statistics on a sub-window | ~9 min |
-| `ClosedGraphs/examples/BowTieGraph/config_nconst.py`  | 5 couplers, 10 bonds (2 doubled)          | same pipeline on a second fabricated device | ~6 min |
-| `OpenGraphs/examples/ring/config_n*_1access.py`       | ring + 1 access coupler                   | S-matrix, resonances, "experimental" resonance detection | ~17 min (nconst), ~25 min (nfunc) |
-| `OpenGraphs/examples/ring/config_n*_2access.py`       | ring + 2 access couplers (add-drop)       | through / drop ports, 4×4 S-matrix | ~17 min (nconst), ~25 min (nfunc) |
-| `OpenGraphs/examples/FlowerGraph/config_nconst.py`    | flower graph + access coupler             | complex resonances, transmission, S-matrix plots, resonance wavefunctions, statistics | ~14 min |
-| `OpenGraphs/examples/BowTieGraph/config_nconst.py`    | bow-tie graph + access coupler            | same | ~11 min |
-| `ClassicalGraphs/examples/FlowerGraph/config.py`      | flower graph                              | Perron-Frobenius spectrum (ergodic, not mixing), ρ snapshots, animation | ~1 min |
-| `ClassicalGraphs/examples/BowTieGraph/config.py`      | bow-tie graph                             | ergodic and mixing (spectral gap ≈ 0.12) | ~1 min |
-| `PeriodicOrbits/examples/FlowerGraph/config.py`       | flower graph                              | irreducible orbits, all orbits up to L_max, CSV export, orbit plots | seconds |
-| `PeriodicOrbits/examples/BowTieGraph/config.py`       | bow-tie graph                             | same | seconds |
+| Script (under `examples/`) | Graph | Shows |
+|--------|-------|-------|
+| `closed_graphs/SingleRing/config_nconst.py`   | one ring (pass-through vertex)        | equally spaced (picket-fence) spectrum; generic `ClosedGraphs` class |
+| `closed_graphs/SingleRing/config_nfunc.py`    | same                                   | dispersive `neff(k)`, `ng(k)` from MPB data |
+| `closed_graphs/DoubleRing/config_nconst.py`   | one coupler, two rings                 | full closed-graph pipeline, exact 2-fold degeneracies |
+| `closed_graphs/DoubleRing/config_nfunc.py`    | same                                   | dispersive index |
+| `closed_graphs/Tetrahedron/config_nconst.py`  | complete graph K₄, 3-port vertices     | arbitrary vertex matrices (Neumann-Kirchhoff) |
+| `closed_graphs/FlowerGraph/config_nconst.py`  | 5 couplers, 10 bonds (all doubled)     | ~1600 levels, statistics on a sub-window |
+| `closed_graphs/BowTieGraph/config_nconst.py`  | 5 couplers, 10 bonds (2 doubled)       | same pipeline on a second fabricated device |
+| `open_graphs/ring/config_n*_1access.py`       | ring + 1 access coupler                | S-matrix, resonances, transmission-based detection |
+| `open_graphs/ring/config_n*_2access.py`       | ring + 2 access couplers (add-drop)    | through / drop ports, 4×4 S-matrix |
+| `open_graphs/ring/ring_theory.py`             | analytic ring resonator                | closed-form transmission to compare with |
+| `open_graphs/FlowerGraph/config_nconst.py`    | flower graph + access coupler          | resonances, transmission, S-matrix plots, resonance wavefunctions, statistics |
+| `open_graphs/BowTieGraph/config_nconst.py`    | bow-tie graph + access coupler         | same |
+| `classical_graphs/FlowerGraph/config.py`      | flower graph                           | Perron-Frobenius spectrum (ergodic, not mixing), ρ snapshots, animation |
+| `classical_graphs/BowTieGraph/config.py`      | bow-tie graph                          | ergodic and mixing (spectral gap ≈ 0.12) |
+| `periodic_orbits/FlowerGraph/config.py`       | flower graph                           | irreducible orbits, all orbits up to L_max, CSV export, orbit plots |
+| `periodic_orbits/BowTieGraph/config.py`       | bow-tie graph                          | same |
+| `new_study_template.py`                       | your graph                             | the four points of view on one graph |
 
-First-run times were measured on one CPU core; later runs reload the cached
-results. `OpenGraphs/examples/ring/ring_theory.py` gives the analytical
-transmission of the single ring, to compare with the numerical S-matrix. The
-ring examples use a fine 1 000 000 × 25 resonance grid and 2 000 000 points
-for S(k); lower `N_re` and `n_points` for a quicker first run.
-
-The FlowerGraph and BowTieGraph geometries are those of two fabricated silicon
-devices (vertex positions, port connections and bond lengths extracted from
-the lithography layout).
+First runs take from seconds (orbits, classical) to a few minutes (open-graph
+resonance scans); see the header of each script. The FlowerGraph and
+BowTieGraph geometries are those of two fabricated silicon devices (also
+available as `qg.layouts.flower_graph()` and `qg.layouts.bow_tie_graph()`,
+`open=True` for the version with its access coupler).
 
 ---
 
@@ -146,47 +139,51 @@ wavenumber k = 2π/λ:
   the port where b' leaves, at their common vertex v;
 * `U(k) = D(k) Σ(k)` is the quantum evolution map.
 
-**Closed graphs.** The spectrum is the set of real roots of the secular
-equation `det(I − U(k)) = 0`. `compute_spectrum()` evaluates
-`g(k) = σ_min(I − U(k))` on `N_scan` points, refines every local minimum with
-`scipy.optimize.minimize_scalar`, and takes the degeneracy of each root as the
-number of singular values of `I − U(k*)` below `nullity_tol`.
-`compute_wavefunction(k*)` returns an orthonormal basis of the null space of
-`I − U(k*)` (from the SVD): component b is the amplitude of the wave on
+**Closed graphs.** The spectrum is the set of real roots of
+`det(I − U(k)) = 0`. `compute_spectrum()` evaluates `σ_min(I − U(k))` on
+`N_scan` points, refines every local minimum (bounded Brent minimisation) and
+takes the degeneracy of each root as the number of singular values of
+`I − U(k*)` below `nullity_tol`; it warns if the number of levels departs from
+the Weyl law. `compute_wavefunction(k*)` returns an orthonormal basis of the
+null space of `I − U(k*)`: component b is the amplitude of the wave on
 directed bond b = (u → v) when it **arrives** at v. With x the distance to u,
 the field on bond (u, v) is
 
     ψ(x) = a_{u→v} exp(i k n_eff (x − L)) + a_{v→u} exp(−i k n_eff x)
 
-**Open graphs.** Ports with `port_map[i][p] = None` are external leads. The
-vertex matrices are split into internal (α) and lead (β) channels and
+**Open graphs.** Ports with `port_map[i][p] = None` are external leads, and
 
     S(k) = Σ_ββ + Σ_βα (I − D Σ_αα)⁻¹ D Σ_αβ
 
 Leads are numbered in the order in which the `None` entries appear in
-`port_map` (vertex by vertex, port by port); `S[j, i]` is the amplitude
-leaving lead j for a unit amplitude injected in lead i. The resonances are
-the complex poles of S, found as minima of σ_min(I − D Σ_αα) on a grid of the
-complex k-plane (`find_resonances`). `find_experimental_resonances` instead
-locates peaks of d²|S_ij|²/dk² on the real axis, as one would on a measured
-spectrum.
+`port_map`; `S[j, i]` is the amplitude leaving lead j for a unit amplitude
+injected in lead i. Resonances (poles of S) are minima of
+σ_min(I − D Σ_αα) on a grid of the complex k-plane (`find_resonances`);
+`find_experimental_resonances` locates peaks of d²|S_ij|²/dk² on the real
+axis, as one would on a measured spectrum.
 
-**Spectral statistics** (both quantum modules). Levels are unfolded with the
-Weyl law N(k) ≈ n L_tot k / π (with the group index n_g when n_eff depends on k), then compared with the
-Poisson, GOE, GUE and GSE predictions: nearest-neighbour spacing distribution
-(Wigner surmises), number variance Σ²(L) and spectral rigidity Δ₃(L).
-`plot_length_spectrum` Fourier-transforms the spectrum, giving peaks at the
-lengths of the periodic orbits.
+**Spectral statistics.** Levels are unfolded with the Weyl law
+N(k) = (L/π)∫ n_g dk and compared with Poisson, GOE, GUE and GSE:
+nearest-neighbour spacings (Wigner surmises), number variance Σ²(L) and
+spectral rigidity Δ₃(L). For directional-coupler graphs whose levels are all
+exactly doubly degenerate (e.g. the double ring: each coupler's arms can be
+labelled input/output with every bond joining an output to an input), the
+statistics keep one level per pair and halve the Weyl law (GUE expected);
+`mode=` forces a choice. `plot_length_spectrum` Fourier-transforms the
+spectrum, with peaks at the lengths of periodic orbits.
 
-**Classical dynamics.** The Perron-Frobenius operator `P = |Σ_αα|²`
-(element-wise modulus squared) is column-stochastic and evolves probability
-vectors on the directed bonds, ρ_{n+1} = P ρ_n.
+**Classical dynamics.** `P = |Σ_αα|²` (element-wise) is doubly stochastic and
+evolves probability vectors on the directed bonds, ρ_{n+1} = P ρ_n.
 
 **Periodic orbits.** For directional-coupler graphs (a ray entering a coupler
-on one arm always leaves on the other arm), `PeriodicOrbits` enumerates the
-irreducible orbits (no vertex visited twice) and all orbits up to a given
-length. Orbits are named by their sequence of real vertices, made unique under
-cyclic rotation and time reversal (e.g. `1-4-5`).
+on one arm leaves on the other), `PeriodicOrbits` enumerates the irreducible
+orbits and all orbits up to a given length (validated against a brute-force
+enumeration); orbits are named by their sequence of real vertices, unique up
+to rotation and time reversal (e.g. `1-4-5`).
+
+The conventions, the accuracy of each algorithm and the points where a
+choice of definition matters (Δ₃ windows, entropy weights, degenerate
+levels...) are detailed in [docs/scientific_notes.md](docs/scientific_notes.md).
 
 ## Describing a graph
 
@@ -194,34 +191,35 @@ All lengths are in µm and all wavelengths are vacuum wavelengths in µm.
 
 ```python
 vertex_positions = [(x0, y0), (x1, y1), ...]   # um, used for drawing (and default lengths)
-
 port_map[i][p] = (j, q)     # port p of vertex i <-> port q of vertex j (give both directions)
-port_map[i][p] = None       # OpenGraphs only: external lead
-
-lengths = {((i, p), (j, q)): L_um, ...}        # one entry per bond; None -> Euclidean distances
+port_map[i][p] = None       # open graphs only: external lead
+lengths = {((i, p), (j, q)): L_um, ...}        # one entry per bond, either orientation;
+                                               # None -> Euclidean distances
 ```
 
-* Vertex `i` has `len(port_map[i])` ports; its scattering matrix must have the
-  same size, with the ports in the same order.
-* **Self-loops and multiple bonds are allowed.** At construction they are
-  replaced by chains of *virtual* 2-port vertices with σ = [[0, 1], [1, 0]]
-  (pure transmission, total length kept), so the physics is unchanged. They
-  appear as small black dots on the figures; `virtual_vertex_spacing` only
-  changes how they are drawn. The original graph stays in `port_map` /
+The inputs are validated: an asymmetric `port_map`, a missing, unknown or
+duplicated bond length, or a vertex matrix whose size differs from the vertex
+valency raise a `ValueError`.
+
+* **Self-loops and multiple bonds are allowed.** They are replaced internally
+  by chains of *virtual* 2-port vertices with σ = [[0, 1], [1, 0]] (pure
+  transmission, total length kept), drawn as small dots; `virtual_vertex_spacing`
+  only changes the drawing. The original graph stays in `port_map` /
   `lengths`, the virtualised one is in `virtual_port_map` / `virtual_lengths`.
 * Directed-bond indexing: for B (virtualised) bonds, indices `0 … B−1` are the
   bonds in one orientation and `B … 2B−1` the same bonds reversed;
   `graph.directed_bond_index[(src, dst)]` gives the index of a directed bond.
-* `neff` can be a constant or a function `neff(k)`; the group index `ng` (used
-  by the Weyl law) is derived numerically from `neff(k)` when not given.
-* Vertex labels on the figures start at 1 (vertex `i` in the code is drawn as
-  `i + 1`), except in `open_graphs`, which labels vertices from 0.
+* `neff` can be a constant or a function `neff(k)`; the group index `ng` is
+  derived numerically from it when not given.
+* Vertex labels on the figures start at 1 (vertex `i` is drawn as `i + 1`),
+  except in `open_graphs`, which labels vertices from 0.
 
-### Directional couplers
+### Vertex matrices
 
-The `DirectionalGraphs` / `DirectionalClassicalGraphs` classes model every
-(non-virtual) vertex as a lossless 4-port directional coupler with power
-cross-coupling C. Ports (0, 1) are one arm, ports (2, 3) the other:
+`DirectionalGraphs` / `DirectionalClassicalGraphs` model every real vertex as
+a lossless 4-port directional coupler with power cross-coupling C (a float, a
+list or dict per vertex, or a function `C(k)`); ports (0, 1) are one arm,
+(2, 3) the other:
 
 ```
 σ = [[ 0,      0,      √(1−C), i√C    ],
@@ -230,46 +228,42 @@ cross-coupling C. Ports (0, 1) are one arm, ports (2, 3) the other:
      [ i√C,    √(1−C), 0,      0      ]]
 ```
 
-A coupler never reflects backwards: a wave entering through arm (0, 1)
-leaves through arm (2, 3), and vice versa. If every vertex can be given an
-"input" and an "output" arm such that every bond joins an output arm to an
-input arm (true for DoubleRing), the directed bonds split into two decoupled,
-time-reversed sectors: every level is exactly doubly degenerate and each
-sector alone has no time-reversal symmetry, so GUE statistics are expected.
-The statistics methods detect this case (all degeneracies equal to 2), keep
-one level per pair and halve the Weyl law; otherwise (FlowerGraph,
-BowTieGraph) the full spectrum is used. `mode=` forces a choice.
+In `open_graphs`, `internal_coupling` and `external_coupling` set different
+values for the graph couplers and for the couplers that carry leads. For any
+other junction, use the base classes with `vertex_matrices` (one array per
+vertex, one array for all, or a function σ(k)); `qg.neumann_matrix(n)` gives
+the Neumann-Kirchhoff matrix.
 
-C can be a float, a dict `{vertex: C}`, or a function `C(k)`. In `open_graphs`, `internal_coupling` and
-`external_coupling` set different values for the graph couplers and for the
-couplers that carry leads.
+### Caching and reproducibility
 
-For any other junction, use the base classes (`ClosedGraphs`, `OpenGraphs`,
-`ClassicalGraphs`) with `vertex_matrices`: one array per vertex, a single
-array for all vertices, or a function `σ(k)` (see the SingleRing and
-Tetrahedron examples).
+Each cached file (spectrum, σ_min grid, resonances, S(k) samples) is stored
+with a `.meta.json` record of the computation parameters and of a *physics
+fingerprint* of the graph (topology, lengths, vertex matrices and indices,
+functions being sampled numerically). A cache is reused only if both match;
+otherwise it is recomputed with a warning. Files written by versions before
+1.0 have no record: they are loaded with a warning (`overwrite=True` to
+recompute). `graph_parameters.txt` describes the graph and its fingerprint.
 
-## RMT reference curves on their own
+## Tests
 
-The `wigner/` modules can also be used directly, e.g. to compare any spectrum
-with random-matrix theory:
-
-```python
-import sys
-import numpy as np
-sys.path.insert(0, "wigner")
-from sigma2_RMT import sigma2_RMT
-from delta3_RMT import delta3_RMT
-
-L = np.linspace(0, 20, 5000)
-sigma2_goe = sigma2_RMT(L, wigner="GOE")     # number variance Σ²(L)
-delta3_gue = delta3_RMT(L, wigner="GUE")     # spectral rigidity Δ₃(L)
+```bash
+pip install -e ".[test]"
+pytest                 # fast suite (~30 s)
+pytest -m slow         # scientific validation and non-regression (~2 min)
 ```
 
-`wigner` is one of `"GOE"`, `"GUE"`, `"GSE"` (interpolated tables) or
-`"poissonian"` (analytic). The nearest-neighbour spacing distributions
-(Wigner surmises) are available as `NNSD_func(s, wigner)` in `closed_graphs`
-and `open_graphs`.
+The tests check analytic cases (ring spectrum, all-pass ring S-matrix and
+poles), physical properties (unitarity and reciprocity of S, stochasticity of
+P, Weyl law), the RMT reference curves against the exact Dyson-Mehta
+formulas, the orbit enumeration against brute force, the cache invalidation,
+and reproduce a stored numerical reference data set (`tests/reference/`).
+[docs/architecture.md](docs/architecture.md) explains how the code is
+organised and how to extend it.
+
+## Acknowledgements
+
+The GOE and GUE reference tables for Σ²(L) and Δ₃(L) were computed by
+Barbara Dietz.
 
 ## References
 
@@ -277,11 +271,7 @@ and `open_graphs`.
 * T. Kottos and U. Smilansky, *Periodic orbit theory and spectral statistics for quantum graphs*, Ann. Phys. **274**, 76 (1999).
 * S. Gnutzmann and U. Smilansky, *Quantum graphs: applications to quantum chaos and universal spectral statistics*, Adv. Phys. **55**, 527 (2006).
 * G. Berkolaiko and P. Kuchment, *Introduction to Quantum Graphs*, AMS (2013).
-
-## Acknowledgements
-
-The GOE and GUE reference tables for Σ²(L) and Δ₃(L) in `wigner/` were
-computed by Barbara Dietz.
+* M. L. Mehta, *Random Matrices*, 3rd ed., Elsevier (2004).
 
 ## Author
 
