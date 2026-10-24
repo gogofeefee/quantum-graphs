@@ -11,6 +11,8 @@ matching the ClosedGraphs / OpenGraphs convention.
 from ..core.config import log
 import os
 import numpy as np
+
+from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -44,7 +46,16 @@ class DirectionalClassicalGraphs(
         name="MyDirectionalClassicalGraph",
         save_path=None,
         base_dir=None,
+        vertex_couplings=None,
     ):
+        """``vertex_couplings`` (float, list or dict of C) builds the directional-
+        coupler matrices, as in the quantum DirectionalGraphs classes; it is an
+        alternative to ``vertex_matrices``."""
+        if vertex_couplings is not None:
+            if vertex_matrices is not None:
+                raise ValueError("Give vertex_couplings or vertex_matrices, not both.")
+            couplings = couplings_for_vertices(vertex_couplings, len(port_map))
+            vertex_matrices = {v: directional_coupler_matrix(C) for v, C in enumerate(couplings)}
         super().__init__(
             vertex_positions=vertex_positions,
             port_map=port_map,
