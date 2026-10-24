@@ -413,9 +413,9 @@ class SpectralPlotsMixin:
             for name in (plot_wigner or []):
                 if name.lower() != "poissonian":
                     ymax_s = max(ymax_s,
-                                 float(np.max(sigma2_RMT(L_plot, wigner=name))))
+                                 float(np.max(sigma2_RMT(L_plot, name))))
             for idx, name in enumerate(plot_wigner or []):
-                ax_s.plot(L_plot, sigma2_RMT(L_plot, wigner=name),
+                ax_s.plot(L_plot, sigma2_RMT(L_plot, name),
                           color_list[idx % len(color_list)], lw=2,
                           label=wigner_labels.get(name, name.upper()))
             ax_s.set_ylim(0.0, ymax_s * 1.05)
@@ -441,9 +441,9 @@ class SpectralPlotsMixin:
             for name in (plot_wigner or []):
                 if name.lower() != "poissonian":
                     ymax_d = max(ymax_d,
-                                 float(np.max(delta3_RMT(L_plot, wigner=name))))
+                                 float(np.max(delta3_RMT(L_plot, name))))
             for idx, name in enumerate(plot_wigner or []):
-                ax_d.plot(L_plot, delta3_RMT(L_plot, wigner=name),
+                ax_d.plot(L_plot, delta3_RMT(L_plot, name),
                           color_list[idx % len(color_list)], lw=2,
                           label=wigner_labels.get(name, name.upper()))
             ax_d.set_ylim(0.0, ymax_d * 1.05)

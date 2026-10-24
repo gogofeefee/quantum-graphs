@@ -377,12 +377,12 @@ class SpectralPlotsMixin:
                          s=60, linewidth=1.5, zorder=1)
 
             ymax = max(float(np.max(sigma2_vals)),
-                       max((float(np.max(sigma2_RMT(L_plot, wigner=n)))
+                       max((float(np.max(sigma2_RMT(L_plot, n)))
                             for n in (plot_wigner or [])
                             if n.lower() != "poissonian"), default=0)) * 1.05
 
             for i, name in enumerate(plot_wigner or []):
-                ax_s.plot(L_plot, sigma2_RMT(L_plot, wigner=name),
+                ax_s.plot(L_plot, sigma2_RMT(L_plot, name),
                           color_list[i % len(color_list)], lw=2,
                           label=wigner_labels.get(name, name.upper()))
 
@@ -402,12 +402,12 @@ class SpectralPlotsMixin:
                          s=60, linewidth=1.5, zorder=1)
 
             ymax = max(float(np.max(delta3_vals)),
-                       max((float(np.max(delta3_RMT(L_plot, wigner=n)))
+                       max((float(np.max(delta3_RMT(L_plot, n)))
                             for n in (plot_wigner or [])
                             if n.lower() != "poissonian"), default=0)) * 1.05
 
             for i, name in enumerate(plot_wigner or []):
-                ax_d.plot(L_plot, delta3_RMT(L_plot, wigner=name),
+                ax_d.plot(L_plot, delta3_RMT(L_plot, name),
                           color_list[i % len(color_list)], lw=2,
                           label=wigner_labels.get(name, name.upper()))
 

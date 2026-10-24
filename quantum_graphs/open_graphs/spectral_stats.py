@@ -43,15 +43,9 @@ def NNSD_func(s, wigner="GOE"):
 
 
 def _get_rmt_funcs():
-    """Load sigma2_RMT and delta3_RMT from the wigner/ directory at the
-    repository root (two levels above this package)."""
-    wigner_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "wigner"))
-    if wigner_path not in sys.path:
-        sys.path.insert(0, wigner_path)
-    from sigma2_RMT import sigma2_RMT
-    from delta3_RMT import delta3_RMT
-    return sigma2_RMT, delta3_RMT
+    """Return the (sigma2, delta3) RMT reference functions, signature f(L, wigner)."""
+    from ..stats.rmt import sigma2_rmt, delta3_rmt
+    return sigma2_rmt, delta3_rmt
 
 
 class SpectralStatsMixin:
