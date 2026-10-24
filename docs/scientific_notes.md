@@ -87,10 +87,17 @@ refines each strict local minimum by bounded Brent minimisation.
   matters when comparing with values from the literature. Use
   `windows="uniform"` with `stats.delta3_dyson_mehta` for the standard
   definition. The Poisson curve L/15 is the same in both conventions.
+  **Decision (author, 2026-10-24):** the level-anchored estimator with the
+  Monte-Carlo RMT tables of Barbara Dietz remains the reference; the uniform
+  estimator and the analytic curves are kept as a cross-check.
 * The closed form used for Δ₃ in one window equals the least-squares
   definition to numerical precision (tested).
 
-## 5. Wavefunction measures **[open]**
+## 5. Wavefunction measures **[open — decided, not yet implemented]**
+
+Decision (author, 2026-10-24): entropy and IPR should be computed per
+**physical** bond (independent of the virtualisation); to be implemented.
+
 
 * Entropy and IPR use p_b ∝ |a_{b,fwd}|² + |a_{b,bwd}|² per **virtualised**
   bond, i.e. intensity, not energy (which would be ∝ L_b × intensity), and
