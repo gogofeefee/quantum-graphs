@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 14 15:54:46 2025
+delta3_RMT — random-matrix-theory reference curves for Δ₃(L) (spectral rigidity).
 
-@author: hugo
+Tabulated GOE / GUE values (computed by Barbara Dietz with RMT) and a GSE table
+(delta3_RP_model_N65536_gamma_0.9_GSE.txt) are loaded from the text files next
+to this module and interpolated (cubic). The Poisson case is analytic.
 
-This codes aims at defining the delta3 functions from the list of 
-values computed by Barbara with RMT
+Usage
+-----
+from delta3_RMT import delta3_RMT
+delta3_RMT(L, wigner="GOE")      # wigner in {"GOE", "GUE", "GSE", "poissonian"}
 """
 
 import numpy as np
@@ -17,8 +21,10 @@ import os
 ###################### SIGMA CORRELATION FUNCTION #############################
 ###############################################################################
 
-# Working directory
-working_dir = '/home/hugo/Documents/Research/Simul/Graphs/wigner/'
+# Working directory: resolve next to this file so the module works on any
+# machine (labo, or a workstation that mounts it).
+import os as _os
+working_dir = _os.path.dirname(_os.path.abspath(__file__)) + '/'
 
 # Load the wigner delta3 functions
 data_GOE = np.loadtxt(working_dir + 'delta3goe.txt')
@@ -48,7 +54,8 @@ interp_delta3_GSE = interp.interp1d(L_GSE, delta3_GSE, kind='cubic', bounds_erro
 
 def delta3_RMT(L, wigner="GOE"):
     wigner = wigner.lower()
-    return {"goe": interp_delta3_GOE, "gue": interp_delta3_GUE, "gse": interp_delta3_GSE}.get(wigner, lambda x: x)(L)
+    # Poisson: Delta_3(L) = L / 15
+    return {"goe": interp_delta3_GOE, "gue": interp_delta3_GUE, "gse": interp_delta3_GSE}.get(wigner, lambda x: np.asarray(x) / 15.0)(L)
 
 ###############################################################################
 #################### Usage Example ############################################

@@ -1,20 +1,30 @@
-# Ignore the Archives folder
-Archives/
-
-# Python cache & build files
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.so
 *.egg-info/
 build/
 dist/
-
-# Jupyter & editor noise
 .ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
 *.swp
 *.swo
-*.DS_Store
+.DS_Store
+._*
 
-# Example run outputs (keep configs .py, ignore generated folders/files)
-**/examples/**/Graph*_TypicalLength=*/
+# Outputs written by the example scripts next to each config file
+# (figures, cached spectra / sigma_min grids, parameter dumps, orbit tables,
+# animations). Only the config scripts themselves are versioned.
+*/examples/**/*.pdf
+*/examples/**/*.png
+*/examples/**/*.svg
+*/examples/**/*.eps
+*/examples/**/*.npz
+*/examples/**/*.npy
+*/examples/**/*.txt
+*/examples/**/*.csv
+*/examples/**/*.log
+*/examples/**/*.mp4
+*/examples/**/*.gif

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Mar 14 15:54:46 2025
+sigma2_RMT — random-matrix-theory reference curves for Σ²(L) (number variance).
 
-@author: hugo
+Tabulated GOE / GUE values (computed by Barbara Dietz with RMT) and a GSE table
+(sigma2_RP_model_N65536_gamma_0.9_GSE.txt) are loaded from the text files next
+to this module and interpolated (cubic). The Poisson case is analytic.
 
-This codes aims at defining the sigma2 functions from the list of 
-values computed by Barbara with RMT
+Usage
+-----
+from sigma2_RMT import sigma2_RMT
+sigma2_RMT(L, wigner="GOE")      # wigner in {"GOE", "GUE", "GSE", "poissonian"}
 """
 
 import numpy as np
@@ -17,8 +21,10 @@ import os
 ###################### SIGMA CORRELATION FUNCTION #############################
 ###############################################################################
 
-# Working directory
-working_dir = '/home/hugo/Documents/Research/Simul/Graphs/wigner/'
+# Working directory: resolve next to this file so the module works on any
+# machine (labo, or a workstation that mounts it).
+import os as _os
+working_dir = _os.path.dirname(_os.path.abspath(__file__)) + '/'
 
 # Load the wigner sigma2 functions
 data_GOE = np.loadtxt(working_dir + 'sggoe.txt')
