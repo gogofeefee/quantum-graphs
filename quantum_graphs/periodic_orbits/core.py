@@ -66,6 +66,7 @@ Conventions inherited from ClassicalGraphs / ClosedGraphs
 from ..core.config import resolve
 from ..core.base import GraphBase
 import os
+import warnings
 import sys
 import csv
 import copy
@@ -575,6 +576,9 @@ class PeriodicOrbits(GraphBase):
         # Same re-keying as find_orbits_up_to_length(); see the comment there.
         registry = {r["name"]: r for r in registry.values()}
         self.irreducible_orbits = registry
+        if len(registry) >= max_orbits:
+            warnings.warn(f"find_irreducible_orbits stopped at max_orbits={max_orbits}: the list "
+                          "is INCOMPLETE.", RuntimeWarning, stacklevel=2)
         if verbose:
             print(f"Found {len(registry)} irreducible periodic orbits.")
         return registry
@@ -656,6 +660,13 @@ class PeriodicOrbits(GraphBase):
         # genuinely distinct orbits.
         registry = {r["name"]: r for r in registry.values()}
         self.orbits = registry
+        self.orbits_complete = (len(registry) < max_orbits
+                                and counters["nodes"] < max_search_nodes)
+        if not self.orbits_complete:
+            warnings.warn(
+                f"find_orbits_up_to_length({L_max_um}) stopped at a safety cap "
+                f"(max_orbits={max_orbits}, max_search_nodes={max_search_nodes}): the orbit list "
+                "is INCOMPLETE. Lower L_max_um or raise the caps.", RuntimeWarning, stacklevel=2)
 
         if verbose:
             print(
@@ -682,14 +693,17 @@ class PeriodicOrbits(GraphBase):
             return
 
         for nxt in self.bond_transitions[current_dbond]:
-            new_length = cum_length + self.directed_lengths[nxt]
-            if new_length > L_max:
-                continue
-
+            # Closing the orbit does not add length: test closure BEFORE the
+            # length bound (the reverse order missed every orbit longer than
+            # L_max minus its shortest bond).
             if nxt == start_dbond:
                 self._register_orbit(list(path), cum_length, registry)
                 if len(registry) >= max_orbits:
                     return
+
+            new_length = cum_length + self.directed_lengths[nxt]
+            if new_length > L_max:
+                continue
 
             counters["nodes"] += 1
             if counters["nodes"] >= max_search_nodes:
