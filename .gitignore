@@ -17,14 +17,14 @@ dist/
 # Outputs written by the example scripts next to each config file
 # (figures, cached spectra / sigma_min grids, parameter dumps, orbit tables,
 # animations). Only the config scripts themselves are versioned.
-*/examples/**/*.pdf
-*/examples/**/*.png
-*/examples/**/*.svg
-*/examples/**/*.eps
-*/examples/**/*.npz
-*/examples/**/*.npy
-*/examples/**/*.txt
-*/examples/**/*.csv
-*/examples/**/*.log
-*/examples/**/*.mp4
-*/examples/**/*.gif
+examples/**/*.pdf
+examples/**/*.png
+examples/**/*.svg
+examples/**/*.eps
+examples/**/*.npz
+examples/**/*.npy
+examples/**/*.txt
+examples/**/*.csv
+examples/**/*.log
+examples/**/*.mp4
+examples/**/*.gif
