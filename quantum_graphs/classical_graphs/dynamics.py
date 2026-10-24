@@ -149,6 +149,8 @@ class DynamicsMixin:
         if evals.size < 2:
             return 0.0
         gap = float(1.0 - np.abs(evals[1]))
+        if abs(gap) < 1e-12:          # |λ2| = 1 up to round-off: no gap (not mixing)
+            gap = 0.0
         self.P_spectral_gap = gap
         return gap
 
