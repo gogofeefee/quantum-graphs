@@ -21,7 +21,7 @@ TOLERANCES = [
     ("/spectrum", 1e-9, 0.0),          # refined real roots (xatol ~ 1e-16, sigma_min kink)
     ("/resonances", 1e-8, 0.0),        # refined complex poles
     ("/exp_resonances", 0.0, 0.0),     # grid points: exact
-    ("/intensity", 1e-6, 1e-6),        # |a|^2 of a refined eigenvector
+    ("/intensity", 1e-6, 1e-6),        # eigenspace projector diagonal at a refined level
     ("/residual", 1e-5, 0.0),          # |a - U a| (bounded, not compared tightly)
     ("/res_wf_residual", 1e-3, 0.0),
     ("/spacings", 1e-7, 1e-7),
@@ -30,9 +30,9 @@ TOLERANCES = [
     ("/weyl", 1e-9, 1e-12),
     ("/ng", 1e-7, 1e-7),
     ("/S", 1e-10, 1e-10),
-    ("/U_eigvals", 1e-10, 0.0),
+    ("/U_eigvals", 1e-9, 0.0),         # compared through power sums (see power_sums)
     ("/secular_det", 1e-9, 1e-9),
-    ("/eigvals", 1e-10, 0.0),
+    ("/eigvals", 1e-9, 0.0),
     ("", 1e-10, 1e-10),                # default
 ]
 
@@ -48,6 +48,20 @@ def wavefunction_by_label(data, key):
     """Return {bond label: intensity} so that a change of bond indexing is not a difference."""
     labels = data[key.replace("/intensity", "/labels")]
     return {tuple(row): val for row, val in zip(labels, data[key])}
+
+
+def power_sums(eigvals):
+    """Return p_n = sum_j lambda_j**n, n = 1..N, for each row of eigenvalues.
+
+    The power sums determine the multiset of eigenvalues (Newton identities)
+    without sorting it, and are insensitive to the LAPACK-dependent splitting
+    of a defective eigenvalue (a Jordan block of size m spreads into a circle
+    of radius ~eps**(1/m), i.e. ~0.2 for the zero eigenvalue of the classical
+    Perron-Frobenius operators, which scrambles any sorted comparison).
+    """
+    e = np.atleast_2d(eigvals)
+    n = np.arange(1, e.shape[-1] + 1)
+    return (e[..., None, :] ** n[:, None]).sum(axis=-1)
 
 
 def compare(old, new):
@@ -69,6 +83,8 @@ def compare(old, new):
                 continue
             a = np.array([da[k] for k in sorted(da)])
             b = np.array([db[k] for k in sorted(da)])
+        if key.endswith("eigvals") and a.shape == b.shape:
+            a, b = power_sums(a), power_sums(b)
         if a.dtype.kind in "USO" or b.dtype.kind in "USO":
             if a.shape != b.shape or not np.all(a == b):
                 problems.append(f"DIFFERENT      : {key}: {a.tolist()} -> {b.tolist()}")

@@ -77,12 +77,19 @@ specific to their point of view.
 * `pytest -m slow` — GOE ensemble validation of the Δ₃ estimators and
   non-regression: `tests/reference/generate_reference.py` recomputes 196
   quantities on nine reference graphs and `compare_reference.py` compares them
-  with `reference_v1.npz` using per-quantity tolerances.
+  with `reference_v2.npz` using per-quantity tolerances.
+* Only basis- and platform-independent quantities are compared: eigenvectors
+  of degenerate levels through the diagonal of the eigenspace projector,
+  eigenvalue lists through their power sums Σλⁿ (a defective eigenvalue, such
+  as the zero eigenvalue of the classical operators, is split by LAPACK into a
+  cloud of radius ~ε^(1/m) whose shape depends on the BLAS library).
 * `reference_v0.npz` is the state published before the 2026-10 refactor;
   `test_v0_to_v1_differences_are_the_documented_ones` pins the only
-  intentional change (orbits recovered by the orbit-enumeration fix). When a
-  change of results is intended, regenerate a new reference, document the
-  differences in `CHANGELOG.md` and update that test.
+  intentional change (orbits recovered by the orbit-enumeration fix) and
+  `test_v1_to_v2_differences_are_the_documented_ones` the change of stored
+  quantity for degenerate eigenvectors. When a change of results is intended,
+  regenerate a new reference, document the differences in `CHANGELOG.md` and
+  add the corresponding test.
 
 ## Legacy import names
 

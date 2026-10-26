@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Tests
+- The non-regression data set failed on GitHub Actions (OpenBLAS) although
+  it passed locally: it compared quantities that are not uniquely defined.
+  `reference_v2.npz` stores the diagonal of the eigenspace projector for
+  degenerate levels (single and double ring) instead of one arbitrary basis
+  vector, and eigenvalue lists are compared through their power sums instead
+  of after sorting (the defective zero eigenvalue of the classical
+  Perron-Frobenius operators splits differently with each LAPACK). No change
+  of computed results.
+
 ## 1.0.0.dev0 (2026-10-24)
 
 Restructuring into one installable package, `quantum_graphs`, with a shared

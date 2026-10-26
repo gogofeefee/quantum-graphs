@@ -102,8 +102,10 @@ def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
         a = graph.compute_wavefunction(spectrum[i])
         U_k = graph._build_propagation_matrix(spectrum[i]) @ graph._build_sigma_alpha_alpha(spectrum[i])
         resid = max(np.linalg.norm(v - U_k @ v) for v in a)
-        # intensity per directed bond, keyed by bond label (basis-independent only for deg 1)
-        store(f"{prefix}/wf{i}", intensity=np.abs(a[0]) ** 2, labels=labels,
+        # intensity per directed bond, keyed by bond label: diagonal of the projector
+        # onto the eigenspace (sum over its orthonormal basis), basis-independent
+        # also for degenerate levels (reference_v1 stored |a[0]|^2 only)
+        store(f"{prefix}/wf{i}", intensity=np.sum(np.abs(a) ** 2, axis=0), labels=labels,
               residual=resid, nmodes=a.shape[0])
     if stats and spectrum.size > 20:
         unfolded = graph._compute_unfolded_spectrum(spectrum)
