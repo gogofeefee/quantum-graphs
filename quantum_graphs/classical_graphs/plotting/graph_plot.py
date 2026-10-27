@@ -28,7 +28,7 @@ class GraphPlotMixin:
         """
         Plot the graph topology.
 
-        - Real vertices: black disks with white 1-indexed labels.
+        - Real vertices: black disks with white labels 1, 2, ... (``vertex_labels``).
         - Virtual vertices: smaller black disks (no label).
         - Edges: thick black lines.
         - Optional edge-length labels when show_lengths=True.
@@ -76,7 +76,7 @@ class GraphPlotMixin:
         )
         nx.draw_networkx_labels(
             self.G, pos,
-            labels={i: f"{i + 1}" for i in real_nodes},
+            labels={i: self.vertex_labels[i] for i in real_nodes},
             font_color="white", font_weight="bold", font_size=20, ax=ax,
         )
         nx.draw_networkx_edges(

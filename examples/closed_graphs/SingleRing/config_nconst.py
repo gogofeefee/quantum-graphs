@@ -27,7 +27,7 @@ Analysis pipeline:
     2. Spectrum computation
     3. Zeta-B plot
     4. Wavefunction for a few modes
-    5. Entropy and IPR
+    5. IPR (= 1: one bond)
     6. Spectral statistics: staircase, NNSD, Σ²/Δ₃
     7. Length spectrum
 
@@ -187,12 +187,13 @@ if True:
 
 
 # ============================================================================
-#  5. Entropy and IPR
+#  5. IPR
 # ============================================================================
 
 if True:
-    graph.plot_entropy(wavelength_range=None, save_fig=True, file_format="pdf")
-    graph.plot_ipr(wavelength_range=None,     save_fig=True, file_format="pdf")
+    # one physical bond: IPR = 1 for every mode, and the normalised entropy
+    # S / ln N_b is undefined (plot_entropy would show NaN)
+    graph.plot_ipr(wavelength_range=None, save_fig=True, file_format="pdf")
 
 
 # ============================================================================

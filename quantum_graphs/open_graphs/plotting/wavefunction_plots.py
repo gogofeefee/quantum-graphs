@@ -210,7 +210,7 @@ class WavefunctionPlotsMixin:
             nx.draw_networkx_nodes(self.G, pos, nodelist=self.virtual_vertices,
                                    node_size=400, node_color="black", ax=ax)
             nx.draw_networkx_labels(self.G, pos,
-                                    labels={i: str(i) for i in real_nodes},
+                                    labels={i: self.vertex_labels[i] for i in real_nodes},
                                     font_color="white", font_weight="bold",
                                     font_size=20, ax=ax)
 

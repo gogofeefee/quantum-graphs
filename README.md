@@ -217,8 +217,11 @@ valency raise a `ValueError`.
   `graph.directed_bond_index[(src, dst)]` gives the index of a directed bond.
 * `neff` can be a constant or a function `neff(k)`; the group index `ng` is
   derived numerically from it when not given.
-* Vertex labels on the figures start at 1 (vertex `i` is drawn as `i + 1`),
-  except in `open_graphs`, which labels vertices from 0.
+* Vertex labels on the figures (`graph.vertex_labels`) start at 1: the
+  vertices are numbered 1, 2, … in index order, except those carrying
+  external leads (access couplers), labelled `A` (`A1`, `A2`, … if there are
+  several). With the access coupler as vertex 0, an open graph and the closed
+  graph obtained by `layouts.remove_access_coupler` have the same labels.
 
 ### Vertex matrices
 

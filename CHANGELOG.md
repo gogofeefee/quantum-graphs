@@ -20,6 +20,14 @@
   `localization_measures`), `graph.bond_intensities(vecs)`,
   `graph.localization_measures(vecs)`, topology attribute
   `physical_bond_arrivals`.
+- Topology attribute `vertex_labels`, used by every graph figure.
+
+### Changed
+- Vertex labels in `open_graphs` figures start at 1, like everywhere else;
+  a vertex carrying leads (access coupler) is labelled `A` (`A1`, `A2`, …
+  if there are several). The other vertices keep the labels of the closed
+  graph obtained by `layouts.remove_access_coupler`. Closed-graph, classical
+  and periodic-orbit figures are unchanged.
 
 ### Tests
 - The non-regression data set failed on GitHub Actions (OpenBLAS) although

@@ -372,7 +372,7 @@ class PeriodicOrbits(GraphBase):
         nx.draw_networkx_nodes(self.G, pos, nodelist=real_nodes, node_size=1000 * scale ** 2, node_color="black", ax=ax)
         nx.draw_networkx_nodes(self.G, pos, nodelist=virtual_nodes, node_size=400 * scale ** 2, node_color="gray", ax=ax)
 
-        node_labels = {i: f"{i + 1}" for i in real_nodes}
+        node_labels = {i: self.vertex_labels[i] for i in real_nodes}
         nx.draw_networkx_labels(self.G, pos, labels=node_labels, font_color="white", font_weight="bold", font_size=20 * scale, ax=ax)
 
         nx.draw_networkx_edges(self.G, pos, ax=ax, width=1.5 * scale, edge_color="lightgray")

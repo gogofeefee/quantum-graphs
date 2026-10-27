@@ -86,6 +86,17 @@ def test_remove_access_coupler_matches_the_closed_bow_tie():
     assert canon(closed["lengths"]) == canon(ref["lengths"])
 
 
+def test_vertex_labels_start_at_1_and_mark_the_access_couplers():
+    def labels(layout):
+        return build_topology(layout["vertex_positions"], layout["port_map"],
+                              layout["lengths"], allow_leads=True).vertex_labels
+    assert labels(qg.layouts.bow_tie_graph()) == {v: str(v + 1) for v in range(5)}
+    # open graph: access coupler "A", the others keep their closed-graph labels
+    assert labels(qg.layouts.bow_tie_graph(open=True)) == {0: "A", 1: "1", 2: "2", 3: "3",
+                                                           4: "4", 5: "5"}
+    assert labels(qg.layouts.ring_with_access(n_access=2)) == {0: "A1", 1: "A2"}
+
+
 # ---------------------------------------------------------------------------
 # Vertex matrices
 # ---------------------------------------------------------------------------

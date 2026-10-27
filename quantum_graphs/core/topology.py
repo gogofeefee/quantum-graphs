@@ -22,6 +22,11 @@ Conventions
   bond n = (i, pi, j, pj), the directed (virtualised) bonds arriving at its
   real ends (j, pj) and (i, pi): the amplitudes a bond would carry if it had
   not been split.
+* Vertex labels in figures (``vertex_labels``): the real vertices without a
+  lead are numbered 1, 2, ... in index order; a vertex carrying leads (access
+  coupler) is labelled "A" (A1, A2, ... if there are several). For an open
+  layout whose access coupler is vertex 0, the labels are the closed-graph
+  labels after ``layouts.remove_access_coupler``.
 """
 
 from collections import defaultdict
@@ -136,6 +141,19 @@ def canonical_lengths(lengths, bonds, vertex_positions):
     return {k: out[k] for k in bond_keys}
 
 
+def vertex_labels(n_vertices, leads):
+    """Figure labels of the real vertices: {vertex: label}.
+
+    Vertices without a lead are numbered "1", "2", ... in index order; the
+    vertices carrying leads are "A", or "A1", "A2", ... if there are several.
+    """
+    access = sorted({v for v, _ in leads})
+    labels = {v: ("A" if len(access) == 1 else f"A{n + 1}") for n, v in enumerate(access)}
+    others = [v for v in range(n_vertices) if v not in labels]
+    labels.update({v: str(n + 1) for n, v in enumerate(others)})
+    return dict(sorted(labels.items()))
+
+
 # ---------------------------------------------------------------------------
 # Topology
 # ---------------------------------------------------------------------------
@@ -155,7 +173,7 @@ class Topology:
               "n_virtual_vertices", "n_internal_bonds", "n_directed_bonds",
               "directed_bonds", "directed_bond_index", "directed_lengths",
               "directed_positions", "reverse_directed_bond", "canonical_lengths",
-              "physical_bond_arrivals")
+              "physical_bond_arrivals", "vertex_labels")
 
     def apply_to(self, obj):
         for name in self.PUBLIC:
@@ -197,6 +215,7 @@ def build_topology(vertex_positions, port_map, lengths=None, virtual_vertex_spac
     t.n_bonds = len(t.bonds)
     t.leads = [(i, p) for i, ports in enumerate(port_map) for p, c in enumerate(ports) if c is None]
     t.n_leads = len(t.leads)
+    t.vertex_labels = vertex_labels(n, t.leads)
     t.canonical_lengths = canonical_lengths(lengths, t.bonds, positions)
     t.total_length = float(sum(t.canonical_lengths.values()))
 

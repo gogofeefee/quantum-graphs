@@ -169,7 +169,7 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
         nx.draw_networkx_nodes(self.G, pos, nodelist=virtual_nodes,
                                node_size=400,  node_color="black", ax=ax)
 
-        node_labels = {i: f"{i + 1}" for i in real_nodes}
+        node_labels = {i: self.vertex_labels[i] for i in real_nodes}
         nx.draw_networkx_labels(self.G, pos, labels=node_labels,
                                 font_color="white", font_weight="bold",
                                 font_size=20, ax=ax)
