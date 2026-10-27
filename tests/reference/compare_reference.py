@@ -18,6 +18,7 @@ import numpy as np
 
 # (substring of the key, absolute tolerance, relative tolerance)
 TOLERANCES = [
+    ("/loc_", 1e-6, 1e-6),             # entropy / IPR of eigenvectors at refined levels
     ("/spectrum", 1e-9, 0.0),          # refined real roots (xatol ~ 1e-16, sigma_min kink)
     ("/resonances", 1e-8, 0.0),        # refined complex poles
     ("/exp_resonances", 0.0, 0.0),     # grid points: exact

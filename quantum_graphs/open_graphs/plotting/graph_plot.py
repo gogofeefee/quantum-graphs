@@ -108,15 +108,8 @@ class GraphPlotMixin:
             energy_per_bond[idx] = (np.abs(a_alpha[fwd_idx])**2 +
                                     np.abs(a_alpha[rev_idx])**2)
 
-        total_energy = float(np.sum(energy_per_bond))
-        if total_energy > 0:
-            p_bonds  = energy_per_bond / total_energy
-            m_bonds  = p_bonds > 0
-            S_bonds  = -np.sum(p_bonds[m_bonds] * np.log(p_bonds[m_bonds]))
-            N_b_     = len(energy_per_bond)
-            S_norm_  = S_bonds / np.log(N_b_) if N_b_ > 1 else 0.0
-        else:
-            S_bonds = S_norm_ = 0.0
+        # entropy per physical bond (independent of the virtual vertices)
+        S_bonds, S_norm_, _ = self.localization_measures(a_alpha)
 
         max_energy   = np.max(energy_per_bond) if np.max(energy_per_bond) > 0 else 1.0
         norm_energies = energy_per_bond / max_energy

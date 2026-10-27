@@ -17,6 +17,11 @@ Conventions
   matter for drawing.
 * Directed bonds: with B virtualised bonds ``(a, b)`` sorted canonically,
   index ``i < B`` is ``a -> b`` and index ``i + B`` is ``b -> a``.
+* Physical bonds are the bonds of ``port_map`` (``bonds``, before
+  virtualisation). ``physical_bond_arrivals[n] = (d_fwd, d_bwd)`` gives, for
+  bond n = (i, pi, j, pj), the directed (virtualised) bonds arriving at its
+  real ends (j, pj) and (i, pi): the amplitudes a bond would carry if it had
+  not been split.
 """
 
 from collections import defaultdict
@@ -149,7 +154,8 @@ class Topology:
               "virtual_lengths", "total_length", "G", "n_vertices_total",
               "n_virtual_vertices", "n_internal_bonds", "n_directed_bonds",
               "directed_bonds", "directed_bond_index", "directed_lengths",
-              "directed_positions", "reverse_directed_bond", "canonical_lengths")
+              "directed_positions", "reverse_directed_bond", "canonical_lengths",
+              "physical_bond_arrivals")
 
     def apply_to(self, obj):
         for name in self.PUBLIC:
@@ -294,4 +300,10 @@ def build_topology(vertex_positions, port_map, lengths=None, virtual_vertex_spac
         t.directed_lengths[fwd] = t.directed_lengths[bwd] = L
         t.directed_positions[fwd], t.directed_positions[bwd] = (p_a, p_b), (p_b, p_a)
         t.reverse_directed_bond[fwd], t.reverse_directed_bond[bwd] = bwd, fwd
+
+    # every real port ends exactly one directed (virtualised) bond
+    arriving_at = {db[1]: idx for db, idx in t.directed_bond_index.items()}
+    t.physical_bond_arrivals = np.array(
+        [(arriving_at[(j, pj)], arriving_at[(i, pi)]) for (i, pi, j, pj) in t.bonds],
+        dtype=int).reshape(-1, 2)
     return t

@@ -7,6 +7,8 @@ import copy
 
 import numpy as np
 
+from ..stats.localization import (eigenspace_intensity, localization_measures,
+                                  physical_bond_intensity)
 from .config import log
 from .persistence import fingerprint, resolve_save_path, sample_function
 from .scattering import ScatteringModel
@@ -74,6 +76,22 @@ class GraphBase:
             self._model = ScatteringModel(self._topology, self.vertex_scattering_matrix,
                                           getattr(self, "neff", 1.0))
         return self._model
+
+    # -- wavefunction localisation -------------------------------------------
+
+    def bond_intensities(self, vecs):
+        """Intensity on each physical bond (order of ``bonds``).
+
+        ``vecs``: one vector of directed-bond amplitudes, or the orthonormal
+        rows of a degenerate eigenspace (diagonal of its projector / g). See
+        :mod:`quantum_graphs.stats.localization`.
+        """
+        return physical_bond_intensity(eigenspace_intensity(vecs), self.physical_bond_arrivals)
+
+    def localization_measures(self, vecs):
+        """``(S, S_norm, IPR)`` of :meth:`bond_intensities` (IPR = N_b Σ p_b²,
+        N_b = number of physical bonds)."""
+        return localization_measures(self.bond_intensities(vecs))
 
     # -- fingerprint ----------------------------------------------------------
 

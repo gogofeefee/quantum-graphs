@@ -19,6 +19,9 @@ V0_TO_V1 = {"orbits/flower/all_lengths", "orbits/flower/n_all",
 # the eigenspace projector instead of one arbitrary (LAPACK-dependent) basis vector
 V1_TO_V2 = {"closed/single_ring/wf0/intensity", "closed/double_ring/wf0/intensity",
             "closed/double_ring_dispersive/wf0/intensity"}
+# reference_v2 -> reference_v3: entropy / IPR (per physical bond, eigenspace projector)
+# added; no stored quantity changes
+V2_TO_V3_ADDED = 49
 
 
 @pytest.mark.slow
@@ -27,7 +30,7 @@ def test_reference_data_set_is_reproduced(tmp_path):
     env = dict(os.environ, MPLBACKEND="Agg")
     subprocess.run([sys.executable, os.path.join(REF, "generate_reference.py"), str(out)],
                    check=True, env=env, capture_output=True)
-    problems = compare(np.load(os.path.join(REF, "reference_v2.npz")), np.load(out))
+    problems = compare(np.load(os.path.join(REF, "reference_v3.npz")), np.load(out))
     assert not problems, "\n".join(problems)
 
 
@@ -43,3 +46,10 @@ def test_v1_to_v2_differences_are_the_documented_ones():
                        np.load(os.path.join(REF, "reference_v2.npz")))
     changed = {line.split(":")[1].strip() for line in problems}
     assert changed == V1_TO_V2
+
+
+def test_v2_to_v3_differences_are_the_documented_ones():
+    problems = compare(np.load(os.path.join(REF, "reference_v2.npz")),
+                       np.load(os.path.join(REF, "reference_v3.npz")))
+    assert all(line.startswith("EXTRA") and "/loc_" in line for line in problems), problems
+    assert len(problems) == V2_TO_V3_ADDED

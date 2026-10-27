@@ -6,6 +6,9 @@ WavefunctionPlotsMixin — plot_resonance_wavefunction, plot_entropy, plot_ipr.
 For open graphs the "wavefunction" at a complex resonance k is the null-space
 of (I − U_b(k)), where U_b = D(k) Σ_αα(k) is the internal bond-scattering
 evolution operator.  Energy density on bond b is |a_fwd[b]|² + |a_bwd[b]|².
+Entropy and IPR are computed per physical bond (amplitudes arriving at its real
+end vertices), on the projector onto the null-space when it has dimension > 1
+(:mod:`quantum_graphs.stats.localization`).
 
 Helpers
 -------
@@ -20,6 +23,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 
+from ...stats.localization import localization_measures
 from .style import MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W
 
 
@@ -90,7 +94,8 @@ class WavefunctionPlotsMixin:
         Parameters
         ----------
         energy_per_bond : ndarray, shape (N_b,)
-            Raw (unnormalised) energy on each undirected bond.
+            Raw (unnormalised) energy on each bond; pass physical bonds
+            (``bond_intensities``) for virtualisation-independent values.
 
         Returns
         -------
@@ -98,20 +103,15 @@ class WavefunctionPlotsMixin:
         S_norm : float   S / log(N_b)
         I : float        IPR = N_b * Σ p_b²
         """
-        N_b   = len(energy_per_bond)
-        total = float(np.sum(energy_per_bond))
-        if total <= 0:
-            return 0.0, 0.0, float(N_b)
-        p = energy_per_bond / total
-        m = p > 0
-        S      = -np.sum(p[m] * np.log(p[m]))
-        S_norm = S / np.log(N_b) if N_b > 1 else 0.0
-        I      = float(N_b * np.sum(p**2))
-        return S, S_norm, I
+        return localization_measures(energy_per_bond)
 
     def _compute_all_resonance_quantities(self, nullity_tol=1e-3):
         """
         Iterate over self.spectrum and compute per-resonance entropy and IPR.
+
+        Per physical bond; when the null-space has dimension > 1 (degenerate
+        or nearly degenerate resonance, see ``nullity_tol``) the diagonal of
+        its projector is used, not one arbitrary basis vector.
 
         Returns
         -------
@@ -124,7 +124,6 @@ class WavefunctionPlotsMixin:
                 "No complex spectrum available. Run find_resonances() first.")
 
         spectrum = np.asarray(self.spectrum)
-        N_b      = self.n_internal_bonds
 
         k_list = []
         S_list = []
@@ -132,9 +131,7 @@ class WavefunctionPlotsMixin:
 
         for k in spectrum:
             vecs = self._compute_resonance_wavefunction_vectors(k, nullity_tol)
-            a    = vecs[0]
-            rho  = np.abs(a[:N_b])**2 + np.abs(a[N_b:])**2
-            _, S_norm, I = self._compute_bond_entropy_ipr(rho)
+            _, S_norm, I = self.localization_measures(vecs)
             k_list.append(k)
             S_list.append(S_norm)
             I_list.append(I)
@@ -154,7 +151,8 @@ class WavefunctionPlotsMixin:
 
         Computes the null-space of (I − U_b(k)) at the selected resonance.
         One plot per kernel vector (degenerate resonances produce multiple plots).
-        Leads are not shown.
+        Leads are not shown. Each virtualised segment is drawn with its own
+        intensity; S_norm in the title is per physical bond, for that vector.
 
         Parameters
         ----------
@@ -196,7 +194,7 @@ class WavefunctionPlotsMixin:
 
         for mode_idx, a in enumerate(vecs):
             rho          = np.abs(a[:N_b])**2 + np.abs(a[N_b:])**2
-            _, S_norm, _ = self._compute_bond_entropy_ipr(rho)
+            _, S_norm, _ = self.localization_measures(a)
 
             max_e            = np.max(rho) if rho.size else 1.0
             energy_densities = rho / max_e if max_e > 0 else rho
@@ -265,6 +263,8 @@ class WavefunctionPlotsMixin:
         """
         Normalised Shannon entropy S_norm vs Re(k)·L_tot and vs mode index.
 
+        Per physical bond; see ``_compute_all_resonance_quantities``.
+
         Parameters
         ----------
         show_smooth : bool     Overlay a moving-average curve.
@@ -330,6 +330,8 @@ class WavefunctionPlotsMixin:
                  save_fig=False, file_format="pdf", nullity_tol=1e-3):
         """
         Inverse participation ratio I = N_b · Σ p_b² vs Re(k)·L_tot and mode index.
+
+        Per physical bond (N_b = number of internal bonds of ``port_map``).
 
         Parameters
         ----------

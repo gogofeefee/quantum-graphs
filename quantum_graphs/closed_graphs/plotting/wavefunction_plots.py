@@ -4,7 +4,9 @@
 WavefunctionPlotsMixin — plot_wavefunction, plot_entropy, plot_ipr.
 
 ``plot_entropy`` and ``plot_ipr`` share the per-mode loop in
-``_compute_mode_quantities``.
+``_compute_mode_quantities``. Entropy and IPR are computed per physical bond,
+on the eigenspace projector for degenerate levels
+(:mod:`quantum_graphs.stats.localization`).
 """
 
 from ...core.config import log, show_figure
@@ -54,6 +56,9 @@ class WavefunctionPlotsMixin:
         """
         Iterate over the spectrum and compute per-mode Shannon entropy and IPR.
 
+        Per physical bond; a degenerate level counts once, through the
+        diagonal of its eigenspace projector.
+
         Parameters
         ----------
         wavelength_range : (float, float) or None
@@ -82,7 +87,6 @@ class WavefunctionPlotsMixin:
             raise ValueError("No modes in requested wavelength range.")
 
         L_tot  = float(self.total_length)
-        N_b    = int(self.n_internal_bonds)
 
         S_norm_list  = []
         I_list       = []
@@ -94,29 +98,9 @@ class WavefunctionPlotsMixin:
             if coeffs_set is None or coeffs_set.size == 0:
                 continue
 
-            a = coeffs_set[0] if coeffs_set.ndim > 1 else coeffs_set
-            a = np.asarray(a).ravel()
-
-            if a.size != 2 * N_b:
-                log(f"⚠ Skipping k={k:.6f}: unexpected coeff length {a.size}.")
+            _, S_norm, I = self.localization_measures(coeffs_set)
+            if not np.isfinite(I):
                 continue
-
-            rho_pos = np.abs(a[:N_b])**2
-            rho_neg = np.abs(a[N_b:])**2
-            rho     = rho_pos + rho_neg
-            total   = float(np.sum(rho))
-            if total <= 0:
-                continue
-
-            p = rho / total
-
-            # Shannon entropy
-            m = p > 0
-            S = -np.sum(p[m] * np.log(p[m]))
-            S_norm = S / np.log(N_b) if N_b > 1 else 0.0
-
-            # IPR
-            I = float(N_b * np.sum(p**2))
 
             S_norm_list.append(S_norm)
             I_list.append(I)
@@ -139,6 +123,9 @@ class WavefunctionPlotsMixin:
     def plot_wavefunction(self, a_in, k, cmap=None, save_fig=False, file_format="pdf"):
         """
         Plot energy density on the closed graph for one or more eigenvectors.
+
+        Each virtualised segment is drawn with its own |a+|² + |a-|²; S and
+        S_norm in the title are per physical bond, for that vector.
 
         Parameters
         ----------
@@ -179,15 +166,7 @@ class WavefunctionPlotsMixin:
             rho_neg  = np.abs(coeffs[self.n_internal_bonds:])**2
             energy_raw = rho_pos + rho_neg
 
-            total_energy = np.sum(energy_raw)
-            if total_energy > 0:
-                p     = energy_raw / total_energy
-                m     = p > 0
-                S     = -np.sum(p[m] * np.log(p[m]))
-                N_b   = energy_raw.size
-                S_norm = S / np.log(N_b) if N_b > 1 else 0.0
-            else:
-                S = S_norm = 0.0
+            S, S_norm, _ = self.localization_measures(coeffs)
 
             max_energy = np.max(energy_raw) if energy_raw.size else 0.0
             energy_densities = energy_raw / max_energy if max_energy > 0 else energy_raw
@@ -253,6 +232,9 @@ class WavefunctionPlotsMixin:
         """
         Normalised Shannon entropy S_norm vs k·L_tot and vs mode index.
 
+        Per physical bond, S_norm = S / ln N_b; a degenerate level counts once
+        (eigenspace projector). See :mod:`quantum_graphs.stats.localization`.
+
         Parameters
         ----------
         wavelength_range : (float, float) or None
@@ -316,6 +298,9 @@ class WavefunctionPlotsMixin:
                  smooth_window=20, save_fig=False, file_format="pdf"):
         """
         Inverse participation ratio I = N_b · Σ p_b² vs k·L_tot and vs mode index.
+
+        Per physical bond (N_b = number of bonds of ``port_map``); a degenerate
+        level counts once (eigenspace projector).
 
         Parameters
         ----------

@@ -26,7 +26,8 @@ quantum_graphs/
   classical_graphs/    CoreMixin(GraphBase) + DynamicsMixin + plotting / animation mixins
   periodic_orbits/     PeriodicOrbits(GraphBase): transition rule, DFS enumeration, plots
   stats/               spectral.py (pure functions: weyl_staircase, unfold, number_variance,
-                       spectral_rigidity), rmt.py (nnsd, tabulated and exact RMT curves, data/)
+                       spectral_rigidity), rmt.py (nnsd, tabulated and exact RMT curves, data/),
+                       localization.py (bond intensities, entropy, IPR)
   plotting/style.py    shared figure style and axis helpers
   layouts.py           reference geometries; remove_access_coupler
   dispersion.py        load_mpb_indices / plot_mpb_indices_vs_k / apply_index_scaling
@@ -75,9 +76,9 @@ specific to their point of view.
 * `pytest` — fast suite (~30 s): analytic cases, physical invariants,
   validation errors, cache behaviour, plotting smoke tests.
 * `pytest -m slow` — GOE ensemble validation of the Δ₃ estimators and
-  non-regression: `tests/reference/generate_reference.py` recomputes 196
+  non-regression: `tests/reference/generate_reference.py` recomputes 245
   quantities on nine reference graphs and `compare_reference.py` compares them
-  with `reference_v2.npz` using per-quantity tolerances.
+  with `reference_v3.npz` using per-quantity tolerances.
 * Only basis- and platform-independent quantities are compared: eigenvectors
   of degenerate levels through the diagonal of the eigenspace projector,
   eigenvalue lists through their power sums Σλⁿ (a defective eigenvalue, such
@@ -87,7 +88,9 @@ specific to their point of view.
   `test_v0_to_v1_differences_are_the_documented_ones` pins the only
   intentional change (orbits recovered by the orbit-enumeration fix) and
   `test_v1_to_v2_differences_are_the_documented_ones` the change of stored
-  quantity for degenerate eigenvectors. When a change of results is intended,
+  quantity for degenerate eigenvectors; reference_v3 only adds the entropy
+  and IPR (`test_v2_to_v3_differences_are_the_documented_ones`). When a
+  change of results is intended,
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 

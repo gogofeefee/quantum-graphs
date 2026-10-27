@@ -21,8 +21,8 @@ changed, to keep published results reproducible).
   exp(−Im(k) n L).
 * Virtual vertices (pass-through σ = [[0,1],[1,0]]) split self-loops (4
   segments) and multiple bonds (2 segments); they never change the physics.
-  Quantities resolved per bond (entropy, IPR, energy distribution) are,
-  however, computed on the virtualised half-bonds (§5).
+  Entropy and IPR are computed on the physical bonds, independently of them
+  (§5); figures colour each virtualised segment separately.
 
 ## 2. Closed spectrum
 
@@ -93,20 +93,47 @@ refines each strict local minimum by bounded Brent minimisation.
 * The closed form used for Δ₃ in one window equals the least-squares
   definition to numerical precision (tested).
 
-## 5. Wavefunction measures **[open — decided, not yet implemented]**
+## 5. Wavefunction measures
 
-Decision (author, 2026-10-24): entropy and IPR should be computed per
-**physical** bond (independent of the virtualisation); to be implemented.
+Decided by the author (2026-10-24, plan validated 2026-10-26), implemented in
+`quantum_graphs.stats.localization` (reference_v3). Before, the measures were
+computed on the virtualised half-bonds, from one arbitrary eigenvector.
 
-
-* Entropy and IPR use p_b ∝ |a_{b,fwd}|² + |a_{b,bwd}|² per **virtualised**
-  bond, i.e. intensity, not energy (which would be ∝ L_b × intensity), and
-  each half of a split bond counts separately (normalisation ln N_b with the
-  virtual count). For the flower graph every physical bond is split, so
+* **Physical bonds.** The distribution is p_b = I_b / Σ I_b over the N_b
+  bonds of `port_map` (not the virtualised segments), with
+  I_b = |a_{u→v}|² + |a_{v→u}|², the two amplitudes arriving at the *real*
+  end vertices of bond b = (u, v) (`physical_bond_arrivals`): exactly what
+  the bond would carry if it had not been split, whatever the virtual
+  vertices. At real k (closed graphs) all segments of a bond carry this same
+  intensity; at complex k (resonances, lossy driven fields) the segments
+  differ by the attenuation along the bond and the arrival convention keeps
+  the result independent of where the bond is split (tested).
+* I_b is an **intensity**, not an energy (which would be ∝ L_b I_b), as in
+  the THG measurement, where p_b is the mean intensity on each branch.
+* S_norm = −Σ p_b ln p_b / ln N_b ∈ [0, 1]; IPR = N_b Σ p_b² ∈ [1, N_b]
+  (1 when uniform). The unnormalised Σ p_b² ∈ [1/N_b, 1], often quoted in
+  the literature, is IPR / N_b. S_norm is undefined (NaN) for one bond.
+* **Degenerate levels** (multiplicity g): the eigenvectors returned by the
+  SVD are an arbitrary, LAPACK-dependent basis of the eigenspace. The
+  intensity is the diagonal of the eigenspace projector divided by g,
+  (1/g) Σ_m |a_b^(m)|², i.e. the maximally mixed state of the level; it is
+  basis-independent and equals |a_b|² for g = 1. Each level counts once in
+  `plot_entropy` / `plot_ipr`. **Caveat:** the entropy is concave, so the
+  entropy of this average is ≥ the average entropy of any basis: degenerate
+  levels look at least as delocalised as any choice of eigenvectors would
+  make them. Alternatives (a symmetry-adapted basis, excluding degenerate
+  levels) were discussed and not retained. For directional-coupler graphs
+  whose levels are doubly degenerate (two counter-propagating sectors),
+  the intensity per bond is the same for every vector of the eigenspace, so
+  the choice does not matter there.
+* Open graphs: the null space of I − U_b(k) at a resonance uses a relative
+  threshold (`nullity_tol` = 1e-3); a nearly degenerate pair of resonances
+  is then treated as one degenerate level.
+* Change of values (paper BTG, tl = 85 µm, closed model, 110 levels in
+  1520–1540 nm): S_norm 0.892 ± 0.036 on the 14 half-bonds →
+  0.888 ± 0.037 on the 10 physical bonds; IPR 1.55 → 1.52. For a graph
+  whose bonds are all split in two (closed flower graph),
   S(half-bonds) = S(physical) + ln 2 exactly.
-* For a degenerate level the eigenvectors form an arbitrary orthonormal basis
-  of the eigenspace (from the SVD): entropy, IPR and plots of `vecs[0]` then
-  depend on that arbitrary choice.
 * Before 2026-10-24 `compute_wavefunction` returned the complex conjugate of
   the eigenvector; |a|² (all figures, entropy, IPR) was unaffected.
 

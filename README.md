@@ -151,6 +151,12 @@ the field on bond (u, v) is
 
     ψ(x) = a_{u→v} exp(i k n_eff (x − L)) + a_{v→u} exp(−i k n_eff x)
 
+`plot_entropy` / `plot_ipr` (and `graph.localization_measures(a)`) measure the
+localisation of a mode on the **physical** bonds of `port_map`, with
+p_b ∝ |a_{u→v}|² + |a_{v→u}|²: S_norm = −Σ p_b ln p_b / ln N_b and
+IPR = N_b Σ p_b² (1 when uniform). A degenerate level counts once, through the
+projector onto its eigenspace.
+
 **Open graphs.** Ports with `port_map[i][p] = None` are external leads, and
 
     S(k) = Σ_ββ + Σ_βα (I − D Σ_αα)⁻¹ D Σ_αβ

@@ -107,6 +107,13 @@ def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
         # also for degenerate levels (reference_v1 stored |a[0]|^2 only)
         store(f"{prefix}/wf{i}", intensity=np.sum(np.abs(a) ** 2, axis=0), labels=labels,
               residual=resid, nmodes=a.shape[0])
+        if hasattr(graph, "localization_measures"):        # reference_v3 and later
+            S, S_norm, ipr = graph.localization_measures(a)
+            store(f"{prefix}/wf{i}", loc_entropy=S, loc_S_norm=S_norm, loc_ipr=ipr)
+    if hasattr(graph, "localization_measures"):
+        # entropy / IPR of every level (per physical bond, eigenspace projector)
+        _, _, S_norm, ipr = graph._compute_mode_quantities()
+        store(prefix, loc_S_norm_levels=S_norm, loc_ipr_levels=ipr)
     if stats and spectrum.size > 20:
         unfolded = graph._compute_unfolded_spectrum(spectrum)
         Ls, s2 = graph._compute_sigma2(np.sort(unfolded), 0.25, 5.0)
@@ -162,6 +169,9 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
         vecs = graph._compute_resonance_wavefunction_vectors(spectrum[0], 1e-3)
         U = graph._U(spectrum[0])
         store(prefix, res_wf_residual=np.linalg.norm(vecs[0] - U @ vecs[0]))
+        if hasattr(graph, "localization_measures"):        # reference_v3 and later
+            _, S_norm, ipr = graph._compute_all_resonance_quantities(1e-3)
+            store(prefix, loc_S_norm_resonances=S_norm, loc_ipr_resonances=ipr)
     if exp_kw is not None:
         exp = graph.find_experimental_resonances(**exp_kw, plot_figures=False, save=False,
                                                  verbose=False)

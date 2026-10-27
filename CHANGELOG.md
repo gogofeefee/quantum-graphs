@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Changed (changes results)
+- **Entropy and IPR** (`plot_entropy`, `plot_ipr`, wavefunction titles,
+  `plot_energy_distribution`, closed and open graphs) are computed per
+  **physical** bond (the bonds of `port_map`) instead of per virtualised
+  half-bond: a self-loop or multiple bond counts once, with the amplitudes
+  arriving at its real end vertices, and N_b is the number of physical bonds.
+  For a degenerate level (or a resonance whose null space has dimension > 1)
+  the diagonal of the eigenspace projector is used instead of one arbitrary,
+  LAPACK-dependent eigenvector, and each level counts once. Paper BTG
+  (tl = 85 µm, 1520–1540 nm): ⟨S_norm⟩ 0.892 → 0.888, ⟨IPR⟩ 1.55 → 1.52;
+  graphs without self-loops or multiple bonds are unchanged. See
+  docs/scientific_notes.md §5. S_norm is NaN (was 0) for a single bond.
+
+### Added
+- `stats.localization` (`eigenspace_intensity`, `physical_bond_intensity`,
+  `localization_measures`), `graph.bond_intensities(vecs)`,
+  `graph.localization_measures(vecs)`, topology attribute
+  `physical_bond_arrivals`.
+
 ### Tests
 - The non-regression data set failed on GitHub Actions (OpenBLAS) although
   it passed locally: it compared quantities that are not uniquely defined.
@@ -11,6 +30,8 @@
   of after sorting (the defective zero eigenvalue of the classical
   Perron-Frobenius operators splits differently with each LAPACK). No change
   of computed results.
+- `reference_v3.npz` adds the entropy and IPR of the reference levels and
+  resonances (49 arrays); no stored quantity changes.
 
 ## 1.0.0.dev0 (2026-10-24)
 
