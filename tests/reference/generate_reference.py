@@ -13,8 +13,9 @@ two such files with physically meaningful tolerances.
 ``reference_v0.npz`` was produced with the code of commit 83ca561 (the state
 published before the 2026-10 refactor), ``reference_v1``-``v3`` with the v1 API
 (``port_map`` + virtual vertices, tag v1.0.0), ``reference_v4`` with
-the bond-list API (no virtual vertices), ``reference_v5`` and later with the
-sector analysis (statistics on the desymmetrised spectrum).
+the bond-list API (no virtual vertices), ``reference_v5`` with the sector
+analysis (statistics on the desymmetrised spectrum), ``reference_v6`` and later
+with the bounded resonance refinement and the argument-principle count.
 
 Only quantities that do not depend on internal ordering conventions are
 stored as raw arrays (spectra, S-matrix entries, eigenvalues, sorted bond
@@ -166,6 +167,9 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
     store(prefix, S=S, n_leads=graph.n_leads)
     spectrum, deg = graph.find_resonances(**resonances_kw, plot=False, verbose=False)
     store(prefix, resonances=spectrum, degeneracies=deg)
+    if hasattr(graph, "count_resonances"):                 # reference_v6 and later
+        count = graph.count_resonances(resonances_kw["im_min"], resonances_kw["im_max"])
+        store(prefix, resonance_count=count.total)
     sectors(prefix, graph)
     if spectrum.size:
         vecs = graph.resonance_vectors(0)
@@ -183,7 +187,7 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
 
 def run_open():
     k_probe = [4.0 - 1e-5j, 4.05 + 0.0j, 4.1003 - 3e-6j]
-    res_small = dict(N_re=40_000, N_im=8, im_min=-1e-4, im_max=0.0)
+    res_small = dict(N_re=40_000, N_im=8, im_min=-3e-4, im_max=0.0)
 
     g = OpenDG(**G.RING_1ACCESS, couplings=0.5,
                access_couplings=0.3, neff=2.41, wavelength_range=(1.54, 1.56),

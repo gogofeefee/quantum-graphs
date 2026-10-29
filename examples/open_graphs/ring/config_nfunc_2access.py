@@ -207,7 +207,7 @@ if True:
     spectrum, degeneracies = graph.find_resonances(
         N_re = 1_000_000,
         N_im = 25,
-        im_min = -1e-4,
+        im_min = -4e-4,     # two couplers: the poles lie at Im k ≈ −2.4e-4
         im_max =  0.0,
         peak_prominence = 0.0,
         neighbor_rows   = 1,

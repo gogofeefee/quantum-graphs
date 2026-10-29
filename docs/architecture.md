@@ -15,8 +15,11 @@ quantum_graphs/
     vertices.py        directional_coupler_matrix, neumann_matrix, PASS_THROUGH,
                        couplings_for_vertices, shape / unitarity validation
     scattering.py      ScatteringModel: D(k), Σ blocks (constant ones cached), U(k),
-                       batched sigma_min_many / S_many (threaded), internal_amplitudes,
-                       model.sector(directed) (U restricted to a sector), NULLITY_TOL
+                       batched sigma_min_many / log_det_many / S_many (threaded),
+                       internal_amplitudes, model.sector(directed) (U restricted to a
+                       sector), NULLITY_TOL
+    argument_principle.py  count_zeros -> ZeroCount: zeros of det(I − U) in a rectangle
+                       of the complex k-plane and its sub-rectangles (adaptive contour)
     sectors.py         find_sectors: strongly connected components of the pattern of Σ,
                        reversed partners, expected ensemble (graph.sectors)
     spectral_stats.py  SpectralStatsMixin (closed and open): selected levels, Weyl law
@@ -94,9 +97,9 @@ specific to their point of view.
 * `pytest` — fast suite (~30 s): analytic cases, physical invariants,
   validation errors, cache behaviour, plotting smoke tests.
 * `pytest -m slow` — GOE ensemble validation of the Δ₃ estimators and
-  non-regression: `tests/reference/generate_reference.py` recomputes 245
+  non-regression: `tests/reference/generate_reference.py` recomputes 271
   quantities on nine reference graphs and `compare_reference.py` compares them
-  with `reference_v5.npz` using per-quantity tolerances.
+  with `reference_v6.npz` using per-quantity tolerances.
 * Only basis- and platform-independent quantities are compared: eigenvectors
   of degenerate levels through the diagonal of the eigenspace projector,
   eigenvalue lists through their power sums Σλⁿ (a defective eigenvalue, such
@@ -109,7 +112,9 @@ specific to their point of view.
   quantity for degenerate eigenvectors; reference_v3 only adds the entropy
   and IPR (`test_v2_to_v3_differences_are_the_documented_ones`), reference_v4
   the bond lists without virtual vertices, reference_v5 the sector structure
-  (`test_v4_to_v5_...`, nothing else changed). When a change of results is intended,
+  (`test_v4_to_v5_...`, nothing else changed), reference_v6 the bounded
+  resonance refinement (the two ring resonance sets, which v5 got wrong) and
+  the argument-principle counts (`test_v5_to_v6_...`). When a change of results is intended,
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 

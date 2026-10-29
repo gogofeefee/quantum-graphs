@@ -131,6 +131,43 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
 - Entropy / IPR per level of the closed bow tie differ by ≤ 4e-6 (eigenvectors
   at roots refined to ~1e-9, now from a smaller matrix).
 
+### Fixed (resonance search, changes results)
+- **`find_resonances` returns only the resonances inside its rectangle.** The
+  Nelder-Mead stage of the refinement was unbounded: roots below im_min were
+  returned (flower graph, 1.48–1.64 µm, im_min = −1e-4: 9 resonances at
+  Im k down to −1.05e-4), and on the rings of the reference set, whose
+  resonances all lie at Im k = −1.18e-4 / −2.36e-4 < im_min, it ran away to
+  Re k = 3.456 and −0.610 (outside the window) and missed the resonance at
+  Re k = 4.06639. Both stages are now bounded to a box around the candidate
+  (which may cross the edges of the rectangle: a root just outside is found
+  where it is), roots outside the rectangle are left out, and a warning says
+  how many lie just below im_min. Grid minima in the first and last columns
+  are candidates too. reference_v6: the two ring resonance sets (now the
+  analytic poles to 1e-15, searched down to im_min = −3e-4) and the added
+  counts below; nothing else changes (flower and bow tie over 1.48–1.64 µm:
+  every resonance inside the rectangle identical to ≤ 2e-15).
+
+### Added
+- **Completeness certificate for resonances**
+  (`quantum_graphs.core.argument_principle`): `count_zeros(model, ...)` counts
+  the zeros of det(I − U) in a rectangle of the complex k-plane, with
+  multiplicity, by the argument principle on an adaptively sampled contour,
+  in sub-rectangles if `cuts` are given (`ZeroCount`). `find_resonances(...,
+  certify=True)` counts every independent sector in sub-windows of ~20
+  resonances and warns where the count differs from the roots found (missed
+  or merged roots, wrong multiplicity); the counts are stored in
+  `graph.resonance_counts` and in the spectrum cache, and the warnings come
+  back when it is loaded. `graph.count_resonances(im_min, im_max, sector=None,
+  cuts=())` gives the count alone (flower graph over 1.48–1.64 µm: 0.4 s).
+  `ScatteringModel.log_det_many`.
+- **Weyl check for resonances**: a warning when the count in the rectangle
+  falls short of the Weyl law of the sector (all Im k) by more than
+  max(5 %, 3), i.e. when broader resonances lie below im_min (skipped for a
+  non-Weyl sector, det Σ_s = 0).
+- Caches of refined resonance candidates and spectra written before this
+  change are recomputed (parameters `refinement`, `certify`); σ_min grids are
+  reused.
+
 ## 1.0.0 — 2026-10-29
 
 Last version with the v1 API (`port_map` input, virtual vertices, historical

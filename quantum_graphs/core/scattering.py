@@ -16,8 +16,8 @@ Notation (Kottos-Smilansky / Gnutzmann-Smilansky)
 Eigenvector convention: a solution of ``a = U a`` gives, for each directed bond
 u → v, the amplitude of the wave *arriving* at v.
 
-The constant parts of Σ are computed once; ``sigma_min_many`` and ``S_many``
-evaluate many wavenumbers at once with batched LAPACK calls.
+The constant parts of Σ are computed once; ``sigma_min_many``, ``log_det_many``
+and ``S_many`` evaluate many wavenumbers at once with batched LAPACK calls.
 ``model.sector(directed)`` restricts U to one sector (see :mod:`.sectors`).
 
 Multiplicity of a level k*: the number of singular values of I − U(k*) below
@@ -177,6 +177,44 @@ class ScatteringModel:
         out = _map_chunks(work, ks, chunk)
         out[~np.isfinite(out)] = np.inf
         return out
+
+    def log_det_many(self, ks, derivative=False, chunk=2048):
+        """log det(I − U(k)) = log|det| + i arg det (arg in (−π, π]) for an
+        array of (real or complex) k; −inf where det = 0.
+
+        With ``derivative``, returns an array of shape (m, 2) whose second
+        column is d/dk log det(I − U) = −tr((I − U)⁻¹ U'), U' = i n_g L U with
+        n_g = d(k n_eff)/dk at Re k (central differences); the k-dependence of
+        the vertex matrices is neglected (inf where I − U is singular)."""
+        ks = np.atleast_1d(np.asarray(ks, dtype=complex))
+        eye = np.eye(self.n)
+
+        def work(kc):
+            U = self._U_many(kc)
+            sign, logabs = np.linalg.slogdet(eye - U)
+            out = logabs + 1j * np.angle(sign)
+            if not derivative:
+                return out
+            d = np.full(kc.size, np.inf, dtype=complex)
+            ok = sign != 0
+            try:
+                X = np.linalg.solve(eye - U[ok], U[ok])
+                d[ok] = -1j * self._phase_rate(np.real(kc[ok])) * (
+                    np.einsum("mdd,d->m", X, self.lengths))
+            except np.linalg.LinAlgError:
+                pass
+            return np.stack([out, d], axis=-1)
+
+        return _map_chunks(work, ks, chunk)
+
+    def _phase_rate(self, k):
+        """n_g(k) = d(k n_eff)/dk at real k (exact for a constant index)."""
+        k = np.asarray(k, dtype=float)
+        if not callable(self.neff):
+            return np.full(k.shape, float(self.neff))
+        h = 1e-6 * np.maximum(np.abs(k), 1.0)
+        return ((k + h) * index_function(self.neff, k + h)
+                - (k - h) * index_function(self.neff, k - h)) / (2 * h)
 
     def S(self, k):
         return self.S_many(np.atleast_1d(k))[0]

@@ -176,12 +176,16 @@ print(f"  Total                k_imag     = {k_imag:.3e} um^-1\n")
 # ============================================================================
 #  σ_min(I − U(k)) is evaluated on an N_re × N_im grid of the complex k-plane,
 #  local minima are refined, deduplicated and accepted below eps_accept.
+#  Their number in the rectangle is then checked by the argument principle
+#  (a warning names the sub-windows where resonances are missed) and by the
+#  Weyl law (a warning if broader resonances lie below im_min);
+#  graph.count_resonances(im_min, im_max) gives the count alone, in < 1 s.
 
 if True:
     spectrum, degeneracies = graph.find_resonances(
         N_re = 200_000,
         N_im = 15,
-        im_min = -1e-4,
+        im_min = -1.5e-4,   # the broadest resonances reach Im k ≈ −1.05e-4
         im_max =  0.0,
         peak_prominence = 0.0,
         neighbor_rows   = 1,

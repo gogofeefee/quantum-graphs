@@ -78,6 +78,7 @@ if False:
     )
     o = qg.OpenDirectionalGraphs(**open_layout, couplings=0.5, access_couplings=0.3,
                                  **physics, name="my_graph_open")
+    print(o.count_resonances(im_min=-1e-3, im_max=0.0))   # how deep the resonances go (< 1 s)
     resonances, _ = o.find_resonances(N_re=200_000, N_im=15, im_min=-1e-4, im_max=0.0)
     o.plot_S_amplitude(*physics["wavelength_range"], n_points=200_000, components=(1, 0),
                        spectrum=o.best_spectrum, save_fig=True)

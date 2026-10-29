@@ -2,19 +2,61 @@
 # -*- coding: utf-8 -*-
 """
 ResonancesMixin — σ_min grid, candidate detection, refinement, find_resonances.
+
+Algorithm of :meth:`find_resonances`
+------------------------------------
+The search rectangle is R = [k_min, k_max] × [im_min, im_max] (k_min, k_max
+from the wavelength window).
+
+1. σ_min(I − U(k)) on an ``N_im`` × ``N_re`` grid covering R (cached);
+2. candidates: minima of each row (the end columns included) that are not
+   above their neighbours in the adjacent rows;
+3. each candidate is refined by L-BFGS-B, then Nelder-Mead, both bounded to a
+   box of ±``box_re`` × ±``box_im`` grid steps around it; the box may cross
+   the edges of R, so that a resonance just outside is located rather than
+   pinned to the edge;
+4. duplicates are removed and roots with σ_min ≤ ``eps_accept`` accepted;
+   roots outside R (within 1e-6 grid step) are left out, with a warning for
+   those below im_min (the rectangle cuts through the resonances);
+5. sector and multiplicity of each root (see :mod:`quantum_graphs.core.sectors`).
+
+Checks (warnings, repeated when a cached spectrum is loaded)
+------------------------------------------------------------
+* completeness: the number of zeros of det(I − U_s) in R is counted for each
+  independent sector by the argument principle
+  (:mod:`quantum_graphs.core.argument_principle`), in sub-windows of about
+  ``COUNT_WINDOW`` resonances, and compared with the roots found (with
+  multiplicity): a missed root, two merged roots or a wrong multiplicity show
+  as a sub-window where the numbers differ. For im_max ≥ 0 the upper edge of
+  the contour is raised to im_max + (im_max − im_min) / 10, so that real
+  roots (bound states in the continuum) are not on it; a passive graph has no
+  resonance with Im k > 0.
+* Weyl law: an exponential polynomial whose highest term
+  det(Σ_s) Π e^{i k n_eff L_d} does not vanish has (L_s / 2π) ∫ n_g dk zeros
+  per window, all Im k together (up to a bounded number). Fewer roots with
+  Im k ≥ im_min means that broader resonances lie below im_min. If det(Σ_s)
+  = 0 (e.g. a vertex with as many leads as bonds) the count is non-Weyl
+  (smaller) and no check is made.
 """
 
 from ..core.config import show_figure
 from ..core.config import resolve
 import os
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from scipy.signal import find_peaks
 from scipy.optimize import minimize
 
+from ..core.argument_principle import ZeroCount, count_zeros
 from ..core.persistence import use_cache, write_cache_meta
 from ..core.scattering import NULLITY_TOL
+
+#: target number of resonances per sub-window of the completeness check
+COUNT_WINDOW = 20
+#: |det Σ_s| below this value: non-Weyl sector, no Weyl check
+NON_WEYL_TOL = 1e-8
 
 
 class ResonancesMixin:
@@ -132,10 +174,10 @@ class ResonancesMixin:
         g_safe = np.where(np.isfinite(g), g, np.inf)
         row_candidates = []
         for i in range(N_im):
-            row     = g_safe[i]
-            neg_row = -row
+            # padded so that the end columns can be minima
+            neg_row = np.concatenate([[-np.inf], -g_safe[i], [-np.inf]])
             peaks, _ = find_peaks(neg_row, prominence=peak_prominence)
-            for j in peaks:
+            for j in peaks - 1:
                 row_candidates.append((i, j))
         if verbose:
             print(f"[candidates] {len(row_candidates)} per-row minima found.")
@@ -172,34 +214,27 @@ class ResonancesMixin:
     def _refine_one(self, k0: complex, re_vals, im_vals,
                     box_re: int = 3, box_im: int = 3,
                     tol_step: float = 1e-12, maxiter: int = 500) -> tuple:
+        """Minimise σ_min(I − U(k)) from the grid candidate k0 inside the box of
+        ±box_re × ±box_im grid steps around it (L-BFGS-B, then Nelder-Mead,
+        both bounded). The box is not clipped to the grid: a root just outside
+        the search rectangle is found where it is and left out afterwards."""
         x0, y0 = float(np.real(k0)), float(np.imag(k0))
         dx = float(re_vals[1] - re_vals[0]) if re_vals.size >= 2 else 1e-12
         dy = float(abs(im_vals[1] - im_vals[0])) if im_vals.size >= 2 else 1e-12
-        x_lo = max(x0 - box_re * dx, float(re_vals.min()))
-        x_hi = min(x0 + box_re * dx, float(re_vals.max()))
-        y_lo = max(y0 - box_im * dy, float(im_vals.min()))
-        y_hi = min(y0 + box_im * dy, float(im_vals.max()))
-        for lo, hi, center, step in [
-            (x_lo, x_hi, x0, dx), (y_lo, y_hi, y0, dy)
-        ]:
-            if hi <= lo:
-                eps = max(step * 1e-4, 1e-15)
-                x_lo, x_hi = (center - eps, center + eps) if lo == x_lo else (x_lo, x_hi)
-                y_lo, y_hi = (center - eps, center + eps) if lo == y_lo else (y_lo, y_hi)
+        bounds = [(x0 - box_re * dx, x0 + box_re * dx), (y0 - box_im * dy, y0 + box_im * dy)]
 
         def obj(xy):
             return self.sigma_min(float(xy[0]) + 1j * float(xy[1]))
 
         res = minimize(
-            obj, x0=np.array([x0, y0]), method="L-BFGS-B",
-            bounds=[(x_lo, x_hi), (y_lo, y_hi)],
+            obj, x0=np.array([x0, y0]), method="L-BFGS-B", bounds=bounds,
             options={"ftol": 1e-15, "gtol": tol_step,
                      "maxiter": maxiter, "maxfun": maxiter * 10},
         )
         k_star = complex(float(res.x[0]), float(res.x[1]))
         g_star = float(res.fun)
         res2 = minimize(
-            obj, x0=res.x, method="Nelder-Mead",
+            obj, x0=res.x, method="Nelder-Mead", bounds=bounds,
             options={"xatol": tol_step * 0.1, "fatol": 1e-15,
                      "maxiter": maxiter, "adaptive": True},
         )
@@ -230,7 +265,7 @@ class ResonancesMixin:
                     kept[j] = False
         return k_arr[kept], g_arr[kept]
 
-    # ── Public method ─────────────────────────────────────────────────────────
+    # ── Public methods ────────────────────────────────────────────────────────
 
     def find_resonances(self,
                         N_re: int         = 500_000,
@@ -245,6 +280,7 @@ class ResonancesMixin:
                         maxiter: int      = 500,
                         eps_accept: float  = 1e-4,
                         nullity_tol: float = NULLITY_TOL,
+                        certify: bool      = True,
                         grid_dtype: str        = "float32",
                         overwrite_grid: bool     = False,
                         overwrite_refined: bool  = False,
@@ -252,20 +288,28 @@ class ResonancesMixin:
                         plot: bool    = False,
                         verbose: bool = None):
         """
-        Find the complex resonances of the open quantum graph via the σ_min method.
+        Find the complex resonances of the open quantum graph in the rectangle
+        [k_min, k_max] × [im_min, im_max] via the σ_min method (see the module
+        docstring for the algorithm and the checks).
 
         Each accepted resonance k* is assigned to the independent sector s
         (see :mod:`quantum_graphs.core.sectors`) where σ_min(I − U_s(k*)) is
         smallest; its multiplicity is Σ_s (sectors sharing the spectrum of s)
         × (singular values of I − U_s(k*) at or below ``nullity_tol``).
 
+        ``certify`` counts the resonances of every independent sector in the
+        rectangle by the argument principle and warns where the count differs
+        from the roots found (:meth:`count_resonances`).
+
         Returns
         -------
         spectrum      : np.ndarray, complex128, shape (N,)
         degeneracies  : np.ndarray, int, shape (N,)
 
-        Also sets ``self.spectrum``, ``self.degeneracies`` and
-        ``self.level_sectors``.
+        Also sets ``self.spectrum``, ``self.degeneracies``,
+        ``self.level_sectors`` and ``self.resonance_counts`` ({independent
+        sector: :class:`~quantum_graphs.core.argument_principle.ZeroCount`},
+        empty if ``certify`` is False).
         """
         verbose = resolve("verbose", verbose)
         os.makedirs(self.save_path, exist_ok=True)
@@ -282,9 +326,10 @@ class ResonancesMixin:
         raw_params = dict(N_re=N_re, N_im=N_im, im_min=im_min, im_max=im_max,
                           wavelength_range=list(self.wavelength_range),
                           peak_prominence=peak_prominence, neighbor_rows=neighbor_rows,
-                          box_re=box_re, box_im=box_im, tol_step=tol_step, maxiter=maxiter)
+                          box_re=box_re, box_im=box_im, tol_step=tol_step, maxiter=maxiter,
+                          refinement="bounded box")
         spec_params = dict(raw_params, eps_accept=eps_accept, nullity_tol=nullity_tol,
-                           method="sectors")
+                           method="sectors", certify=certify)
 
         # ── 0. Early-load from final spectrum ─────────────────────────────────
         if use_cache(spec_path, self.fingerprint, spec_params,
@@ -300,6 +345,9 @@ class ResonancesMixin:
             else:                               # written before the sector analysis
                 level_sectors, degeneracies = self._classify_levels(spectrum, nullity_tol)
                 self._set_levels(spectrum, degeneracies, level_sectors)
+            left_out = npz["left_out"] if "left_out" in npz.files else np.array([], complex)
+            self.resonance_counts = self._load_counts(npz)
+            self._check_resonances(im_min, left_out, verbose=False)
             if verbose:
                 print(f"[spectrum] {self.spectrum.size} resonances loaded, "
                       f"total multiplicity = {self.degeneracies.sum()}.")
@@ -338,16 +386,10 @@ class ResonancesMixin:
                 mem, re_vals, im_vals,
                 peak_prominence=peak_prominence, neighbor_rows=neighbor_rows, verbose=verbose,
             )
-            if k0_list.size == 0:
-                if verbose:
-                    print("[refine] No candidates found. Returning empty spectrum.")
-                self._set_levels(np.array([], dtype=np.complex128), [], [])
-                return self.spectrum, self.degeneracies
-
-            if verbose:
-                print(f"[refine] Refining {k0_list.size} candidates ...")
             k_all = np.empty(k0_list.size, dtype=np.complex128)
             g_all = np.empty(k0_list.size, dtype=np.float64)
+            if verbose and k0_list.size:
+                print(f"[refine] Refining {k0_list.size} candidates ...")
             for idx, k0 in enumerate(k0_list):
                 k_star, g_star, _ = self._refine_one(
                     k0, re_vals, im_vals,
@@ -360,7 +402,7 @@ class ResonancesMixin:
                     print(f"\r[refine]  {idx+1}/{k0_list.size}  "
                           f"k*={np.real(k_star):.6f}{np.imag(k_star):+.3e}i  "
                           f"g={g_star:.2e}", end="", flush=True)
-            if verbose:
+            if verbose and k0_list.size:
                 print()
             np.savez(raw_path, k_refined=k_all, g_refined=g_all,
                      re_vals=re_vals, im_vals=im_vals)
@@ -375,31 +417,38 @@ class ResonancesMixin:
         if verbose:
             print(f"[filter] {k_all.size} candidates after deduplication.")
 
-        # ── 4. Accept by eps_accept ───────────────────────────────────────────
-        mask     = g_all <= eps_accept
-        spectrum = k_all[mask]
+        # ── 4. Accept by eps_accept, keep the rectangle ───────────────────────
+        roots = k_all[g_all <= eps_accept]
+        re_in = ((np.real(roots) >= k_min - 1e-6 * dx) & (np.real(roots) <= k_max + 1e-6 * dx))
+        im_in = ((np.imag(roots) >= im_min - 1e-6 * dy) & (np.imag(roots) <= im_max + 1e-6 * dy))
+        left_out = np.sort_complex(roots[re_in & (np.imag(roots) < im_min - 1e-6 * dy)])
+        spectrum = roots[re_in & im_in]
         if verbose:
-            print(f"[filter] {spectrum.size} resonances accepted (σ_min ≤ {eps_accept:.1e}).")
-        if spectrum.size == 0:
-            if verbose:
-                print("[filter] No resonances accepted. Returning empty spectrum.")
-            self._set_levels(np.array([], dtype=np.complex128), [], [])
-            return self.spectrum, self.degeneracies
+            print(f"[filter] {spectrum.size} resonances accepted in the rectangle "
+                  f"(σ_min ≤ {eps_accept:.1e}).")
 
         # ── 5. Sort ───────────────────────────────────────────────────────────
-        order    = np.argsort(np.real(spectrum))
-        spectrum = spectrum[order]
+        spectrum = spectrum[np.argsort(np.real(spectrum))]
 
         # ── 6. Sectors and multiplicities ─────────────────────────────────────
-        if verbose:
+        if verbose and spectrum.size:
             print("[degen] Computing multiplicities ...")
         level_sectors, degeneracies = self._classify_levels(spectrum, nullity_tol)
         self._set_levels(spectrum, degeneracies, level_sectors)
 
-        # ── 7. Save ───────────────────────────────────────────────────────────
+        # ── 7. Completeness (argument principle) ──────────────────────────────
+        self.resonance_counts = {}
+        if certify:
+            if verbose:
+                print("[count] Counting the resonances by the argument principle ...")
+            self.resonance_counts = self._count_for_check(im_min, im_max)
+        self._check_resonances(im_min, left_out, verbose=verbose)
+
+        # ── 8. Save ───────────────────────────────────────────────────────────
         if not use_cache(spec_path, self.fingerprint, spec_params, overwrite_spectrum):
             np.savez(spec_path, spectrum=spectrum, degeneracies=degeneracies,
-                     level_sectors=level_sectors)
+                     level_sectors=level_sectors, left_out=left_out,
+                     **self._counts_arrays())
             write_cache_meta(spec_path, self.fingerprint, spec_params)
             if verbose:
                 print(f"[spectrum] Final spectrum saved to: {spec_path}")
@@ -407,7 +456,7 @@ class ResonancesMixin:
             if verbose:
                 print(f"[spectrum] Spectrum file exists, not overwriting: {spec_path}")
 
-        # ── 8. Plot ───────────────────────────────────────────────────────────
+        # ── 9. Plot ───────────────────────────────────────────────────────────
         if plot:
             self.plot_resonances_sigma(
                 N_re=N_re, N_im=N_im,
@@ -422,7 +471,159 @@ class ResonancesMixin:
             print(f"[done] {spectrum.size} resonances found, "
                   f"total multiplicity = {degeneracies.sum()}.")
 
-        return spectrum, degeneracies
+        return self.spectrum, self.degeneracies
+
+    def count_resonances(self, im_min: float = -1e-4, im_max: float = 0.0,
+                         sector=None, cuts=()):
+        """Number of resonances, with multiplicity, in the rectangle
+        [k_min, k_max] × [im_min, im_max] (argument principle, see
+        :mod:`quantum_graphs.core.argument_principle`), and in its
+        sub-rectangles between the vertical lines Re k = ``cuts``.
+
+        ``sector=None`` counts the zeros of det(I − U) (every sector, partners
+        included), ``sector=i`` those of det(I − U_i). For im_max ≥ 0 the
+        upper edge is raised to im_max + (im_max − im_min) / 10, so that real
+        roots are not on the contour. Fast (~0.4 s for the flower graph over
+        1.48–1.64 µm), it also tells how deep im_min must go: the Weyl count
+        :meth:`weyl_count` gives all the resonances, all Im k together.
+
+        Returns a :class:`~quantum_graphs.core.argument_principle.ZeroCount`.
+        """
+        k_min, k_max = self._k_range()
+        model = (self.model if sector is None
+                 else self.model.sector(self.sectors[int(sector)].directed))
+        return count_zeros(model, k_min, k_max, im_min, self._upper_edge(im_min, im_max), cuts)
+
+    # ── Checks ────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _upper_edge(im_min, im_max):
+        """Upper edge of the counting contour (raised above the real axis)."""
+        return im_max if im_max < 0 else im_max + 0.1 * (im_max - im_min)
+
+    def _found_per_sector(self, edges):
+        """{independent sector: roots found (with multiplicity in the sector)
+        in each sub-window [edges[j], edges[j+1]]}."""
+        found = {}
+        re = np.real(self.spectrum)
+        for sec in self.sectors.independent:
+            mine = self.level_sectors == sec.index
+            weight = self.degeneracies[mine] // self.sectors.multiplicity(sec.index)
+            j = np.clip(np.searchsorted(edges, re[mine], side="right") - 1, 0, edges.size - 2)
+            found[sec.index] = np.bincount(j, weights=weight, minlength=edges.size - 1).astype(int)
+        return found
+
+    def _count_cuts(self):
+        """Re k of the cuts between the sub-windows of the completeness check:
+        every COUNT_WINDOW resonances of the Weyl law, moved to the middle of
+        the gap between the two found roots around it."""
+        k_min, k_max = self._k_range()
+        k = np.linspace(k_min, k_max, 4097)
+        N = self.weyl_staircase(k, k0=k_min)
+        targets = np.interp(np.arange(COUNT_WINDOW, N[-1] - COUNT_WINDOW / 2, COUNT_WINDOW), N, k)
+        re = np.sort(np.real(self.spectrum))
+        i = np.searchsorted(re, targets)
+        inner = (i > 0) & (i < re.size)
+        targets[inner] = 0.5 * (re[i[inner] - 1] + re[i[inner]])
+        return np.unique(targets)
+
+    def _count_for_check(self, im_min, im_max):
+        """Argument-principle counts per independent sector, in the
+        sub-windows of :meth:`_count_cuts`."""
+        cuts = self._count_cuts()
+        counts = {}
+        for sec in self.sectors.independent:
+            try:
+                counts[sec.index] = self.count_resonances(im_min, im_max, sector=sec.index,
+                                                          cuts=cuts)
+            except RuntimeError as err:
+                warnings.warn(f"Resonance count of sector {sec.index} failed ({err}); the "
+                              "completeness of the search is not checked.",
+                              RuntimeWarning, stacklevel=3)
+        return counts
+
+    def _counts_arrays(self):
+        """The resonance counts as arrays for the spectrum cache."""
+        c = self.resonance_counts
+        if not c:
+            return {}
+        first = next(iter(c.values()))
+        return dict(count_sectors=np.array(list(c), dtype=int),
+                    count_edges=first.edges,
+                    count_im=np.array([first.im_min, first.im_max]),
+                    count_winding=np.array([z.winding for z in c.values()]),
+                    count_samples=np.array([z.n_samples for z in c.values()]))
+
+    @staticmethod
+    def _load_counts(npz):
+        if "count_sectors" not in npz.files:
+            return {}
+        im_lo, im_hi = (float(x) for x in npz["count_im"])
+        return {int(s): ZeroCount(edges=npz["count_edges"], im_min=im_lo, im_max=im_hi,
+                                  winding=w, n_samples=int(n))
+                for s, w, n in zip(npz["count_sectors"], npz["count_winding"],
+                                   npz["count_samples"])}
+
+    def _check_resonances(self, im_min, left_out, verbose=False):
+        """Warn about roots below im_min, counts that differ from the roots
+        found, and a Weyl law the roots fall short of (module docstring)."""
+        if left_out.size:
+            warnings.warn(
+                f"{left_out.size} resonance(s) lie just below the search rectangle "
+                f"(Im k down to {np.imag(left_out).min():.4e} < im_min = {im_min:.4e}) and are "
+                "left out: the rectangle cuts through the resonances; lower im_min to include "
+                "them.", RuntimeWarning, stacklevel=3)
+
+        for s, zc in self.resonance_counts.items():
+            found = self._found_per_sector(zc.edges)[s]
+            bad = np.flatnonzero(found != zc.counts)
+            if verbose:
+                print(f"[count] sector {s}: {zc.total} resonances in the rectangle "
+                      f"(argument principle), {found.sum()} found.")
+            if zc.defect > 0.1:
+                warnings.warn(f"Resonance count of sector {s}: winding numbers {zc.defect:.2f} "
+                              "away from integers (contour not resolved).",
+                              RuntimeWarning, stacklevel=3)
+            if bad.size:
+                lam = 2 * np.pi / zc.edges
+                where = "; ".join(
+                    f"λ ∈ [{lam[j + 1]:.6f}, {lam[j]:.6f}] µm: {zc.counts[j]} counted, "
+                    f"{found[j]} found" for j in bad[:5])
+                warnings.warn(
+                    f"find_resonances found {found.sum()} resonances (with multiplicity) in "
+                    f"sector {s} where the argument principle counts {zc.total} in the "
+                    f"rectangle; {bad.size} sub-window(s) differ ({where}"
+                    f"{'; ...' if bad.size > 5 else ''}). Roots missed or merged (increase "
+                    "N_re / N_im) or a wrong multiplicity (nullity_tol).",
+                    RuntimeWarning, stacklevel=3)
+
+        # Weyl law: compared with the count in the rectangle (the roots found
+        # without certificate), so that it only reports the depth of the search
+        k_mid = 0.5 * sum(self._k_range())
+        for sec in self.sectors.independent:
+            if sec.index in self.resonance_counts:
+                n_in, how = self.resonance_counts[sec.index].total, "counts"
+            else:
+                n_in = int(np.sum(self.degeneracies[self.level_sectors == sec.index])
+                           // self.sectors.multiplicity(sec.index))
+                how = "found"
+            if abs(np.linalg.det(self.model.sector(sec.directed).block("aa", k_mid))) \
+                    < NON_WEYL_TOL:
+                if verbose:
+                    print(f"[weyl] sector {sec.index}: det Σ_s = 0, non-Weyl resonance "
+                          "count, no Weyl check.")
+                continue
+            expected = self.weyl_count(sector=sec.index)
+            if verbose:
+                print(f"[weyl] sector {sec.index}: {n_in} with Im k ≥ im_min, Weyl law "
+                      f"{expected:.1f} (all Im k).")
+            if expected >= 20 and abs(n_in - expected) > max(0.05 * expected, 3.0):
+                warnings.warn(
+                    f"The search rectangle {how} {n_in} resonances in sector {sec.index} "
+                    f"(Im k ≥ im_min = {im_min:.1e}) where the Weyl law predicts "
+                    f"{expected:.1f} with any Im k: lower im_min to include the broader "
+                    "resonances (count_resonances tells how many lie above a given depth), "
+                    "or check the group index.", RuntimeWarning, stacklevel=3)
 
     # ── Resonance heatmap plot ────────────────────────────────────────────────
 

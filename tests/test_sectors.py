@@ -79,7 +79,7 @@ def test_resonances_are_assigned_to_sectors(save):
     g = qg.OpenDirectionalGraphs(**qg.layouts.ring_with_access(), couplings=0.5, access_couplings=0.3,
                                  neff=2.41, wavelength_range=(1.54, 1.56), **save)
     assert len(g.sectors) == 2 and len(g.sectors.independent) == 1
-    spectrum, deg = g.find_resonances(N_re=40_000, N_im=8, im_min=-1e-4, im_max=0.0)
+    spectrum, deg = g.find_resonances(N_re=40_000, N_im=8, im_min=-3e-4, im_max=0.0)
     assert spectrum.size and np.all(deg == 2)
     vecs = g.resonance_vectors(0)
     assert vecs.shape[0] == 2

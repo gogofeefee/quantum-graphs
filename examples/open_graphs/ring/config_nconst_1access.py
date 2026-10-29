@@ -173,7 +173,7 @@ if True:
     spectrum, degeneracies = graph.find_resonances(
         N_re = 1_000_000,
         N_im = 25,
-        im_min = -1e-4,
+        im_min = -2e-4,     # the poles lie at Im k = ln(√(1−C)) / (n L) ≈ −1.2e-4
         im_max =  0.0,
         peak_prominence = 0.0,
         neighbor_rows   = 1,

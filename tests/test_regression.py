@@ -57,7 +57,7 @@ def test_reference_data_set_is_reproduced(tmp_path):
     env = dict(os.environ, MPLBACKEND="Agg")
     subprocess.run([sys.executable, os.path.join(REF, "generate_reference.py"), str(out)],
                    check=True, env=env, capture_output=True)
-    problems = compare(np.load(os.path.join(REF, "reference_v5.npz")), np.load(out))
+    problems = compare(np.load(os.path.join(REF, "reference_v6.npz")), np.load(out))
     assert not problems, "\n".join(problems)
 
 
@@ -101,3 +101,24 @@ def test_v4_to_v5_differences_are_the_documented_ones():
                        np.load(os.path.join(REF, "reference_v5.npz")))
     assert all(line.startswith("EXTRA") and "/sector_" in line for line in problems), problems
     assert len(problems) == 33
+
+
+def test_v5_to_v6_differences_are_the_documented_ones():
+    """reference_v5 -> reference_v6: bounded resonance refinement. The
+    Nelder-Mead stage of find_resonances was unbounded: on the rings (all
+    resonances below im_min = -1e-4 of v5) it ran away to Re k = 3.456 and
+    -0.610, outside the window, and the resonance at Re k = 4.06639 was
+    missed. The rings are now searched down to im_min = -3e-4 and their 13
+    resonances are the analytic ones (|dk| < 1e-15). The argument-principle
+    count of each open case is added (equal to the summed multiplicities)."""
+    v5 = np.load(os.path.join(REF, "reference_v5.npz"))
+    v6 = np.load(os.path.join(REF, "reference_v6.npz"))
+    problems = compare(v5, v6)
+    changed = {line.split(":")[1].strip() for line in problems if line.startswith("VALUE")}
+    added = {line.split(":")[1].strip() for line in problems if line.startswith("EXTRA")}
+    assert changed == {"open/ring_1access/resonances", "open/ring_2access/resonances"}
+    assert added == {f"open/{c}/resonance_count"
+                     for c in ("ring_1access", "ring_2access", "flower", "bowtie")}
+    assert len(problems) == len(changed) + len(added)
+    for case in ("ring_1access", "ring_2access", "flower", "bowtie"):
+        assert v6[f"open/{case}/resonance_count"] == v6[f"open/{case}/degeneracies"].sum()

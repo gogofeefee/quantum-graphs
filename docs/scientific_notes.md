@@ -44,11 +44,54 @@ refines each strict local minimum by bounded Brent minimisation.
 
 ## 3. Resonances (open graphs)
 
-* `find_resonances` only finds poles inside the scanned rectangle
-  Im(k) ∈ [im_min, im_max]. Broader resonances are missed; the
-  `plot_resonances_sigma` heat map shows whether σ_min valleys reach the
-  lower edge. Single-access ring test: poles agree with
-  (2πm + i ln √(1−C)) / (n L) to 1e-8.
+* `find_resonances` returns the poles inside the rectangle
+  R = [k_min, k_max] × [im_min, im_max], and only those: each grid candidate is
+  refined (L-BFGS-B, then Nelder-Mead) inside a box of ±`box_re` × ±`box_im`
+  grid steps that may cross the edges of R, and roots outside R (beyond 1e-6
+  grid step) are left out, with a warning for those below im_min. Up to the
+  2.0 development version the Nelder-Mead stage was unbounded: on the flower
+  graph (1.48–1.64 µm, im_min = −1e-4) it returned 9 resonances at
+  Im k = −1.004e-4 … −1.050e-4; on the rings of the reference set, whose
+  resonances all lie below im_min, it returned them, plus two roots far
+  outside the window (Re k = 3.456, −0.610), and missed one
+  (reference_v5 → v6). Grid minima in the end columns are now candidates too.
+* **Completeness certificate** (`core/argument_principle.py`, 2.0). The number
+  of zeros of det(I − U_s) in R, with multiplicity, is
+  (1/2π) Δ arg det(I − U_s) along the boundary of R (argument principle).
+  `find_resonances` counts it for each independent sector (`certify=True`) in
+  sub-windows of ~20 resonances of the Weyl law and warns where it differs
+  from the roots found, so a missed root, two merged roots or a wrong
+  multiplicity is detected and located (`graph.resonance_counts`). The
+  contour is sampled adaptively: bisection until the phase step and
+  h |d log det/dk| are both ≤ π/8 (the second condition catches a double
+  zero or a close pair near the contour, which turns the phase by 2π within
+  one interval: without it, the single-access ring with the lower edge
+  2e-6 below its double poles counted 135 of 200), from 32 samples per 2π of
+  Σ_d n_eff L_d Δk. Flower graph over 1.48–1.64 µm: ~6×10⁴ determinants and
+  log-derivatives, 0.4 s; 828 counted = 828 found for im_min = −1e-4, 837 for
+  im_min = −1e-3 (Weyl: 837.2). For im_max ≥ 0 the upper edge is
+  raised to im_max + (im_max − im_min)/10 so that real roots (bound states in
+  the continuum of a sector without leads) are not on the contour; a passive
+  graph (‖Σ‖ ≤ 1) has no zero with Im k > 0. With a dispersive n_eff(Re k)
+  det(I − U) is not holomorphic, but it is F∘φ with F holomorphic and
+  φ(x + iy) = (x + iy) n_eff(x) orientation-preserving (Jacobian
+  n_eff n_g > 0): the winding is the topological degree and still counts the
+  zeros of the function the search solves, with multiplicity (checked on a
+  dispersive flower graph, and on the single-access ring with the MPB index:
+  198 counted = 198 analytic poles above Im k = −1.2e-4).
+  `count_resonances(im_min, im_max)` gives the count alone, e.g. to choose
+  im_min before a search.
+* **Weyl law for resonances.** det(I − U_s) is an exponential polynomial in k
+  whose longest term det(Σ_s) Π_d e^{i k n_eff L_d} has the length L_s of the
+  sector: if det(Σ_s) ≠ 0 the resonances of the window, all Im k together,
+  number (L_s/2π) ∫ n_g dk up to a bounded number. `find_resonances` warns
+  when the count in R departs from it by more than max(5 %, 3) (sectors with
+  ≥ 20 expected resonances): broader resonances lie below im_min, or n_g is
+  inconsistent with n_eff. If det(Σ_s) = 0 (a vertex whose Σ_αα block is
+  singular, e.g. a Neumann vertex with as many leads as bonds) the count is
+  non-Weyl (smaller) and no check is made.
+* Single-access ring test: poles agree with (2πm + i ln √(1−C)) / (n L) to
+  1e-15.
 * `find_experimental_resonances` keeps the peaks of d²T/dk² above
   `amp_threshold`, an **absolute** value whose scale depends on n_points,
   k_imag and the graph **[open]**: check the three-panel figures.

@@ -166,7 +166,9 @@ projector onto its eigenspace.
 Leads are numbered in the order of `leads`; `S[j, i]` is the amplitude
 leaving lead j for a unit amplitude
 injected in lead i. Resonances (poles of S) are minima of
-σ_min(I − D Σ_αα) on a grid of the complex k-plane (`find_resonances`);
+σ_min(I − D Σ_αα) on a grid of a rectangle of the complex k-plane
+(`find_resonances`); their number in the rectangle is checked by the argument
+principle (`count_resonances`), which reports missed or merged resonances;
 `find_experimental_resonances` locates peaks of d²|S_ij|²/dk² on the real
 axis, as one would on a measured spectrum.
 
