@@ -18,11 +18,19 @@ u → v, the amplitude of the wave *arriving* at v.
 
 The constant parts of Σ are computed once; ``sigma_min_many`` and ``S_many``
 evaluate many wavenumbers at once with batched LAPACK calls.
+``model.sector(directed)`` restricts U to one sector (see :mod:`.sectors`).
+
+Multiplicity of a level k*: the number of singular values of I − U(k*) below
+``NULLITY_TOL`` (one threshold for the spectra, the resonances and the
+wavefunctions).
 """
 
 import numpy as np
 
 from .vertices import evaluate
+
+#: singular values of I − U(k) at or below this value count as zero
+NULLITY_TOL = 1e-4
 
 
 def index_function(f, x):
@@ -88,6 +96,14 @@ class ScatteringModel:
                          "ba": (ba, (self.n_leads, self.n)), "bb": (bb, (self.n_leads, self.n_leads))}
         self._const_blocks = {}
 
+    def sector(self, directed):
+        """The model restricted to the directed bonds ``directed`` (U_s =
+        U[directed][:, directed]); the model itself if they are all the bonds."""
+        directed = np.asarray(directed, dtype=int)
+        if np.array_equal(directed, np.arange(self.n)):
+            return self
+        return _SectorModel(self, directed)
+
     # -- vertex blocks ------------------------------------------------------
 
     def block(self, name, k=None):
@@ -127,6 +143,14 @@ class ScatteringModel:
         if self.constant:
             return d[:, :, None] * self.block("aa")[None, :, :]
         return np.stack([d[i][:, None] * self.block("aa", k) for i, k in enumerate(ks)])
+
+    def singular_values(self, k):
+        """Singular values of I − U(k), in decreasing order."""
+        return np.linalg.svd(np.eye(self.n) - self.U(k), compute_uv=False)
+
+    def nullity(self, k, tol=NULLITY_TOL):
+        """Number of singular values of I − U(k) at or below ``tol``."""
+        return int(np.sum(self.singular_values(k) <= tol))
 
     def sigma_min(self, k):
         """Smallest singular value of I − U(k) (inf if the SVD fails)."""
@@ -185,3 +209,28 @@ class ScatteringModel:
         d = self.phases(k)
         A = np.eye(self.n) - d[:, None] * self.block("aa", k)
         return np.linalg.solve(A, d * (self.block("ab", k) @ np.asarray(lead_amplitudes)))
+
+
+class _SectorModel(ScatteringModel):
+    """U restricted to the directed bonds of one sector (bond block only)."""
+
+    def __init__(self, parent, directed):
+        self._parent = parent
+        self._index = directed
+        self.n = directed.size
+        self.n_leads = 0
+        self.lengths = parent.lengths[directed]
+        self.neff = parent.neff
+        self.constant = parent.constant
+        self._const_blocks = {}
+
+    def block(self, name, k=None):
+        if name != "aa":
+            raise ValueError("A sector model only has the bond block 'aa'.")
+        if self.constant and name in self._const_blocks:
+            return self._const_blocks[name]
+        M = self._parent.block("aa", k)[np.ix_(self._index, self._index)]
+        if self.constant:
+            M.setflags(write=False)
+            self._const_blocks[name] = M
+        return M

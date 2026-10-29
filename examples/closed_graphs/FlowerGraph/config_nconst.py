@@ -24,7 +24,7 @@ drawn.
 Analysis pipeline: same as the DoubleRing example (topology, spectrum,
 secular function, wavefunctions, entropy / IPR, spectral statistics, length
 spectrum). Spectral statistics are computed twice, on the full window and on
-a sub-window, to show the ``wavelength_range_stats`` option.
+a sub-window, to show the ``wavelength_range`` option of the statistics.
 """
 
 # ============================================================================
@@ -184,17 +184,17 @@ if True:
     for wr in (None, wavelength_range_sub):
         print(f"\n--- statistics on {wr if wr else 'the full window'} ---")
         graph.plot_staircase_function(
-            plot_weyl=True, weyl_diff=True, mode=None,
-            wavelength_range_stats=wr, save_fig=True, file_format="pdf")
+            plot_weyl=True, weyl_diff=True, 
+            wavelength_range=wr, save_fig=True, file_format="pdf")
         graph.short_range_correlations(
             width=0.1, xlim=(0, 3), plot_wigner=["goe", "gue", "poissonian"],
             color_list=["r-", "g--", "b-."], cumulative_spacing=True,
-            mode=None, wavelength_range_stats=wr, yscale="linear",
+            wavelength_range=wr, yscale="linear",
             save_fig=True, file_format="pdf")
         graph.long_range_correlations(
             L_max=10, L_step=0.1, plot_wigner=["goe", "gue", "poissonian"],
             color_list=["r-", "g--", "b-."], correlation_type="both",
-            mode=None, wavelength_range_stats=wr,
+            wavelength_range=wr,
             save_fig=True, file_format="pdf")
 
 

@@ -12,8 +12,7 @@ vertices), on the projector onto the null-space when it has dimension > 1
 
 Helpers
 -------
-_compute_resonance_wavefunction_vectors(k)   null-space of (I − U_b(k))
-_compute_bond_entropy_ipr(energy_per_bond)   Shannon entropy + IPR scalars
+resonance_vectors(index)                     null-space of (I − U_b(k)) at a resonance
 _compute_all_resonance_quantities()          iterate spectrum → (S_norm, I) arrays
 """
 
@@ -24,7 +23,6 @@ import matplotlib.pyplot as plt
 
 from ...plotting.drawing import (add_colorbar, draw_bond_values, draw_vertices, finish_axes,
                                 size_scale)
-from ...stats.localization import localization_measures
 from .style import MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W
 
 
@@ -62,56 +60,19 @@ class WavefunctionPlotsMixin:
     # Shared internal helpers
     # =========================================================================
 
-    def _compute_resonance_wavefunction_vectors(self, k, nullity_tol=1e-3):
-        """
-        Compute the null-space of (I − U_b(k)).
+    def resonance_vectors(self, index):
+        """Orthonormal basis of ker(I − U(k)) at resonance ``self.spectrum[index]``,
+        with as many vectors as its multiplicity (rows; see ``null_vectors``)."""
+        g = max(int(self.degeneracies[index]), 1)
+        return self.null_vectors(complex(self.spectrum[index]), multiplicity=g)
 
-        Parameters
-        ----------
-        k : complex
-            Resonance wavenumber.
-        nullity_tol : float
-            Singular values < nullity_tol * s_max are treated as zero.
-
-        Returns
-        -------
-        vecs : ndarray, shape (dim_kernel, 2B)
-            Rows are orthonormal kernel vectors (conjugated rows of Vh).
-        """
-        U = self.U(k)
-        A = np.eye(U.shape[0], dtype=np.complex128) - U
-        _, s, Vh = np.linalg.svd(A)
-        s_max = s[0] if s[0] > 0 else 1.0
-        null_mask = (s / s_max) < nullity_tol
-        null_indices = np.where(null_mask)[0]
-        if len(null_indices) == 0:
-            null_indices = np.array([len(s) - 1])
-        return Vh[null_indices, :].conj()   # rows of Vh are v^H
-
-    def _compute_bond_entropy_ipr(self, energy_per_bond):
-        """
-        Shannon entropy and IPR of a bond energy distribution.
-
-        Parameters
-        ----------
-        energy_per_bond : ndarray, shape (N_b,)
-            Raw (unnormalised) energy on each bond (``bond_intensities``).
-
-        Returns
-        -------
-        S : float        raw Shannon entropy
-        S_norm : float   S / log(N_b)
-        I : float        IPR = N_b * Σ p_b²
-        """
-        return localization_measures(energy_per_bond)
-
-    def _compute_all_resonance_quantities(self, nullity_tol=1e-3):
+    def _compute_all_resonance_quantities(self):
         """
         Iterate over self.spectrum and compute per-resonance entropy and IPR.
 
-        Per bond; when the null-space has dimension > 1 (degenerate
-        or nearly degenerate resonance, see ``nullity_tol``) the diagonal of
-        its projector is used, not one arbitrary basis vector.
+        Per bond; for a degenerate resonance (multiplicity from
+        ``find_resonances``) the diagonal of the eigenspace projector is used,
+        not one arbitrary basis vector.
 
         Returns
         -------
@@ -129,8 +90,8 @@ class WavefunctionPlotsMixin:
         S_list = []
         I_list = []
 
-        for k in spectrum:
-            vecs = self._compute_resonance_wavefunction_vectors(k, nullity_tol)
+        for i, k in enumerate(spectrum):
+            vecs = self.resonance_vectors(i)
             _, S_norm, I = self.localization_measures(vecs)
             k_list.append(k)
             S_list.append(S_norm)
@@ -144,13 +105,13 @@ class WavefunctionPlotsMixin:
     # 2a — plot_resonance_wavefunction
     # =========================================================================
 
-    def plot_resonance_wavefunction(self, index, nullity_tol=1e-3, cmap=None,
+    def plot_resonance_wavefunction(self, index, cmap=None,
                                     save_fig=False, file_format="pdf"):
         """
         Plot the wavefunction(s) at complex resonance self.spectrum[index].
 
-        Computes the null-space of (I − U_b(k)) at the selected resonance.
-        One plot per kernel vector (degenerate resonances produce multiple plots).
+        Computes the null-space of (I − U_b(k)) at the selected resonance (as
+        many vectors as its multiplicity): one plot per kernel vector.
         Leads are not shown. Each bond is coloured by its intensity; S_norm in
         the title is that of the vector.
 
@@ -158,8 +119,6 @@ class WavefunctionPlotsMixin:
         ----------
         index : int
             Index into self.spectrum.
-        nullity_tol : float
-            Threshold for null-space detection (relative to largest singular value).
         cmap : str, Colormap, or None
         save_fig : bool
         file_format : str
@@ -173,7 +132,7 @@ class WavefunctionPlotsMixin:
         im_k       = float(np.imag(k))
         Q          = float(np.real(k)) / (2 * abs(im_k)) if im_k != 0 else np.inf
 
-        vecs    = self._compute_resonance_wavefunction_vectors(k, nullity_tol)
+        vecs    = self.resonance_vectors(index)
         N_modes = len(vecs)
         paths   = self.bond_paths
         radius  = 0.065 * size_scale(self.topology)
@@ -217,7 +176,7 @@ class WavefunctionPlotsMixin:
 
     def plot_entropy(self, show_smooth=False, smooth_window=11,
                      show_mean_hline=True,
-                     save_fig=False, file_format="pdf", nullity_tol=1e-3):
+                     save_fig=False, file_format="pdf"):
         """
         Normalised Shannon entropy S_norm vs Re(k)·L_tot and vs mode index.
 
@@ -230,9 +189,8 @@ class WavefunctionPlotsMixin:
         show_mean_hline : bool  Draw a red dashed horizontal line at the mean value.
         save_fig : bool
         file_format : str
-        nullity_tol : float    Passed to _compute_resonance_wavefunction_vectors.
         """
-        k_vals, S_norm_vals, _ = self._compute_all_resonance_quantities(nullity_tol)
+        k_vals, S_norm_vals, _ = self._compute_all_resonance_quantities()
 
         if S_norm_vals.size == 0:
             raise ValueError("No valid resonances for entropy plot.")
@@ -285,7 +243,7 @@ class WavefunctionPlotsMixin:
 
     def plot_ipr(self, show_smooth=False, smooth_window=20,
                  show_mean_hline=True,
-                 save_fig=False, file_format="pdf", nullity_tol=1e-3):
+                 save_fig=False, file_format="pdf"):
         """
         Inverse participation ratio I = N_b · Σ p_b² vs Re(k)·L_tot and mode index.
 
@@ -298,9 +256,8 @@ class WavefunctionPlotsMixin:
         show_mean_hline : bool  Draw a red dashed horizontal line at the mean value.
         save_fig : bool
         file_format : str
-        nullity_tol : float
         """
-        k_vals, _, I_vals = self._compute_all_resonance_quantities(nullity_tol)
+        k_vals, _, I_vals = self._compute_all_resonance_quantities()
 
         if I_vals.size == 0:
             raise ValueError("No valid resonances for IPR plot.")

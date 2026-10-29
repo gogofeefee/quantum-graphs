@@ -8,7 +8,8 @@ import numpy as np
 from ..stats.localization import bond_intensity, eigenspace_intensity, localization_measures
 from .config import log
 from .persistence import fingerprint, resolve_save_path, sample_function
-from .scattering import ScatteringModel
+from .scattering import NULLITY_TOL, ScatteringModel
+from .sectors import find_sectors
 from .topology import build_topology
 from .vertices import validate_vertex_matrices
 
@@ -32,6 +33,7 @@ class GraphBase:
         validate_vertex_matrices(matrices, self.topology.valency, k_samples)
         self.vertex_scattering_matrix = dict(matrices)
         self._model = None
+        self._sectors = None
 
     # -- shortcuts to the topology -------------------------------------------------
 
@@ -122,6 +124,14 @@ class GraphBase:
                                           getattr(self, "neff", 1.0))
         return self._model
 
+    @property
+    def sectors(self):
+        """:class:`~quantum_graphs.core.sectors.Sectors` of the bond dynamics:
+        independent blocks of U(k), reversed partners, expected ensemble."""
+        if getattr(self, "_sectors", None) is None:
+            self._sectors = find_sectors(self.topology, self.model, self._k_samples())
+        return self._sectors
+
     # -- matrices ---------------------------------------------------------------
 
     def U(self, k):
@@ -137,6 +147,20 @@ class GraphBase:
     def secular_det(self, k):
         """Secular determinant det(I − U(k))."""
         return np.linalg.det(np.eye(self.topology.n_directed) - self.model.U(k))
+
+    def null_vectors(self, k, multiplicity=None, tol=NULLITY_TOL):
+        """Orthonormal basis of ker(I − U(k)), one vector per row.
+
+        The basis has ``multiplicity`` vectors (the right singular vectors of
+        the smallest singular values) when it is given — for a level of the
+        computed spectrum, its stored multiplicity — and otherwise one vector
+        per singular value at or below ``tol``. Component d of a vector is the
+        amplitude arriving at the end of directed bond d (a = U a); for a
+        degenerate level the basis is arbitrary.
+        """
+        _, s, Vh = np.linalg.svd(np.eye(self.topology.n_directed) - self.model.U(k))
+        n = int(np.sum(s <= tol)) if multiplicity is None else int(multiplicity)
+        return Vh[s.size - n:].conj()               # rows of Vh are v^H
 
     # -- wavefunction localisation -------------------------------------------
 

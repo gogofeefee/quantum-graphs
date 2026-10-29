@@ -7,7 +7,6 @@ ResonancesMixin — σ_min grid, candidate detection, refinement, find_resonance
 from ..core.config import show_figure
 from ..core.config import resolve
 import os
-import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -15,6 +14,7 @@ from scipy.signal import find_peaks
 from scipy.optimize import minimize
 
 from ..core.persistence import use_cache, write_cache_meta
+from ..core.scattering import NULLITY_TOL
 
 
 class ResonancesMixin:
@@ -230,16 +230,6 @@ class ResonancesMixin:
                     kept[j] = False
         return k_arr[kept], g_arr[kept]
 
-    # ── Degeneracy ────────────────────────────────────────────────────────────
-
-    def _nullity(self, k: complex, atol: float) -> int:
-        """Nullity of (I − U(k))."""
-        U = self.U(k)
-        A = np.eye(U.shape[0], dtype=np.complex128) - U
-        s = np.linalg.svd(A, compute_uv=False)
-        return int(np.sum(s <= atol))
-
-
     # ── Public method ─────────────────────────────────────────────────────────
 
     def find_resonances(self,
@@ -254,7 +244,7 @@ class ResonancesMixin:
                         tol_step: float   = 1e-13,
                         maxiter: int      = 500,
                         eps_accept: float  = 1e-4,
-                        nullity_tol: float = 1e-4,
+                        nullity_tol: float = NULLITY_TOL,
                         grid_dtype: str        = "float32",
                         overwrite_grid: bool     = False,
                         overwrite_refined: bool  = False,
@@ -264,10 +254,18 @@ class ResonancesMixin:
         """
         Find the complex resonances of the open quantum graph via the σ_min method.
 
+        Each accepted resonance k* is assigned to the independent sector s
+        (see :mod:`quantum_graphs.core.sectors`) where σ_min(I − U_s(k*)) is
+        smallest; its multiplicity is Σ_s (sectors sharing the spectrum of s)
+        × (singular values of I − U_s(k*) at or below ``nullity_tol``).
+
         Returns
         -------
         spectrum      : np.ndarray, complex128, shape (N,)
         degeneracies  : np.ndarray, int, shape (N,)
+
+        Also sets ``self.spectrum``, ``self.degeneracies`` and
+        ``self.level_sectors``.
         """
         verbose = resolve("verbose", verbose)
         os.makedirs(self.save_path, exist_ok=True)
@@ -285,7 +283,8 @@ class ResonancesMixin:
                           wavelength_range=list(self.wavelength_range),
                           peak_prominence=peak_prominence, neighbor_rows=neighbor_rows,
                           box_re=box_re, box_im=box_im, tol_step=tol_step, maxiter=maxiter)
-        spec_params = dict(raw_params, eps_accept=eps_accept, nullity_tol=nullity_tol)
+        spec_params = dict(raw_params, eps_accept=eps_accept, nullity_tol=nullity_tol,
+                           method="sectors")
 
         # ── 0. Early-load from final spectrum ─────────────────────────────────
         if use_cache(spec_path, self.fingerprint, spec_params,
@@ -294,12 +293,16 @@ class ResonancesMixin:
             if verbose:
                 print(f"[spectrum] Loading final spectrum from: {spec_path}")
             npz = np.load(spec_path)
-            self.spectrum            = npz["spectrum"].astype(np.complex128)
-            self.degeneracies        = npz["degeneracies"].astype(int)
-            self.degenerate_spectrum = npz["degenerate_spectrum"].astype(np.complex128)
+            spectrum = npz["spectrum"].astype(np.complex128)
+            if "level_sectors" in npz.files:
+                self._set_levels(spectrum, npz["degeneracies"].astype(int),
+                                 npz["level_sectors"].astype(int))
+            else:                               # written before the sector analysis
+                level_sectors, degeneracies = self._classify_levels(spectrum, nullity_tol)
+                self._set_levels(spectrum, degeneracies, level_sectors)
             if verbose:
                 print(f"[spectrum] {self.spectrum.size} resonances loaded, "
-                      f"total multiplicity = {self.degenerate_spectrum.size}.")
+                      f"total multiplicity = {self.degeneracies.sum()}.")
             if plot:
                 grid_path = self._sigma_grid_path(N_re, N_im, im_min, im_max)
                 has_grid  = os.path.exists(grid_path)
@@ -338,9 +341,7 @@ class ResonancesMixin:
             if k0_list.size == 0:
                 if verbose:
                     print("[refine] No candidates found. Returning empty spectrum.")
-                self.spectrum            = np.array([], dtype=np.complex128)
-                self.degeneracies        = np.array([], dtype=int)
-                self.degenerate_spectrum = np.array([], dtype=np.complex128)
+                self._set_levels(np.array([], dtype=np.complex128), [], [])
                 return self.spectrum, self.degeneracies
 
             if verbose:
@@ -382,43 +383,23 @@ class ResonancesMixin:
         if spectrum.size == 0:
             if verbose:
                 print("[filter] No resonances accepted. Returning empty spectrum.")
-            self.spectrum            = np.array([], dtype=np.complex128)
-            self.degeneracies        = np.array([], dtype=int)
-            self.degenerate_spectrum = np.array([], dtype=np.complex128)
+            self._set_levels(np.array([], dtype=np.complex128), [], [])
             return self.spectrum, self.degeneracies
 
         # ── 5. Sort ───────────────────────────────────────────────────────────
         order    = np.argsort(np.real(spectrum))
         spectrum = spectrum[order]
 
-        # ── 6. Degeneracies ───────────────────────────────────────────────────
+        # ── 6. Sectors and multiplicities ─────────────────────────────────────
         if verbose:
-            print("[degen] Computing degeneracies ...")
-        degeneracies = np.array(
-            [self._nullity(k, atol=nullity_tol) for k in spectrum], dtype=int
-        )
-        zero_mask = degeneracies == 0
-        if zero_mask.any():
-            n_zero   = int(zero_mask.sum())
-            examples = ", ".join(
-                f"{k.real:.6g}{k.imag:+.6g}i" for k in spectrum[zero_mask][:5]
-            )
-            warnings.warn(
-                f"{n_zero} resonance(s) have nullity 0 "
-                f"(nullity_tol={nullity_tol:.1e} may be too small). "
-                f"Examples: {examples}.",
-                RuntimeWarning,
-            )
+            print("[degen] Computing multiplicities ...")
+        level_sectors, degeneracies = self._classify_levels(spectrum, nullity_tol)
+        self._set_levels(spectrum, degeneracies, level_sectors)
 
-        # ── 7. Attributes ─────────────────────────────────────────────────────
-        self.spectrum            = spectrum
-        self.degeneracies        = degeneracies
-        self.degenerate_spectrum = np.repeat(spectrum, degeneracies)
-
-        # ── 8. Save ───────────────────────────────────────────────────────────
+        # ── 7. Save ───────────────────────────────────────────────────────────
         if not use_cache(spec_path, self.fingerprint, spec_params, overwrite_spectrum):
             np.savez(spec_path, spectrum=spectrum, degeneracies=degeneracies,
-                     degenerate_spectrum=self.degenerate_spectrum)
+                     level_sectors=level_sectors)
             write_cache_meta(spec_path, self.fingerprint, spec_params)
             if verbose:
                 print(f"[spectrum] Final spectrum saved to: {spec_path}")
@@ -426,7 +407,7 @@ class ResonancesMixin:
             if verbose:
                 print(f"[spectrum] Spectrum file exists, not overwriting: {spec_path}")
 
-        # ── 9. Plot ───────────────────────────────────────────────────────────
+        # ── 8. Plot ───────────────────────────────────────────────────────────
         if plot:
             self.plot_resonances_sigma(
                 N_re=N_re, N_im=N_im,
@@ -439,7 +420,7 @@ class ResonancesMixin:
 
         if verbose:
             print(f"[done] {spectrum.size} resonances found, "
-                  f"total multiplicity = {self.degenerate_spectrum.size}.")
+                  f"total multiplicity = {degeneracies.sum()}.")
 
         return spectrum, degeneracies
 

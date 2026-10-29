@@ -5,7 +5,7 @@ open_graphs — modular open quantum graph package.
 
 Usage
 -----
-from open_graphs import OpenGraphs, DirectionalGraphs, NNSD_func
+from quantum_graphs.open_graphs import OpenGraphs, DirectionalGraphs
 
 Classes
 -------
@@ -18,19 +18,15 @@ DirectionalGraphs
     Specialisation where every vertex is a lossless 4-port directional
     coupler.  Scattering matrices are built automatically from coupling
     constants.
-
-Functions
----------
-NNSD_func(s, wigner)
-    Nearest-Neighbour Spacing Distribution (Wigner surmise).
 """
 
 from .core            import CoreMixin
 from .scattering      import ScatteringMixin
 from .resonances      import ResonancesMixin
 from .experimental    import ExperimentalMixin
-from .spectral_stats  import SpectralStatsMixin, NNSD_func
-from .plotting        import GraphPlotMixin, SMatrixPlotsMixin, SpectralPlotsMixin, WavefunctionPlotsMixin
+from ..core.spectral_stats import SpectralStatsMixin
+from ..plotting.spectral_plots import SpectralPlotsMixin
+from .plotting        import GraphPlotMixin, SMatrixPlotsMixin, WavefunctionPlotsMixin
 from .directional     import DirectionalGraphs
 
 
@@ -78,6 +74,5 @@ class OpenGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
 __all__ = [
     "OpenGraphs",
     "DirectionalGraphs",
-    "NNSD_func",
     "WavefunctionPlotsMixin",
 ]

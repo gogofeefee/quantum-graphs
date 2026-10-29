@@ -11,10 +11,10 @@ from .core           import CoreMixin
 from .scattering     import ScatteringMixin
 from .resonances     import ResonancesMixin
 from .experimental   import ExperimentalMixin
-from .spectral_stats import SpectralStatsMixin
+from ..core.spectral_stats import SpectralStatsMixin
+from ..plotting.spectral_plots import SpectralPlotsMixin
 from .plotting.graph_plot        import GraphPlotMixin
 from .plotting.s_matrix_plots    import SMatrixPlotsMixin
-from .plotting.spectral_plots    import SpectralPlotsMixin
 from .plotting.wavefunction_plots import WavefunctionPlotsMixin
 
 

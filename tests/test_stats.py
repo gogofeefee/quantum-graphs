@@ -56,9 +56,10 @@ def test_delta3_conventions_agree_at_large_L():
 
 
 def test_weyl_staircase_constant_index():
-    assert np.isclose(stats.weyl_staircase(4.0, 1000.0, 2.0), 1000 * 2 * 4 / np.pi)
+    # N = (L_s / 2π) n_g k: L_s = 2 L for the whole spectrum of a graph of length L
+    assert np.isclose(stats.weyl_staircase(4.0, 2000.0, 2.0), 1000 * 2 * 4 / np.pi)
     k = np.linspace(3, 4, 5)
-    assert np.allclose(stats.weyl_staircase(k, 1000.0, lambda x: 2.0 + 0 * x, k0=3.0),
+    assert np.allclose(stats.weyl_staircase(k, 2000.0, lambda x: 2.0 + 0 * x, k0=3.0),
                        1000 * 2 * (k - 3) / np.pi)
 
 

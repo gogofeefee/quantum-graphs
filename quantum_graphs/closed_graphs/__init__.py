@@ -5,7 +5,7 @@ closed_graphs — modular closed quantum graph package.
 
 Usage
 -----
-from closed_graphs import ClosedGraphs, DirectionalGraphs, NNSD_func
+from quantum_graphs.closed_graphs import ClosedGraphs, DirectionalGraphs
 
 Classes
 -------
@@ -18,17 +18,13 @@ DirectionalGraphs
     Specialisation where every vertex is a lossless 4-port directional
     coupler.  Scattering matrices are built automatically from coupling
     constants.
-
-Functions
----------
-NNSD_func(s, wigner)
-    Nearest-Neighbour Spacing Distribution (Wigner surmise).
 """
 
 from .core           import CoreMixin
 from .spectrum       import SpectrumMixin
-from .spectral_stats import SpectralStatsMixin, NNSD_func
-from .plotting       import GraphPlotMixin, SpectralPlotsMixin, WavefunctionPlotsMixin
+from ..core.spectral_stats import SpectralStatsMixin
+from ..plotting.spectral_plots import SpectralPlotsMixin
+from .plotting       import GraphPlotMixin, WavefunctionPlotsMixin
 from .directional    import DirectionalGraphs
 
 
@@ -71,5 +67,4 @@ class ClosedGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
 __all__ = [
     "ClosedGraphs",
     "DirectionalGraphs",
-    "NNSD_func",
 ]

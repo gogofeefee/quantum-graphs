@@ -314,7 +314,7 @@ if True:
         n_points = 100_000,
         save_fig = True,
         file_format = "pdf",
-        # use_experimental = True,
+        # spectrum = graph.exp_spectrum,
     )
 
 
@@ -362,9 +362,8 @@ if True:
     graph.plot_staircase_function(
         plot_weyl              = True,
         weyl_diff              = True,
-        mode                   = None,
-        use_experimental       = use_experimental,
-        wavelength_range_stats = wavelength_range_stats,
+        spectrum               = graph.exp_spectrum if use_experimental else None,
+        wavelength_range       = wavelength_range_stats,
         save_fig               = True,
         file_format            = "pdf",
     )
@@ -375,9 +374,8 @@ if True:
         plot_wigner            = ["goe", "gue", "poissonian"],
         color_list             = ["r-", "g--", "b-."],
         cumulative_spacing     = True,
-        mode                   = None,
-        use_experimental       = use_experimental,
-        wavelength_range_stats = wavelength_range_stats,
+        spectrum               = graph.exp_spectrum if use_experimental else None,
+        wavelength_range       = wavelength_range_stats,
         yscale                 = "linear",
         save_fig               = True,
         file_format            = "pdf",
@@ -389,9 +387,8 @@ if True:
         plot_wigner            = ["goe", "gue", "poissonian"],
         color_list             = ["r-", "g--", "b-."],
         correlation_type       = "both",
-        mode                   = None,
-        use_experimental       = use_experimental,
-        wavelength_range_stats = wavelength_range_stats,
+        spectrum               = graph.exp_spectrum if use_experimental else None,
+        wavelength_range       = wavelength_range_stats,
         save_fig               = True,
         file_format            = "pdf",
     )

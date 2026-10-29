@@ -57,7 +57,7 @@ def test_reference_data_set_is_reproduced(tmp_path):
     env = dict(os.environ, MPLBACKEND="Agg")
     subprocess.run([sys.executable, os.path.join(REF, "generate_reference.py"), str(out)],
                    check=True, env=env, capture_output=True)
-    problems = compare(np.load(os.path.join(REF, "reference_v4.npz")), np.load(out))
+    problems = compare(np.load(os.path.join(REF, "reference_v5.npz")), np.load(out))
     assert not problems, "\n".join(problems)
 
 
@@ -90,3 +90,14 @@ def test_v3_to_v4_differences_are_the_documented_ones():
     # the physics did not move: spectra, S, resonances, orbits are not in the list
     assert not any(k in line for line in problems
                    for k in ("/spectrum", "/S:", "/resonances", "orbits/", "/sigma2", "/delta3"))
+
+
+def test_v4_to_v5_differences_are_the_documented_ones():
+    """reference_v4 -> reference_v5: sector analysis. Spectra are computed per
+    independent sector and statistics use the desymmetrised spectrum with the
+    Weyl law of the sector; resonance wavefunctions use the multiplicity found by
+    find_resonances. Nothing stored changes; the sector structure is added."""
+    problems = compare(np.load(os.path.join(REF, "reference_v4.npz")),
+                       np.load(os.path.join(REF, "reference_v5.npz")))
+    assert all(line.startswith("EXTRA") and "/sector_" in line for line in problems), problems
+    assert len(problems) == 33

@@ -15,7 +15,12 @@ quantum_graphs/
     vertices.py        directional_coupler_matrix, neumann_matrix, PASS_THROUGH,
                        couplings_for_vertices, shape / unitarity validation
     scattering.py      ScatteringModel: D(k), Σ blocks (constant ones cached), U(k),
-                       batched sigma_min_many / S_many (threaded), internal_amplitudes
+                       batched sigma_min_many / S_many (threaded), internal_amplitudes,
+                       model.sector(directed) (U restricted to a sector), NULLITY_TOL
+    sectors.py         find_sectors: strongly connected components of the pattern of Σ,
+                       reversed partners, expected ensemble (graph.sectors)
+    spectral_stats.py  SpectralStatsMixin (closed and open): selected levels, Weyl law
+                       of the selected sectors, unfolded_spectrum, sigma2, delta3
     optics.py          k <-> λ, group_index_function (n_g from n_eff)
     persistence.py     save paths, physics fingerprint, verified caches (.meta.json)
     base.py            GraphBase mixin: _setup_topology / _setup_vertex_matrices /
@@ -23,6 +28,8 @@ quantum_graphs/
   closed_graphs/       CoreMixin(GraphBase) + SpectrumMixin + SpectralStatsMixin + plotting mixins
   open_graphs/         CoreMixin(GraphBase) + ScatteringMixin + ResonancesMixin + ExperimentalMixin
                        + SpectralStatsMixin + plotting mixins; cache.py (S(λ) cache)
+                       (SpectralStatsMixin and SpectralPlotsMixin are shared, from core/
+                       and plotting/)
   classical_graphs/    CoreMixin(GraphBase) + DynamicsMixin + plotting / animation mixins
   periodic_orbits/     PeriodicOrbits(GraphBase): transition rule, DFS enumeration, plots
   stats/               spectral.py (pure functions: weyl_staircase, unfold, number_variance,
@@ -31,7 +38,8 @@ quantum_graphs/
   plotting/            style.py (figure style, axis helpers); drawing.py (BondPaths: one
                        curve per bond -- segment, Bézier arcs for parallel bonds, teardrops
                        for loops -- and the draw_* primitives); topology_plot.py (the
-                       single plot_graph shared by every class)
+                       single plot_graph shared by every class); spectral_plots.py
+                       (staircase, NNSD, Σ² / Δ₃, length spectrum of closed and open graphs)
   layouts.py           reference geometries; remove_access_coupler
   dispersion.py        load_mpb_indices / plot_mpb_indices_vs_k / apply_index_scaling
 ```
@@ -72,8 +80,10 @@ specific to their point of view.
   `core/vertices.py`; pass it through `vertex_matrices`. Add a test of
   unitarity / symmetry.
 * **A new analysis of a spectrum**: a pure function in `stats/spectral.py`
-  (arrays in, arrays out), then a thin mixin method that selects the spectrum
-  and plots. Test the function on an analytic case.
+  (arrays in, arrays out), then a thin method of `core/spectral_stats.py`
+  that takes the selected levels (`_stats_levels(spectrum, sector,
+  wavelength_range)`, Weyl length `weyl_length(sector)`) and a plot in
+  `plotting/spectral_plots.py`. Test the function on an analytic case.
 * **A new cached computation**: build the file name from the parameters,
   call `use_cache` / `write_cache_meta` with the full parameter dict.
 * **A new graph class**: inherit `GraphBase`, call `_setup_topology`,
@@ -86,7 +96,7 @@ specific to their point of view.
 * `pytest -m slow` — GOE ensemble validation of the Δ₃ estimators and
   non-regression: `tests/reference/generate_reference.py` recomputes 245
   quantities on nine reference graphs and `compare_reference.py` compares them
-  with `reference_v3.npz` using per-quantity tolerances.
+  with `reference_v5.npz` using per-quantity tolerances.
 * Only basis- and platform-independent quantities are compared: eigenvectors
   of degenerate levels through the diagonal of the eigenspace projector,
   eigenvalue lists through their power sums Σλⁿ (a defective eigenvalue, such
@@ -97,8 +107,9 @@ specific to their point of view.
   intentional change (orbits recovered by the orbit-enumeration fix) and
   `test_v1_to_v2_differences_are_the_documented_ones` the change of stored
   quantity for degenerate eigenvectors; reference_v3 only adds the entropy
-  and IPR (`test_v2_to_v3_differences_are_the_documented_ones`). When a
-  change of results is intended,
+  and IPR (`test_v2_to_v3_differences_are_the_documented_ones`), reference_v4
+  the bond lists without virtual vertices, reference_v5 the sector structure
+  (`test_v4_to_v5_...`, nothing else changed). When a change of results is intended,
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 

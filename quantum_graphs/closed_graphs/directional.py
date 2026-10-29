@@ -11,9 +11,9 @@ Scattering matrices are built automatically from coupling constants
 from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
 from .core           import CoreMixin
 from .spectrum       import SpectrumMixin
-from .spectral_stats import SpectralStatsMixin
+from ..core.spectral_stats import SpectralStatsMixin
+from ..plotting.spectral_plots import SpectralPlotsMixin
 from .plotting.graph_plot        import GraphPlotMixin
-from .plotting.spectral_plots    import SpectralPlotsMixin
 from .plotting.wavefunction_plots import WavefunctionPlotsMixin
 
 

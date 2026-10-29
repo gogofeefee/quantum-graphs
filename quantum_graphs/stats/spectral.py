@@ -1,7 +1,7 @@
 """
 Spectral statistics of an (unfolded) spectrum, as pure functions.
 
-* :func:`weyl_staircase` — smooth counting function N(k) = (L/π) ∫ n_g dk;
+* :func:`weyl_staircase` — smooth counting function N(k) = (L_s/2π) ∫ n_g dk;
 * :func:`unfold` — unfolded levels x_i = N_Weyl(k_i) (unit mean spacing);
 * :func:`spacings` — nearest-neighbour spacings of an unfolded spectrum;
 * :func:`number_variance` — Σ²(L);
@@ -19,35 +19,39 @@ def _index_values(f, k):
     return index_function(f, k)
 
 
-def weyl_staircase(k, total_length, ng, length_scale=1.0, k0=0.0):
-    """Smooth counting function N(k) = (L_eff/π) ∫_{k0}^{k} n_g(κ) dκ.
+def weyl_staircase(k, directed_length, ng, k0=0.0):
+    """Smooth counting function N(k) = (L_s/2π) ∫_{k0}^{k} n_g(κ) dκ.
 
-    ``ng`` is a float or a function of k; L_eff = ``length_scale`` × L. For a
-    scalar k the integral uses 512 trapezoids; for an array, the trapezoid
-    rule on the sorted values of k (and k0).
+    ``directed_length`` L_s is the summed length of the directed bonds that
+    carry the levels counted: 2 L (L = total bond length) for the whole
+    spectrum of a graph, the length of one sector for the spectrum of that
+    sector (see :mod:`quantum_graphs.core.sectors`). ``ng`` is a float or a
+    function of k. For a scalar k the integral uses 512 trapezoids; for an
+    array, the trapezoid rule on the sorted values of k (and k0).
     """
-    L_eff = float(total_length) * float(length_scale)
+    scale = float(directed_length) / (2 * np.pi)
     k0 = float(np.real(k0))
     if np.isscalar(k) or np.ndim(k) == 0:
         kr = float(np.real(k))
         if callable(ng):
             ks = np.linspace(k0, kr, 512)
-            return (L_eff / np.pi) * np.trapezoid(_index_values(ng, ks), ks)
-        return (L_eff / np.pi) * float(ng) * (kr - k0)
+            return scale * np.trapezoid(_index_values(ng, ks), ks)
+        return scale * float(ng) * (kr - k0)
     k_arr = np.real(np.asarray(k)).astype(float)
     if not callable(ng):
-        return (L_eff / np.pi) * float(ng) * (k_arr - k0)
+        return scale * float(ng) * (k_arr - k0)
     nodes = np.unique(np.concatenate([k_arr.ravel(), [k0]]))
     vals = _index_values(ng, nodes)
     F = np.concatenate([[0.0], np.cumsum(0.5 * (vals[1:] + vals[:-1]) * np.diff(nodes))])
     F -= F[np.searchsorted(nodes, k0)]
-    return ((L_eff / np.pi) * F[np.searchsorted(nodes, k_arr.ravel())]).reshape(k_arr.shape)
+    return (scale * F[np.searchsorted(nodes, k_arr.ravel())]).reshape(k_arr.shape)
 
 
-def unfold(spectrum, total_length, ng, length_scale=1.0, k0=0.0):
-    """Unfolded levels N_Weyl(k_i), sorted (real parts of complex k are used)."""
+def unfold(spectrum, directed_length, ng, k0=0.0):
+    """Unfolded levels N(k_i) of :func:`weyl_staircase`, sorted (real parts of
+    complex k are used)."""
     k = np.sort(np.real(np.asarray(spectrum)))
-    return weyl_staircase(k, total_length, ng, length_scale, k0)
+    return weyl_staircase(k, directed_length, ng, k0)
 
 
 def spacings(unfolded):

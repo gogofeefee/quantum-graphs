@@ -20,6 +20,16 @@ class ExperimentalMixin:
     # Derivative helpers
     # -------------------------------------------------------------------------
 
+    @property
+    def best_spectrum(self):
+        """The resonances of ``find_resonances`` if computed, else the peaks of
+        ``find_experimental_resonances``, else None (e.g. to mark them on S plots)."""
+        if np.asarray(getattr(self, "spectrum", [])).size > 0:
+            return self.spectrum
+        if np.asarray(getattr(self, "exp_spectrum", [])).size > 0:
+            return self.exp_spectrum
+        return None
+
     def _finite_diff_derivatives_uniform_x(
         self, x: np.ndarray, y: np.ndarray
     ) -> tuple:

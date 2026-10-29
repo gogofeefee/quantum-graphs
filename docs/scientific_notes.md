@@ -38,7 +38,8 @@ refines each strict local minimum by bounded Brent minimisation.
   now warns when the number of levels (with multiplicity) departs from the
   Weyl estimate by more than 5 % (and 3 levels); choose N_scan so that the
   mean spacing π/(n_eff L_tot) spans ≳ 20 grid points.
-* Degeneracy = number of singular values ≤ `nullity_tol` (1e-4).
+* Degeneracy = number of singular values ≤ `nullity_tol` (1e-4) of
+  I − U_s(k*), times 2 for partner sectors (§4).
 * Single-ring test: levels agree with 2πm/(nL) to 5e-8 µm⁻¹.
 
 ## 3. Resonances (open graphs)
@@ -57,13 +58,45 @@ refines each strict local minimum by bounded Brent minimisation.
 
 ## 4. Spectral statistics
 
-* Unfolding: x_i = N_Weyl(k_i) = (L_eff/π) ∫ n_g dk. Statistics assume unit
-  mean spacing; `quantum_graphs.stats.mean_spacing` checks it.
-* Directional graphs with all levels exactly doubly degenerate: one level per
-  pair and L_eff = L/2 (`mode="directional"`); otherwise the expanded
-  spectrum (each level repeated by its degeneracy). A *mixture* of single and
-  double levels is treated as expanded, which puts zero spacings in the
-  NNSD **[open]**.
+* **Sectors** (`quantum_graphs.core.sectors`, 2.0). The strongly connected
+  components of the transition pattern Σ_αα[d', d] ≠ 0 (sampled at 9
+  wavenumbers of the window) split U(k) into blocks U_s: block diagonal for a
+  closed lossless graph (a unitary block-triangular matrix is block diagonal),
+  block triangular for an open one; in both cases det(I − U) = Π det(I − U_s).
+  A directed bond that cannot come back to itself carries no level and
+  belongs to no sector. If Σ restricted to sector s satisfies
+  Σ[r(d), r(d')] = Σ[d', d] (r = reversal of a directed bond; true for
+  symmetric vertex matrices), U on the reversed bonds r(s) is a permuted
+  transpose of D-similar U_s: same spectrum. r(s) = s: time-reversal symmetry
+  inside the sector (GOE expected); r(s) ≠ s: two partner sectors, all their
+  levels doubly degenerate, no time-reversal symmetry inside each (GUE
+  expected). Measured: double ring and single ring = two partner sectors;
+  flower and bow-tie graphs (closed and open), tetrahedron = one
+  self-reverse sector.
+* **Spectrum per sector.** `compute_spectrum` scans one sector of each pair
+  of partners; the multiplicity of a level is (number of sectors sharing the
+  spectrum) × (nullity of I − U_s, threshold `nullity_tol`). `find_resonances`
+  still searches the whole U and assigns each resonance to the independent
+  sector where σ_min(I − U_s) is smallest, with the same multiplicity rule.
+  A level degenerate *inside* a sector (geometric symmetry, accidental
+  near-degeneracy) is reported by a warning: it gives zero spacings.
+  Before 2.0 the degeneracy was measured only, and a single level found with
+  g = 1 among pairs (merged pair, window edge) switched the whole analysis to
+  the expanded spectrum, silently.
+* **Unfolding**: x_i = N(k_i) − N(k_1), N(k) = (L_sel/2π) ∫ n_g dk, with
+  L_sel the summed length of the directed bonds of the selected sectors. The
+  default selection is the desymmetrised spectrum (one sector per pair of
+  partners; for the double ring L_sel = L, the "Weyl × 1/2" of 1.0); an
+  explicit `spectrum` (measured peaks) is unfolded with the same L_sel, so
+  give each degenerate pair once. Statistics assume unit mean spacing;
+  `quantum_graphs.stats.mean_spacing` checks it. Values are those of 1.0 for
+  every reference graph (reference_v5).
+* **Thresholds.** One degeneracy threshold, `NULLITY_TOL` = 1e-4 on the
+  singular values of I − U(k*), for the spectra and the resonances; the
+  eigenvectors of a level of a computed spectrum (entropy, IPR, figures) use
+  its stored multiplicity. Up to 1.0 the open-graph wavefunctions used a
+  relative threshold of 1e-3, so a resonance could be simple in the
+  statistics and degenerate in the entropy (no reference value changed).
 * NNSD histograms use `density=True` over the plotted range `xlim`: if
   spacings exceed `xlim[1]`, the histogram is renormalised to that range.
 * Σ²(L): windows on a uniform grid of step `L_step`. The GOE/GUE tables
@@ -125,9 +158,9 @@ computed on the virtualised half-bonds, from one arbitrary eigenvector.
   whose levels are doubly degenerate (two counter-propagating sectors),
   the intensity per bond is the same for every vector of the eigenspace, so
   the choice does not matter there.
-* Open graphs: the null space of I − U_b(k) at a resonance uses a relative
-  threshold (`nullity_tol` = 1e-3); a nearly degenerate pair of resonances
-  is then treated as one degenerate level.
+* Open graphs: the null space of I − U_b(k) at a resonance has the
+  multiplicity found by `find_resonances` (§4); a nearly degenerate pair of
+  resonances closer than the threshold is treated as one degenerate level.
 * Change of values (paper BTG, tl = 85 µm, closed model, 110 levels in
   1520–1540 nm): S_norm 0.892 ± 0.036 on the 14 half-bonds →
   0.888 ± 0.037 on the 10 physical bonds; IPR 1.55 → 1.52. For a graph

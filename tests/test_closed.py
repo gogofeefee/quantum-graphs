@@ -51,7 +51,7 @@ def test_level_count_agrees_with_weyl_law(save):
     g = qg.ClosedDirectionalGraphs(**qg.layouts.bow_tie_graph(), couplings=0.5, neff=3.97,
                                    wavelength_range=(1.50, 1.53), **save)
     spectrum, deg = g.compute_spectrum(N_scan=150_000, save_spectrum=False)
-    assert abs(deg.sum() - g.weyl_count()) < 3
+    assert abs(deg.sum() - g.weyl_count(sector="all")) < 3
 
 
 def test_too_coarse_scan_warns_about_missing_levels(save):

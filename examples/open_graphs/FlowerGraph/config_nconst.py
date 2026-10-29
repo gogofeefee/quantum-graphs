@@ -272,15 +272,15 @@ if True:
 
 if True:
     graph.plot_staircase_function(
-        plot_weyl=True, weyl_diff=True, mode=None,
+        plot_weyl=True, weyl_diff=True, 
         save_fig=True, file_format="pdf")
     graph.short_range_correlations(
         width=0.1, xlim=(0, 3), plot_wigner=["goe", "gue", "poissonian"],
         color_list=["r-", "g--", "b-."], cumulative_spacing=True,
-        mode=None, yscale="linear", save_fig=True, file_format="pdf")
+        yscale="linear", save_fig=True, file_format="pdf")
     graph.long_range_correlations(
         L_max=10, L_step=0.1, plot_wigner=["goe", "gue", "poissonian"],
         color_list=["r-", "g--", "b-."], correlation_type="both",
-        mode=None, save_fig=True, file_format="pdf")
+        save_fig=True, file_format="pdf")
 
 print("\nDone.")

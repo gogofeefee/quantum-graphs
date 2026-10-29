@@ -101,6 +101,8 @@ if True:
 #  g.U(k)                      quantum map U(k) = D(k) Σ (2B × 2B)
 #  g.sigma_min(k)              σ_min(I − U(k)) for one k or an array
 #  g.model.S_many(ks)          (open graphs) S(k) for many k
+#  g.sectors                   independent blocks of U, partners, expected GOE / GUE
+#  g.levels(), g.unfolded_spectrum(), g.sigma2(), g.delta3()   desymmetrised spectrum
 #  qg.stats.unfold(...), qg.stats.number_variance(...), qg.stats.spectral_rigidity(...)
 #  qg.nnsd(s, "GOE"), qg.sigma2_rmt(L, "GUE"), qg.delta3_rmt(L, "GOE")
 

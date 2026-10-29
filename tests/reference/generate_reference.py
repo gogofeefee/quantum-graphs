@@ -12,8 +12,9 @@ two such files with physically meaningful tolerances.
 
 ``reference_v0.npz`` was produced with the code of commit 83ca561 (the state
 published before the 2026-10 refactor), ``reference_v1``-``v3`` with the v1 API
-(``port_map`` + virtual vertices, tag v1.0.0), ``reference_v4`` and later with
-the bond-list API (no virtual vertices).
+(``port_map`` + virtual vertices, tag v1.0.0), ``reference_v4`` with
+the bond-list API (no virtual vertices), ``reference_v5`` and later with the
+sector analysis (statistics on the desymmetrised spectrum).
 
 Only quantities that do not depend on internal ordering conventions are
 stored as raw arrays (spectra, S-matrix entries, eigenvalues, sorted bond
@@ -67,6 +68,14 @@ def bond_labels(graph):
     return np.stack([t.src_vertex, t.src_port, t.dst_vertex, t.dst_port], axis=1).astype(int)
 
 
+def sectors(prefix, graph):
+    """Sector structure (reference_v5 and later): lengths, partners, ensembles."""
+    secs = graph.sectors
+    store(prefix, sector_lengths=np.sort([s.length for s in secs]),
+          sector_multiplicities=np.sort([secs.multiplicity(s.index) for s in secs]),
+          sector_n_goe=sum(s.ensemble == "GOE" for s in secs))
+
+
 def topology(prefix, graph):
     t = graph.topology
     store(prefix,
@@ -104,13 +113,15 @@ def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
         # entropy / IPR of every level (per bond, eigenspace projector)
         _, _, S_norm, ipr = graph._compute_mode_quantities()
         store(prefix, loc_S_norm_levels=S_norm, loc_ipr_levels=ipr)
+    sectors(prefix, graph)
     if stats and spectrum.size > 20:
-        unfolded = graph._compute_unfolded_spectrum(spectrum)
-        Ls, s2 = graph._compute_sigma2(np.sort(unfolded), 0.25, 5.0)
-        Ld, d3 = graph._compute_delta3(np.sort(unfolded), 0.25, 5.0)
-        store(prefix, spacings=np.diff(np.sort(unfolded)), sigma2=s2, sigma2_L=Ls,
+        # desymmetrised spectrum (one sector per pair of partners), reference_v5 and later
+        unfolded = graph.unfolded_spectrum()
+        Ls, s2 = graph.sigma2(5.0, 0.25)
+        Ld, d3 = graph.delta3(5.0, 0.25)
+        store(prefix, spacings=np.diff(unfolded), sigma2=s2, sigma2_L=Ls,
               delta3=d3, delta3_L=Ld,
-              weyl=graph.N_weyl_scaled(np.array(k_probe), length_scale=1.0))
+              weyl=graph.weyl_staircase(np.array(k_probe), sector="all"))
 
 
 def run_closed():
@@ -155,12 +166,14 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
     store(prefix, S=S, n_leads=graph.n_leads)
     spectrum, deg = graph.find_resonances(**resonances_kw, plot=False, verbose=False)
     store(prefix, resonances=spectrum, degeneracies=deg)
+    sectors(prefix, graph)
     if spectrum.size:
-        vecs = graph._compute_resonance_wavefunction_vectors(spectrum[0], 1e-3)
+        vecs = graph.resonance_vectors(0)
         U = graph.U(spectrum[0])
         store(prefix, res_wf_residual=np.linalg.norm(vecs[0] - U @ vecs[0]))
         if hasattr(graph, "localization_measures"):        # reference_v3 and later
-            _, S_norm, ipr = graph._compute_all_resonance_quantities(1e-3)
+            # multiplicity of find_resonances (reference_v5; up to v4 a relative 1e-3 threshold)
+            _, S_norm, ipr = graph._compute_all_resonance_quantities()
             store(prefix, loc_S_norm_resonances=S_norm, loc_ipr_resonances=ipr)
     if exp_kw is not None:
         exp = graph.find_experimental_resonances(**exp_kw, plot=False, cache=False,

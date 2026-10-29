@@ -238,8 +238,7 @@ if True:
     graph.plot_staircase_function(
         plot_weyl              = True,
         weyl_diff               = True,
-        mode                    = None,
-        wavelength_range_stats  = wavelength_range_stats,
+        wavelength_range        = wavelength_range_stats,
         save_fig                = True,
         file_format              = "pdf",
     )
@@ -249,8 +248,7 @@ if True:
         plot_wigner             = ["goe", "gue", "poissonian"],
         color_list               = ["r-", "g--", "b-."],
         cumulative_spacing       = True,
-        mode                     = None,
-        wavelength_range_stats  = wavelength_range_stats,
+        wavelength_range        = wavelength_range_stats,
         yscale                   = "linear",
         save_fig                 = True,
         file_format               = "pdf",
@@ -261,8 +259,7 @@ if True:
         plot_wigner              = ["goe", "gue", "poissonian"],
         color_list                = ["r-", "g--", "b-."],
         correlation_type          = "both",
-        mode                      = None,
-        wavelength_range_stats  = wavelength_range_stats,
+        wavelength_range        = wavelength_range_stats,
         save_fig                  = True,
         file_format                = "pdf",
     )

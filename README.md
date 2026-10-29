@@ -144,7 +144,9 @@ wavenumber k = 2π/λ:
 `N_scan` points, refines every local minimum (bounded Brent minimisation) and
 takes the degeneracy of each root as the number of singular values of
 `I − U(k*)` below `nullity_tol`; it warns if the number of levels departs from
-the Weyl law. `compute_wavefunction(k*)` returns an orthonormal basis of the
+the Weyl law. The scan runs sector by sector (see *Spectral statistics*): the
+levels of two partner sectors are computed once and are exactly doubly
+degenerate by construction. `compute_wavefunction(k*)` returns an orthonormal basis of the
 null space of `I − U(k*)`: component b is the amplitude of the wave on
 directed bond b = (u → v) when it **arrives** at v. With x the distance to u,
 the field on bond (u, v) is
@@ -168,15 +170,26 @@ injected in lead i. Resonances (poles of S) are minima of
 `find_experimental_resonances` locates peaks of d²|S_ij|²/dk² on the real
 axis, as one would on a measured spectrum.
 
-**Spectral statistics.** Levels are unfolded with the Weyl law
-N(k) = (L/π)∫ n_g dk and compared with Poisson, GOE, GUE and GSE:
-nearest-neighbour spacings (Wigner surmises), number variance Σ²(L) and
-spectral rigidity Δ₃(L). For directional-coupler graphs whose levels are all
-exactly doubly degenerate (e.g. the double ring: each coupler's arms can be
-labelled input/output with every bond joining an output to an input), the
-statistics keep one level per pair and halve the Weyl law (GUE expected);
-`mode=` forces a choice. `plot_length_spectrum` Fourier-transforms the
-spectrum, with peaks at the lengths of periodic orbits.
+**Sectors.** A wave on a directed bond only scatters into the directed bonds
+reached through the nonzero entries of Σ. The strongly connected components
+of this pattern (`graph.sectors`) split U(k) into independent blocks U_s, and
+the spectrum is the union of their spectra. With reciprocal vertices
+(σ symmetric), the reversed bonds of a sector form a sector with the same
+spectrum: either the sector itself (time-reversal symmetry, GOE expected —
+flower and bow-tie graphs) or a partner (every level doubly degenerate, GUE
+expected for each sector — double ring, rings of couplers).
+
+**Spectral statistics** use the desymmetrised spectrum (one sector of each
+pair of partners; `sector=` selects another one, `sector="all"` every level)
+unfolded with the Weyl law of the selected sectors,
+N(k) = (L_s/2π)∫ n_g dk, L_s the summed length of their directed bonds (2L
+for a graph made of one sector, L for one of two partners). They are compared
+with Poisson and the expected ensemble (GOE / GUE; GSE also available):
+nearest-neighbour spacings (Wigner surmises), number variance Σ²(L)
+(`sigma2()`) and spectral rigidity Δ₃(L) (`delta3()`). Measured peaks are
+analysed with `spectrum=graph.exp_spectrum`. `plot_length_spectrum`
+Fourier-transforms the spectrum, with peaks at the lengths of periodic
+orbits.
 
 **Classical dynamics.** `P = |Σ_αα|²` (element-wise) is doubly stochastic and
 evolves probability vectors on the directed bonds, ρ_{n+1} = P ρ_n.

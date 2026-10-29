@@ -58,7 +58,8 @@ class WavefunctionPlotsMixin:
         Iterate over the spectrum and compute per-mode Shannon entropy and IPR.
 
         Per bond; a degenerate level counts once, through the
-        diagonal of its eigenspace projector.
+        diagonal of its eigenspace projector (multiplicity from
+        ``compute_spectrum``).
 
         Parameters
         ----------
@@ -74,15 +75,19 @@ class WavefunctionPlotsMixin:
         if not hasattr(self, "spectrum"):
             raise AttributeError("No spectrum. Run compute_spectrum() first.")
 
-        k_all = np.sort(np.real(np.asarray(self.spectrum, dtype=float)))
-        k_all = k_all[np.isfinite(k_all)]
-        if k_all.size == 0:
+        k_all = np.real(np.asarray(self.spectrum, dtype=float))
+        g_all = np.asarray(self.degeneracies, dtype=int)
+        keep = np.isfinite(k_all)
+        if not keep.any():
             raise ValueError("Empty spectrum.")
 
         if wavelength_range is not None:
             lam_min, lam_max = wavelength_range
-            lam_all = 2 * np.pi / k_all
-            k_all   = k_all[(lam_all >= lam_min) & (lam_all <= lam_max)]
+            with np.errstate(divide="ignore"):
+                lam_all = 2 * np.pi / k_all
+            keep &= (lam_all >= lam_min) & (lam_all <= lam_max)
+        order = np.argsort(k_all[keep], kind="stable")
+        k_all, g_all = k_all[keep][order], g_all[keep][order]
 
         if k_all.size == 0:
             raise ValueError("No modes in requested wavelength range.")
@@ -94,9 +99,9 @@ class WavefunctionPlotsMixin:
         x_kL_list    = []
         kept_k_list  = []
 
-        for k in k_all:
-            coeffs_set = self.compute_wavefunction(k, tol=1e-4)
-            if coeffs_set is None or coeffs_set.size == 0:
+        for k, g in zip(k_all, g_all):
+            coeffs_set = self.null_vectors(k, multiplicity=g)
+            if coeffs_set.size == 0:
                 continue
 
             _, S_norm, I = self.localization_measures(coeffs_set)

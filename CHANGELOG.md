@@ -68,6 +68,51 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
 - `layouts.from_port_map(vertex_positions, port_map, lengths)` converts the
   1.0 description (for tools that still produce port maps, e.g. GDS builders).
 
+### Changed (spectral statistics: sectors)
+- **`graph.sectors`** (`core.sectors`): the strongly connected components of
+  the transition pattern of Σ_αα split U(k) into independent blocks; with
+  reciprocal vertices the reversed bonds of a sector are the sector itself
+  (time-reversal symmetry, GOE expected) or a partner sector with the same
+  spectrum (every level doubly degenerate, GUE expected). Double ring = two
+  partners; flower and bow-tie graphs = one self-reverse sector.
+- **`compute_spectrum` scans one sector per pair of partners** (double ring:
+  U of size 2 instead of 4); the multiplicity of a level is known by
+  construction. `find_resonances` assigns each resonance to a sector. Both set
+  `graph.level_sectors`. A level degenerate *inside* a sector (geometric
+  symmetry) raises a warning.
+- **Statistics on the desymmetrised spectrum** with the Weyl law of the
+  selected sectors, N(k) = (L_s/2π) ∫ n_g dk: the rule "all levels doubly
+  degenerate → one per pair and Weyl × 1/2", which a single mis-detected
+  level silently switched off, is gone with `mode=` (`raw` / `expanded` /
+  `directional`), `stats_mode`, `degenerate_spectrum`, `N_weyl`,
+  `N_weyl_scaled`, `_stats_selection`, `_is_pure_directional`,
+  `use_experimental` and `NNSD_func` (use `qg.stats.nnsd`).
+- New public methods on closed and open graphs: `levels(sector=None)`,
+  `weyl_length`, `weyl_staircase(k)`, `weyl_count(k_min, k_max)`,
+  `unfolded_spectrum()`, `sigma2()`, `delta3()`, `spectral_ensemble()`;
+  `sector=None` (desymmetrised), an index, or `"all"`; an explicit
+  `spectrum=` (e.g. `graph.exp_spectrum`) replaces `use_experimental=True`.
+  `weyl_count()` counts the desymmetrised levels (`sector="all"`: with
+  multiplicity).
+- The statistics figures take `spectrum=`, `sector=` and `wavelength_range=`
+  (was `wavelength_range_stats=`), default to Poisson + the expected ensemble,
+  return their data, and are shared by closed and open graphs
+  (`plotting.spectral_plots`); file names no longer carry `__directional` /
+  `__expanded`. `plot_length_spectrum(spectrum=None, sector="all")` uses every
+  level with its multiplicity (open graphs: was each resonance once).
+- `stats.weyl_staircase(k, directed_length, ng, k0)` / `stats.unfold` take the
+  directed length L_s (2 L for a whole graph) instead of `total_length` and
+  `length_scale`.
+- One degeneracy threshold (`core.scattering.NULLITY_TOL` = 1e-4): open-graph
+  wavefunctions, entropy and IPR use the multiplicity found by
+  `find_resonances` (`resonance_vectors(i)`; was a relative 1e-3 threshold);
+  closed ones the multiplicity of `compute_spectrum`
+  (`graph.null_vectors(k, multiplicity)`). `nullity_tol` is gone from the
+  open entropy / IPR / wavefunction plots.
+- Values unchanged on every reference graph (reference_v5 adds only the
+  sector structure; spectra bit-identical, spacings ≤ 2e-12). Cached spectra
+  and resonances of 2.0.0.dev0 are recomputed (new `level_sectors`).
+
 ### Changed (figures)
 - One `plot_graph` for every class (`plotting.topology_plot`), drawn with
   matplotlib along `graph.bond_paths` (`plotting.drawing.BondPaths`):

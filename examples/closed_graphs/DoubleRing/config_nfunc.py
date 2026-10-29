@@ -201,24 +201,24 @@ if True:
     wavelength_range_stats = None
 
     graph.plot_staircase_function(
-        plot_weyl=True, weyl_diff=True, mode=None,
-        wavelength_range_stats=wavelength_range_stats,
+        plot_weyl=True, weyl_diff=True, 
+        wavelength_range=wavelength_range_stats,
         save_fig=True, file_format="pdf",
     )
     graph.short_range_correlations(
         width=0.1, xlim=(0, 3),
         plot_wigner=["goe", "gue", "poissonian"],
         color_list=["r-", "g--", "b-."],
-        cumulative_spacing=True, mode=None,
-        wavelength_range_stats=wavelength_range_stats,
+        cumulative_spacing=True, 
+        wavelength_range=wavelength_range_stats,
         yscale="linear", save_fig=True, file_format="pdf",
     )
     graph.long_range_correlations(
         L_max=10, L_step=0.1,
         plot_wigner=["goe", "gue", "poissonian"],
         color_list=["r-", "g--", "b-."],
-        correlation_type="both", mode=None,
-        wavelength_range_stats=wavelength_range_stats,
+        correlation_type="both", 
+        wavelength_range=wavelength_range_stats,
         save_fig=True, file_format="pdf",
     )
 
