@@ -12,7 +12,7 @@ def n_files(path, ext):
 
 
 def test_closed_plots(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), vertex_couplings=0.5, neff=3.97,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, neff=3.97,
                                    wavelength_range=(1.50, 1.51), bond_spacing=[40, -40],
                                    **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True, file_format="png")
@@ -36,21 +36,21 @@ def test_base_closed_graph_plot(save):
 
 
 def test_open_plots(save):
-    g = qg.OpenDirectionalGraphs(**qg.layouts.bow_tie_graph(open=True), internal_coupling=0.5,
-                                 external_coupling=0.3, neff=3.97, wavelength_range=(1.550, 1.553),
+    g = qg.OpenDirectionalGraphs(**qg.layouts.bow_tie_graph(open=True), couplings=0.5,
+                                 access_couplings=0.3, neff=3.97, wavelength_range=(1.550, 1.553),
                                  **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True)
     g.find_resonances(N_re=6_000, N_im=6, im_min=-1e-4, im_max=0.0, plot=True)
-    g.find_experimental_resonances(n_points=20_000, k_imag=2e-7, amp_threshold=0, plot_figures=True)
+    g.find_experimental_resonances(n_points=20_000, k_imag=2e-7, amp_threshold=0, plot=True)
     kw = dict(lambda_min=1.550, lambda_max=1.553, n_points=3000, components=(1, 0), k_imag=2e-6,
-              save=True)
+              save_fig=True)
     g.plot_S_amplitude(spectrum=g.best_spectrum, x_axis="frequency", **kw)
     g.plot_S_phase(**kw)
     g.plot_S_amplitude_phase(spectrum=g.best_spectrum, **kw)
     g.plot_S_fourier(xlim_um=(0, 3000), **kw)
     g.plot_S_complex_plane(spectrum=g.best_spectrum, **kw)
     g.plot_energy_distribution(k=float(np.real(g.best_spectrum[0])) + 2e-6j, injection_port=0,
-                               save=True)
+                               save_fig=True)
     g.plot_resonance_wavefunction(index=0, save_fig=True)
     g.plot_entropy(save_fig=True)
     g.plot_ipr(save_fig=True)
@@ -62,7 +62,7 @@ def test_open_plots(save):
 
 
 def test_classical_plots(save):
-    g = qg.DirectionalClassicalGraphs(**qg.layouts.bow_tie_graph(), vertex_couplings=0.5, **save)
+    g = qg.DirectionalClassicalGraphs(**qg.layouts.bow_tie_graph(), couplings=0.5, **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True)
     rho0 = g.basis_state(index=0)
     g.plot_rho_after_steps(rho0=rho0, n_steps=3, save_fig=True, filename="rho3.pdf")

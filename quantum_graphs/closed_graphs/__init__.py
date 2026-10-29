@@ -53,7 +53,7 @@ class ClosedGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
     ng : float, callable, or None
         Group index.  Derived numerically from ``neff(k)`` if ``None``.
     wavelength_range : (float, float)
-        Vacuum wavelength range (µm).
+        Vacuum wavelength range (µm), required.
     bond_spacing : float, sequence, or None
         Drawing only: distance between parallel bonds (see
         :class:`quantum_graphs.plotting.drawing.BondPaths`).

@@ -102,8 +102,8 @@ graph = DirectionalGraphs(
     vertex_positions  = vertex_positions,
     bonds             = bonds,
     leads             = leads,
-    internal_coupling = C_internal,
-    external_coupling = C_external,
+    couplings = C_internal,
+    access_couplings = C_external,
     neff              = neff,
     wavelength_range  = wavelength_range,
     lead_orientations = lead_orientations,
@@ -212,9 +212,9 @@ if True:
         manual_lambda_peaks  = [],
         exclude_lambda_peaks = [],
         exclude_tol_nm       = 2e-4,
-        save         = True,
+        save_fig     = True,
         overwrite    = False,
-        plot_figures = True,
+        plot         = True,
         verbose      = True,
         file_format  = "pdf",
     )
@@ -233,7 +233,7 @@ if True:
         spectrum   = None,
         k_imag     = k_imag,
         x_axis     = "frequency",
-        save       = True,
+        save_fig   = True,
         file_format = "pdf",
     )
     graph.plot_S_amplitude(
@@ -244,7 +244,7 @@ if True:
         spectrum   = graph.best_spectrum,
         k_imag     = k_imag,
         x_axis     = "frequency",
-        save       = True,
+        save_fig   = True,
         file_format       = "pdf",
         reuse_if_included = True,
     )
@@ -263,7 +263,7 @@ if True:
         spectrum   = graph.best_spectrum,
         k_imag     = k_imag,
         x_axis     = "frequency",
-        save       = True,
+        save_fig   = True,
         file_format       = "pdf",
         reuse_if_included = True,
     )
@@ -283,7 +283,7 @@ if True:
         components = (1, 0),
         k_imag     = k_imag,
         xlim_um    = (0, 3000),
-        save       = True,
+        save_fig   = True,
         file_format       = "pdf",
         reuse_if_included = True,
     )
@@ -309,7 +309,7 @@ if True:
         components = (1, 0),
         spectrum   = graph.best_spectrum,
         k_imag     = k_imag,
-        save       = True,
+        save_fig   = True,
         file_format = "pdf",
     )
 
@@ -325,7 +325,7 @@ if True:
         k              = test_k,
         injection_port = 0,
         show_leads     = True,
-        save           = True,
+        save_fig       = True,
         file_format    = "pdf",
     )
 

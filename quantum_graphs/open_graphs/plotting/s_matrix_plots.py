@@ -248,7 +248,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_amplitude(self, lambda_min, lambda_max, n_points, components,
                          spectrum=None, k_imag=0.0, x_axis="wavelength",
-                         save=False, save_fig=None, file_format="pdf",
+                         save_fig=False, file_format="pdf",
                          reuse_if_included=True, verbose=None):
         """
         Plot |S_ij|² versus wavelength or frequency.
@@ -267,7 +267,7 @@ class SMatrixPlotsMixin:
             Imaginary part added to k.
         x_axis : ``'wavelength'`` or ``'frequency'``
             Horizontal axis variable.
-        save : bool
+        save_fig : bool
             Save the figure to ``self.save_path``.
         file_format : str
             Output format (``'pdf'``, ``'svg'``, ``'png'``, …).
@@ -276,8 +276,6 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -306,7 +304,7 @@ class SMatrixPlotsMixin:
         if len(components) > 1:
             ax.legend(fontsize=18, frameon=False)
 
-        if save:
+        if save_fig:
             fname    = _plot_filename("Samp", components, spectrum, x_axis,
                                       lambda_min, lambda_max, n_points, k_imag, file_format)
             filepath = os.path.join(self.save_path, fname)
@@ -322,7 +320,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_phase(self, lambda_min, lambda_max, n_points, components,
                      spectrum=None, k_imag=0.0, x_axis="wavelength",
-                     save=False, save_fig=None, file_format="pdf",
+                     save_fig=False, file_format="pdf",
                      reuse_if_included=True, verbose=None):
         """
         Plot arg(S_ij) versus wavelength or frequency.
@@ -334,8 +332,6 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -365,7 +361,7 @@ class SMatrixPlotsMixin:
         if len(components) > 1:
             ax.legend(fontsize=18, frameon=False)
 
-        if save:
+        if save_fig:
             fname    = _plot_filename("Sphase", components, spectrum, x_axis,
                                       lambda_min, lambda_max, n_points, k_imag, file_format)
             filepath = os.path.join(self.save_path, fname)
@@ -381,7 +377,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_amplitude_phase(self, lambda_min, lambda_max, n_points, components,
                                 spectrum=None, k_imag=0.0, x_axis="wavelength",
-                                save=False, save_fig=None, file_format="pdf",
+                                save_fig=False, file_format="pdf",
                                 reuse_if_included=True, verbose=None):
         """
         Two-panel figure: |S_ij|² (top) and arg(S_ij) (bottom), shared x-axis.
@@ -390,8 +386,6 @@ class SMatrixPlotsMixin:
         ----------
         (same as ``plot_S_amplitude``)
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
         components = _components_to_list(components)
@@ -443,7 +437,7 @@ class SMatrixPlotsMixin:
             ax_top.legend(fontsize=18, frameon=False)
             ax_bot.legend(fontsize=16, frameon=False)
 
-        if save:
+        if save_fig:
             fname    = _plot_filename("SampPhase", components, spectrum, x_axis,
                                       lambda_min, lambda_max, n_points, k_imag, file_format)
             filepath = os.path.join(self.save_path, fname)
@@ -459,7 +453,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_fourier(self, lambda_min, lambda_max, n_points, components,
                        k_imag=0.0, xlim_um=(0, 8000),
-                       save=False, save_fig=None, file_format="pdf",
+                       save_fig=False, file_format="pdf",
                        reuse_if_included=True, verbose=None):
         """
         Fourier transform of |S_ij|² in the optical-length domain.
@@ -479,7 +473,7 @@ class SMatrixPlotsMixin:
             Imaginary part of k.
         xlim_um : (float, float)
             Optical-length axis range (µm).
-        save : bool
+        save_fig : bool
             Save the figure.
         file_format : str
             Output format.
@@ -488,8 +482,6 @@ class SMatrixPlotsMixin:
         verbose : bool
             Print progress.
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 
@@ -562,7 +554,7 @@ class SMatrixPlotsMixin:
             fig.text(0.08, 0.5, "Fourier Transform", fontsize=22,
                      va="center", rotation="vertical")
 
-        if save:
+        if save_fig:
             fname    = _plot_filename("Sfourier", components, None, "wavelength",
                                       lambda_min, lambda_max, n_points, k_imag, file_format)
             filepath = os.path.join(self.save_path, fname)
@@ -578,7 +570,7 @@ class SMatrixPlotsMixin:
 
     def plot_S_complex_plane(self, lambda_min, lambda_max, n_points, components,
                               spectrum=None, k_imag=0.0,
-                              save=False, save_fig=None, file_format="pdf",
+                              save_fig=False, file_format="pdf",
                               reuse_if_included=False, verbose=None):
         """
         Plot S_ij(λ) as a curve in the complex plane.
@@ -599,7 +591,7 @@ class SMatrixPlotsMixin:
             Resonance wavenumbers (µm⁻¹) for nearest-resonance lookup.
         k_imag : float
             Imaginary part of k.
-        save : bool
+        save_fig : bool
             Save the figure.
         file_format : str
             Output format.
@@ -614,8 +606,6 @@ class SMatrixPlotsMixin:
         fig : Figure
         axs : ndarray of Axes  (shape ``(1, n_components)``)
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
 
@@ -668,7 +658,7 @@ class SMatrixPlotsMixin:
 
         plt.tight_layout()
 
-        if save:
+        if save_fig:
             fname    = _plot_filename("ScomplexPlane", components, spectrum, "wavelength",
                                       lambda_min, lambda_max, n_points, k_imag, file_format)
             filepath = os.path.join(self.save_path, fname)

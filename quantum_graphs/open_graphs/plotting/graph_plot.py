@@ -19,13 +19,11 @@ from ...plotting.topology_plot import TopologyPlotMixin
 class GraphPlotMixin(TopologyPlotMixin):
 
     def plot_energy_distribution(self, k, injection_port, show_leads=True,
-                                 cmap=None, save=False, save_fig=None, file_format="pdf"):
+                                 cmap=None, save_fig=False, file_format="pdf"):
         """
         Plot the energy distribution on the graph bonds for a given injection port
         and wavenumber.
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         leads = list(self.topology.leads)
 
         # Identify injection port
@@ -56,7 +54,7 @@ class GraphPlotMixin(TopologyPlotMixin):
 
         arrow_tips = []
         if show_leads:
-            S            = self.compute_S_matrix(k)
+            S            = self.S(k)
             power_matrix = np.abs(S)**2
             j_idx        = injection_index
             arrow_length = 80
@@ -119,7 +117,7 @@ class GraphPlotMixin(TopologyPlotMixin):
         finish_axes(ax, paths, extra_points=arrow_tips)
         plt.tight_layout(pad=3.0)
 
-        if save:
+        if save_fig:
             inj_label = f"lead{injection_index}"
             leads_tag = "withLeads" if show_leads else "noLeads"
             if imag_term is not None:

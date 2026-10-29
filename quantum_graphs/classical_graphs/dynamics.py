@@ -10,7 +10,6 @@ mixing tests, and rho evolution.
 import warnings
 import numpy as np
 
-from ._utils import _safe_logical_allclose_nonnegative
 
 
 class DynamicsMixin:
@@ -20,195 +19,97 @@ class DynamicsMixin:
     One step of P moves the probability on a directed bond to the directed
     bonds leaving its end vertex (one bond traversal per step, whatever the
     bond length). Directed bonds are numbered as in
-    :mod:`quantum_graphs.core.topology`.
+    :mod:`quantum_graphs.core.topology`. Every method takes ``k`` (used only
+    by vertex matrices that depend on k); P and its spectrum are computed once
+    per k.
     """
 
     # ==================================================================
-    # Internal scattering matrix
+    # Perron-Frobenius operator and its spectrum
     # ==================================================================
 
-    def _build_sigma_alpha_alpha(self, k=None):
-        """
-        Build the internal directed-bond scattering matrix Sigma_aa.
+    def perron_frobenius(self, k=None, atol=1e-12):
+        """P = |Σ_αα(k)|² (element-wise), shape (2B, 2B), column-stochastic for
+        unitary vertex matrices (a warning is raised otherwise)."""
+        cache = self.__dict__.setdefault("_pf_cache", {})
+        if k not in cache:
+            P = np.asarray(np.abs(self.model.block("aa", k)) ** 2, dtype=float)
+            col_sums = np.sum(P, axis=0)
+            if not np.allclose(col_sums, 1.0, atol=atol, rtol=0.0):
+                warnings.warn("P is not column-stochastic "
+                              f"(max |col_sum - 1| = {np.max(np.abs(col_sums - 1.0)):.3e}).",
+                              RuntimeWarning, stacklevel=2)
+            evals, evecs = np.linalg.eig(P)
+            order = np.argsort(-np.abs(evals))
+            cache[k] = (P, evals[order], evecs[:, order])
+        return cache[k][0]
 
-        For each incoming directed bond src -> dst, the wave arrives at vertex
-        v = dst[0] through port dst[1] and is scattered to all outgoing ports.
+    def perron_frobenius_spectrum(self, k=None):
+        """Eigenvalues of P sorted by decreasing modulus, and the right
+        eigenvectors as columns."""
+        self.perron_frobenius(k)
+        _, evals, evecs = self._pf_cache[k]
+        return evals, evecs
 
-        Returns
-        -------
-        Sigma_aa : np.ndarray, shape (2B, 2B), complex
-        """
-        return np.array(self.model.block("aa", k))
-
-    # ==================================================================
-    # Perron-Frobenius operator
-    # ==================================================================
-
-    def build_perron_frobenius_operator(self, k=None, check_stochastic=True, atol=1e-12):
-        """
-        Build the classical Perron-Frobenius operator P = |Sigma_aa|².
-
-        Parameters
-        ----------
-        k : float or None
-            Optional spectral parameter for callable vertex matrices.
-        check_stochastic : bool
-            If True, validate that P is column-stochastic.
-        atol : float
-            Tolerance for the stochastic check.
-
-        Returns
-        -------
-        P : np.ndarray, shape (2B, 2B), float
-        """
-        Sigma_aa = self._build_sigma_alpha_alpha(k=k)
-        P = np.asarray(np.abs(Sigma_aa) ** 2, dtype=float)
-
-        if check_stochastic:
-            self._check_perron_frobenius_operator(P, atol=atol)
-
-        self.Sigma_aa = Sigma_aa
-        self.P = P
-        return P
-
-    def _check_perron_frobenius_operator(self, P, atol=1e-12):
-        P = np.asarray(P, dtype=float)
-        if P.shape != (self.topology.n_directed, self.topology.n_directed):
-            raise ValueError(f"Invalid PF shape {P.shape}.")
-        if not _safe_logical_allclose_nonnegative(P, atol=atol):
-            raise ValueError(
-                f"P contains significantly negative entries (min={np.min(P):.3e})."
-            )
-        col_sums = np.sum(P, axis=0)
-        if not np.allclose(col_sums, 1.0, atol=atol, rtol=0.0):
-            max_dev = np.max(np.abs(col_sums - 1.0))
-            warnings.warn(
-                f"P is not perfectly column-stochastic (max |col_sum - 1| = {max_dev:.3e}).",
-                RuntimeWarning,
-            )
-
-    def get_perron_frobenius_operator(self, k=None, rebuild=False, **kwargs):
-        """Return P, building it first if necessary."""
-        if rebuild or not hasattr(self, "P"):
-            return self.build_perron_frobenius_operator(k=k, **kwargs)
-        return self.P
-
-    # ==================================================================
-    # Spectral analysis
-    # ==================================================================
-
-    def diagonalize_perron_frobenius(self, k=None, rebuild=False):
-        """
-        Eigendecompose P.
-
-        Returns
-        -------
-        evals : np.ndarray — sorted by decreasing |eigenvalue|
-        evecs_right : np.ndarray — right eigenvectors as columns
-        """
-        P = self.get_perron_frobenius_operator(k=k, rebuild=rebuild)
-        evals, evecs_right = np.linalg.eig(P)
-        order = np.argsort(-np.abs(evals))
-        evals = evals[order]
-        evecs_right = evecs_right[:, order]
-        self.P_evals = evals
-        self.P_evecs_right = evecs_right
-        return evals, evecs_right
-
-    def get_invariant_measure(self, k=None, rebuild=False, atol=1e-12, normalize=True):
-        """
-        Compute the invariant probability vector rho* with P @ rho* = rho*.
-
-        Returns
-        -------
-        rho_star : np.ndarray, shape (2B,)
-        """
-        evals, evecs = self.diagonalize_perron_frobenius(k=k, rebuild=rebuild)
+    def invariant_measure(self, k=None, atol=1e-12):
+        """Probability vector rho* with P rho* = rho* (uniform for unitary vertices)."""
+        evals, evecs = self.perron_frobenius_spectrum(k)
         idx = np.argmin(np.abs(evals - 1.0))
         if np.abs(evals[idx] - 1.0) > atol:
-            warnings.warn(
-                f"No eigenvalue within atol={atol:.1e} of 1. "
-                f"Closest: {evals[idx]}",
-                RuntimeWarning,
-            )
+            warnings.warn(f"No eigenvalue within atol={atol:.1e} of 1. Closest: {evals[idx]}",
+                          RuntimeWarning, stacklevel=2)
         vec = np.real_if_close(evecs[:, idx]).astype(float)
         if np.sum(vec) < 0:
             vec = -vec
         vec = np.where(vec < 0.0, 0.0, vec)
-        if normalize:
-            s = np.sum(vec)
-            if s <= 0:
-                raise ValueError("Invariant measure normalization failed: nonpositive sum.")
-            vec /= s
-        self.rho_invariant = vec
-        return vec
+        return vec / np.sum(vec)
 
-    def spectral_gap(self, k=None, rebuild=False):
-        """
-        Spectral gap = 1 - |lambda_2|, where lambda_2 is the second-largest eigenvalue.
-        """
-        evals, _ = self.diagonalize_perron_frobenius(k=k, rebuild=rebuild)
+    def spectral_gap(self, k=None):
+        """1 − |λ₂|, λ₂ the eigenvalue of second largest modulus (0 if |λ₂| = 1)."""
+        evals, _ = self.perron_frobenius_spectrum(k)
         if evals.size < 2:
             return 0.0
         gap = float(1.0 - np.abs(evals[1]))
-        if abs(gap) < 1e-12:          # |λ2| = 1 up to round-off: no gap (not mixing)
-            gap = 0.0
-        self.P_spectral_gap = gap
-        return gap
+        return 0.0 if abs(gap) < 1e-12 else gap      # |λ2| = 1 up to round-off: no gap
 
-    def is_ergodic(self, k=None, rebuild=False, atol=1e-10):
-        """True if eigenvalue 1 is simple."""
-        evals, _ = self.diagonalize_perron_frobenius(k=k, rebuild=rebuild)
+    def is_ergodic(self, k=None, atol=1e-10):
+        """True if the eigenvalue 1 is simple."""
+        evals, _ = self.perron_frobenius_spectrum(k)
         return int(np.sum(np.abs(evals - 1.0) < atol)) == 1
 
-    def is_mixing(self, k=None, rebuild=False, atol=1e-10):
-        """True if 1 is simple and all other eigenvalues satisfy |lambda| < 1."""
-        evals, _ = self.diagonalize_perron_frobenius(k=k, rebuild=rebuild)
-        evals = evals[np.argsort(-np.abs(evals))]
+    def is_mixing(self, k=None, atol=1e-10):
+        """True if 1 is simple and every other eigenvalue has |λ| < 1."""
+        evals, _ = self.perron_frobenius_spectrum(k)
         if int(np.sum(np.abs(evals - 1.0) < atol)) != 1:
             return False
         others = np.delete(evals, np.argmin(np.abs(evals - 1.0)))
         return others.size == 0 or bool(np.all(np.abs(others) < 1.0 - atol))
 
-    def classical_summary(self, k=None, rebuild=False, atol=1e-10):
-        """
-        Return a compact dict summary of the classical dynamics:
-        eigenvalues, right_eigenvectors, spectral_gap, is_ergodic,
-        is_mixing, invariant_measure.
-        """
-        evals, evecs = self.diagonalize_perron_frobenius(k=k, rebuild=rebuild)
-        rho_star = self.get_invariant_measure(k=k, rebuild=False)
-        gap = self.spectral_gap(k=k, rebuild=False)
+    def classical_summary(self, k=None, atol=1e-10):
+        """dict: eigenvalues, right_eigenvectors, spectral_gap, is_ergodic,
+        is_mixing, invariant_measure."""
+        evals, evecs = self.perron_frobenius_spectrum(k)
         return {
             "eigenvalues": evals,
             "right_eigenvectors": evecs,
-            "spectral_gap": gap,
-            "is_ergodic": self.is_ergodic(k=k, rebuild=False, atol=atol),
-            "is_mixing": self.is_mixing(k=k, rebuild=False, atol=atol),
-            "invariant_measure": rho_star,
+            "spectral_gap": self.spectral_gap(k),
+            "is_ergodic": self.is_ergodic(k, atol=atol),
+            "is_mixing": self.is_mixing(k, atol=atol),
+            "invariant_measure": self.invariant_measure(k),
         }
 
     # ==================================================================
-    # Probability-vector utilities
+    # Probability vectors
     # ==================================================================
 
     def validate_rho(self, rho, normalize=False, atol=1e-14):
-        """
-        Validate and optionally normalise a probability vector on directed bonds.
-
-        Returns
-        -------
-        rho : np.ndarray, shape (2B,)
-        """
+        """Check (and optionally normalise) a probability vector on the directed bonds."""
         rho = np.asarray(rho, dtype=float).reshape(-1)
-        if rho.shape != (self.topology.n_directed,):
-            raise ValueError(
-                f"rho must have shape ({self.topology.n_directed},), got {rho.shape}."
-            )
+        n = self.topology.n_directed
+        if rho.shape != (n,):
+            raise ValueError(f"rho must have shape ({n},), got {rho.shape}.")
         if np.min(rho) < -atol:
-            raise ValueError(
-                f"rho contains significantly negative entries (min={np.min(rho):.3e})."
-            )
+            raise ValueError(f"rho contains significantly negative entries (min={np.min(rho):.3e}).")
         rho = np.where(rho < 0.0, 0.0, rho)
         if normalize:
             s = np.sum(rho)
@@ -219,7 +120,7 @@ class DynamicsMixin:
 
     def basis_state(self, index=None, dbond=None):
         """
-        Return a one-hot probability vector concentrated on one directed bond.
+        One-hot probability vector on one directed bond.
 
         Provide exactly one of `index` (integer) or `dbond` = (i, p, j, q), the
         directed bond from port (i, p) to port (j, q).
@@ -232,54 +133,15 @@ class DynamicsMixin:
         rho0[int(index)] = 1.0
         return rho0
 
-    def evolve_rho(self, rho0, n_steps=1, k=None, rebuild=False, normalize_input=True):
-        """
-        Evolve rho for n_steps: rho_{n+1} = P @ rho_n.
-
-        Returns
-        -------
-        rho_n : np.ndarray, shape (2B,)
-        """
+    def evolve_rho(self, rho0, n_steps=1, k=None, trajectory=False, normalize_input=True):
+        """rho_n = P^n rho0; with ``trajectory=True`` the array [rho_0, ..., rho_n],
+        shape (n_steps + 1, 2B)."""
         if n_steps < 0:
             raise ValueError("n_steps must be >= 0.")
-        P = self.get_perron_frobenius_operator(k=k, rebuild=rebuild)
+        P = self.perron_frobenius(k)
         rho = self.validate_rho(rho0, normalize=normalize_input)
+        traj = [rho]
         for _ in range(int(n_steps)):
             rho = P @ rho
-        return rho
-
-    def evolve_rho_trajectory(self, rho0, n_steps, k=None, rebuild=False,
-                              normalize_input=True):
-        """
-        Return the full trajectory [rho_0, rho_1, ..., rho_n].
-
-        Returns
-        -------
-        trajectory : np.ndarray, shape (n_steps+1, 2B)
-        """
-        if n_steps < 0:
-            raise ValueError("n_steps must be >= 0.")
-        P = self.get_perron_frobenius_operator(k=k, rebuild=rebuild)
-        rho = self.validate_rho(rho0, normalize=normalize_input)
-        traj = [rho.copy()]
-        for _ in range(int(n_steps)):
-            rho = P @ rho
-            traj.append(rho.copy())
-        return np.asarray(traj, dtype=float)
-
-    def evolve_and_store(self, rho0, n_steps, k=None, rebuild=False,
-                         normalize_input=True):
-        """Compute trajectory and store in self.last_rho_trajectory."""
-        trajectory = self.evolve_rho_trajectory(
-            rho0=rho0, n_steps=n_steps, k=k,
-            rebuild=rebuild, normalize_input=normalize_input,
-        )
-        self.last_rho_trajectory = trajectory
-        return trajectory
-
-    def perron_power(self, n, k=None, rebuild=False):
-        """Return P^n."""
-        if n < 0:
-            raise ValueError("n must be >= 0.")
-        P = self.get_perron_frobenius_operator(k=k, rebuild=rebuild)
-        return np.linalg.matrix_power(P, int(n))
+            traj.append(rho)
+        return np.asarray(traj, dtype=float) if trajectory else rho

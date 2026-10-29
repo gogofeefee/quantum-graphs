@@ -47,13 +47,14 @@ specific to their point of view.
    `build_topology` validates `vertex_positions` / `bonds` / `leads` into
    `graph.topology` (loops and multiple bonds are ordinary bonds); vertex
    matrices are resolved and validated; the save path is resolved and
-   `graph_parameters.txt` is written. The graph exposes only the shortcuts
+   nothing is written to disk before the first save (`graph.save_path`
+   creates the directory and `graph_parameters.txt` on first use). The graph exposes only the shortcuts
    `n_vertices`, `n_bonds`, `n_leads`, `total_length`; everything else is
    read from `graph.topology`.
 2. **Numerics** go through `graph.model` (a `ScatteringModel` built lazily
-   from the topology, the vertex matrices and `neff`). The historical methods
-   (`_build_sigma_alpha_alpha`, `_build_propagation_matrix`, `compute_S_matrix`,
-   `_U`, `_sigma_min`) delegate to it.
+   from the topology, the vertex matrices and `neff`); `graph.U(k)`,
+   `graph.sigma_min(k)`, `graph.secular_det(k)` (every graph) and `graph.S(k)`
+   (open graphs; one k or an array) are thin wrappers around it.
 3. **Caches**: `persistence.use_cache(path, graph.fingerprint, params,
    overwrite)` before loading, `write_cache_meta(...)` after writing. The
    fingerprint samples every function of k at 9 wavenumbers of the window.

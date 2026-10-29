@@ -52,12 +52,21 @@ class GraphBase:
         """Sum of the bond lengths (µm)."""
         return self.topology.total_length
 
-    def _setup_save_path(self, name, leaf, save_path, base_dir, write_parameters=True):
+    def _setup_save_path(self, name, leaf, save_path, base_dir):
+        """Resolve the output directory; nothing is written until the first save."""
         self.name = name
-        self.save_path = resolve_save_path(name, leaf, save_path, base_dir)
-        self.save_path.mkdir(parents=True, exist_ok=True)
-        if write_parameters:
+        self._save_path = resolve_save_path(name, leaf, save_path, base_dir)
+        self._parameters_written = False
+
+    @property
+    def save_path(self):
+        """Output directory of the graph (Path). Created on first use, together
+        with ``graph_parameters.txt``: building a graph writes nothing to disk."""
+        if not self._parameters_written:
+            self._parameters_written = True
+            self._save_path.mkdir(parents=True, exist_ok=True)
             self._save_parameters()
+        return self._save_path
 
     # -- drawing ----------------------------------------------------------------
 
@@ -71,6 +80,19 @@ class GraphBase:
         return self._bond_paths
 
     # -- wavenumbers ----------------------------------------------------------
+
+    @staticmethod
+    def _check_wavelength_range(wavelength_range):
+        """(λ_min, λ_max) in µm, 0 < λ_min < λ_max; there is no default window."""
+        try:
+            lam_min, lam_max = (float(x) for x in wavelength_range)
+        except (TypeError, ValueError):
+            raise ValueError("wavelength_range must be a pair (lambda_min, lambda_max) in µm, "
+                             f"got {wavelength_range!r}.") from None
+        if not 0 < lam_min < lam_max:
+            raise ValueError(f"wavelength_range must satisfy 0 < lambda_min < lambda_max, "
+                             f"got {wavelength_range!r}.")
+        return lam_min, lam_max
 
     def _k_range(self):
         lam_min, lam_max = self.wavelength_range
@@ -92,6 +114,22 @@ class GraphBase:
             self._model = ScatteringModel(self.topology, self.vertex_scattering_matrix,
                                           getattr(self, "neff", 1.0))
         return self._model
+
+    # -- matrices ---------------------------------------------------------------
+
+    def U(self, k):
+        """Bond evolution map U(k) = D(k) Σ_αα(k), shape (2B, 2B); k may be complex."""
+        return self.model.U(k)
+
+    def sigma_min(self, k):
+        """Smallest singular value of I − U(k), for one k or an array of k."""
+        if np.ndim(k) == 0:
+            return self.model.sigma_min(k)
+        return self.model.sigma_min_many(np.asarray(k))
+
+    def secular_det(self, k):
+        """Secular determinant det(I − U(k))."""
+        return np.linalg.det(np.eye(self.topology.n_directed) - self.model.U(k))
 
     # -- wavefunction localisation -------------------------------------------
 

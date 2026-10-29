@@ -20,8 +20,8 @@ class DirectionalClassicalGraphs(
 ):
     """
     Classical directional graph: all dynamics and plotting of ClassicalGraphs,
-    with vertex matrices built from coupling constants if ``vertex_couplings``
-    is given. ``plot_graph(show_port_markers=True)`` shows the ports (blue:
+    with vertex matrices built from the coupling constants ``couplings`` (a
+    float, a function C(k), a list or a dict {vertex: C}). ``plot_graph(show_port_markers=True)`` shows the ports (blue:
     0, 1; orange: 2, 3).
     """
 
@@ -29,21 +29,19 @@ class DirectionalClassicalGraphs(
         self,
         vertex_positions,
         bonds,
-        vertex_matrices=None,
+        *,
+        couplings,
         bond_spacing=None,
         name="MyDirectionalClassicalGraph",
         save_path=None,
         base_dir=None,
-        vertex_couplings=None,
     ):
-        """``vertex_couplings`` (float, list or dict of C) builds the directional-
-        coupler matrices, as in the quantum DirectionalGraphs classes; it is an
-        alternative to ``vertex_matrices``."""
-        if vertex_couplings is not None:
-            if vertex_matrices is not None:
-                raise ValueError("Give vertex_couplings or vertex_matrices, not both.")
-            couplings = couplings_for_vertices(vertex_couplings, len(vertex_positions))
-            vertex_matrices = {v: directional_coupler_matrix(C) for v, C in enumerate(couplings)}
+        values = couplings_for_vertices(couplings, len(vertex_positions))
+        missing = [v for v, C in enumerate(values) if C is None]
+        if missing:
+            raise ValueError(f"Missing coupling constant for vertices {missing}.")
+        self.couplings = couplings
+        vertex_matrices = {v: directional_coupler_matrix(C) for v, C in enumerate(values)}
         super().__init__(
             vertex_positions=vertex_positions,
             bonds=bonds,

@@ -79,7 +79,10 @@ def log(*args, verbose=None, **kwargs):
 
 
 def show_figure(show=None):
-    """Call ``plt.show()`` unless display is disabled."""
+    """Call ``plt.show()``, or close the current figures if display is disabled
+    (they stay usable through the returned objects, e.g. ``fig.savefig``)."""
+    import matplotlib.pyplot as plt
     if resolve("show", show):
-        import matplotlib.pyplot as plt
         plt.show()
+    else:
+        plt.close("all")

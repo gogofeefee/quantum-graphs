@@ -474,7 +474,7 @@ class SpectralPlotsMixin:
     def plot_length_spectrum(self, L_max=5000, n_points=100_000,
                              use_experimental=False,
                              ignore_zero_peak=True, zero_window_um=None,
-                             save_fig=True, file_format="pdf"):
+                             save_fig=False, file_format="pdf"):
         """
         Compute and plot the length spectrum ρ̂(ℓ) = |Σ_j exp(-i k_j n_eff(k_j) ℓ)|.
 

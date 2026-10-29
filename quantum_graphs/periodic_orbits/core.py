@@ -107,6 +107,7 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
         self,
         vertex_positions,
         bonds,
+        *,
         ng=None,
         bond_spacing=None,
         name="MyPeriodicOrbitGraph",

@@ -95,7 +95,7 @@ C                = 0.5            # coupling constant
 graph = DirectionalGraphs(
     vertex_positions = vertex_positions,
     bonds            = bonds,
-    vertex_couplings = C,
+    couplings = C,
     neff             = neff,
     wavelength_range = wavelength_range,
     name             = f"DoubleRing_nconst_R1={R1:.0f}_R2={R2:.2f}_neff{neff:.3f}_C{C:.2f}",

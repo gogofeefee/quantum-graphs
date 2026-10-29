@@ -342,7 +342,6 @@ class RhoPlotMixin:
         rho0,
         n_steps,
         k=None,
-        rebuild=False,
         normalize_input=True,
         ax=None,
         title=None,
@@ -375,7 +374,7 @@ class RhoPlotMixin:
         """
         rho_n = self.evolve_rho(
             rho0=rho0, n_steps=n_steps, k=k,
-            rebuild=rebuild, normalize_input=normalize_input,
+            normalize_input=normalize_input,
         )
         if title is None:
             title = f"{self.name} — rho after {n_steps} step(s)"

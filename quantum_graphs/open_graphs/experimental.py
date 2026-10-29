@@ -20,7 +20,7 @@ class ExperimentalMixin:
     # Derivative helpers
     # -------------------------------------------------------------------------
 
-    def finite_diff_derivatives_uniform_x(
+    def _finite_diff_derivatives_uniform_x(
         self, x: np.ndarray, y: np.ndarray
     ) -> tuple:
         """
@@ -79,12 +79,12 @@ class ExperimentalMixin:
 
         return y, dydx, d2ydx2
 
-    def k_to_lambda_um(self, k_real: np.ndarray) -> np.ndarray:
+    def _k_to_lambda_um(self, k_real: np.ndarray) -> np.ndarray:
         """λ (µm) from real k (µm⁻¹), with λ = 2π/k."""
         k_real = np.asarray(k_real, dtype=float)
         return 2.0 * np.pi / k_real
 
-    def transform_derivatives_k_to_lambda(
+    def _transform_derivatives_k_to_lambda(
         self,
         k_real: np.ndarray,
         dT_dk: np.ndarray,
@@ -112,7 +112,7 @@ class ExperimentalMixin:
     # Three-panel plot helper
     # -------------------------------------------------------------------------
 
-    def plot_three_panel_derivatives(
+    def _plot_three_panel_derivatives(
         self,
         lam_um: np.ndarray,
         T: np.ndarray,
@@ -202,8 +202,9 @@ class ExperimentalMixin:
         manual_lambda_peaks=None,
         exclude_lambda_peaks=None,
         exclude_tol_nm: float = 2e-4,
-        plot_figures: bool = True,
-        save: bool = True,
+        plot: bool = False,
+        cache: bool = True,
+        save_fig: bool = False,
         overwrite: bool = False,
         verbose: bool = None,
         file_format: str = "pdf",
@@ -212,6 +213,9 @@ class ExperimentalMixin:
         Detect resonances from the theoretical spectrum by using peaks of d²T/dk²,
         where T(k) = |S_ij(k)|² evaluated on a uniform real k grid.
 
+        ``cache``: load / save the results (resonances, S_ij(k)) next to the
+        graph; ``plot``: draw the λ- and k-domain figures (``save_fig`` saves them).
+
         Caching logic
         -------------
         - Cache #1: resonances (k values) saved as .npy
@@ -219,10 +223,10 @@ class ExperimentalMixin:
 
         Loading rules
         -------------
-        - If plot_figures=False:
+        - If plot=False:
             * If resonance .npy exists and overwrite=False: load and return immediately.
             * Else compute S → T → derivatives → resonances; optionally save.
-        - If plot_figures=True:
+        - If plot=True:
             * Always ensure S is available (load S cache if possible; else compute).
             * Resonances may be loaded from .npy if available.
             * Plot: λ-domain (full + 2 zooms) and k-domain (full-range 3-panel).
@@ -334,7 +338,7 @@ class ExperimentalMixin:
         # ------------------------------------------------------------------
         # Fast path: load resonances only (no plotting requested)
         # ------------------------------------------------------------------
-        if (not plot_figures) and save and use_cache(res_path, self.fingerprint, res_params,
+        if (not plot) and cache and use_cache(res_path, self.fingerprint, res_params,
                                                      overwrite, label="experimental resonances"):
             if verbose:
                 print(f"✓ Loaded experimental resonances from file: {res_path}")
@@ -346,7 +350,7 @@ class ExperimentalMixin:
         # ------------------------------------------------------------------
         loaded_resonances = False
         k_resonances      = None
-        if save and use_cache(res_path, self.fingerprint, res_params, overwrite,
+        if cache and use_cache(res_path, self.fingerprint, res_params, overwrite,
                               label="experimental resonances"):
             try:
                 k_resonances      = np.load(res_path)
@@ -360,7 +364,7 @@ class ExperimentalMixin:
         # ------------------------------------------------------------------
         # Ensure S is available
         # ------------------------------------------------------------------
-        need_S = plot_figures or (not loaded_resonances) or overwrite
+        need_S = plot or (not loaded_resonances) or overwrite
 
         S_ij = None
         if need_S:
@@ -385,7 +389,7 @@ class ExperimentalMixin:
                     print(f"✓ Computing S[{i},{j}](k) on {k_real.size} points (uniform k grid).")
                 S_ij = self.model.S_many(k_eval)[:, i, j]
 
-                if save:
+                if cache:
                     payload = {
                         "k_real":          k_real,
                         "S_ij":            S_ij,
@@ -408,7 +412,7 @@ class ExperimentalMixin:
                 raise RuntimeError("Internal error: S_ij is None but resonances need computation.")
 
             T = np.abs(S_ij) ** 2
-            _, dT_dk, d2T_dk2 = self.finite_diff_derivatives_uniform_x(k_real, T)
+            _, dT_dk, d2T_dk2 = self._finite_diff_derivatives_uniform_x(k_real, T)
 
             kwargs = {"distance": int(distance)}
             if prominence is not None:
@@ -474,7 +478,7 @@ class ExperimentalMixin:
             if verbose:
                 print(f"✓ Total resonances (auto + manual - excluded): {len(k_resonances)}")
 
-            if save:
+            if cache:
                 np.save(res_path, k_resonances)
                 write_cache_meta(res_path, self.fingerprint, res_params)
                 if verbose:
@@ -485,21 +489,21 @@ class ExperimentalMixin:
         # ------------------------------------------------------------------
         # Plotting
         # ------------------------------------------------------------------
-        if not plot_figures:
+        if not plot:
             return self.exp_spectrum
 
         if S_ij is None:
-            raise RuntimeError("Internal error: plot_figures=True but S_ij is None.")
+            raise RuntimeError("Internal error: plot=True but S_ij is None.")
 
         T = np.abs(S_ij) ** 2
-        _, dT_dk, d2T_dk2 = self.finite_diff_derivatives_uniform_x(k_real, T)
+        _, dT_dk, d2T_dk2 = self._finite_diff_derivatives_uniform_x(k_real, T)
 
         k_res_plot  = np.asarray(self.exp_spectrum, dtype=float)
         lam_res_plot = np.sort(2.0 * np.pi / k_res_plot)
 
         # (A) λ-domain plots
-        lam_um       = self.k_to_lambda_um(k_real)
-        dT_dlam, d2T_dlam2 = self.transform_derivatives_k_to_lambda(k_real, dT_dk, d2T_dk2)
+        lam_um       = self._k_to_lambda_um(k_real)
+        dT_dlam, d2T_dlam2 = self._transform_derivatives_k_to_lambda(k_real, dT_dk, d2T_dk2)
 
         lam_plot = lam_um[::-1]
         T_plot   = T[::-1]
@@ -510,12 +514,12 @@ class ExperimentalMixin:
             rf"Spectrum + derivatives vs $\lambda$ (S$_{{{i}{j}}}$), "
             rf"peaks from $d^2T/dk^2$ (thr={amp_threshold:g})"
         )
-        fig_full = self.plot_three_panel_derivatives(
+        fig_full = self._plot_three_panel_derivatives(
             lam_um=lam_plot, T=T_plot, d1=d1_plot, d2=d2_plot,
             component=component, peaks_lam_um=lam_res_plot,
             title=title_full, xlim=(lam_min, lam_max),
         )
-        if save:
+        if save_fig:
             fig_name = (
                 f"Spectrum_3panel_lambda__d2dk2__S{i}{j}__{lam_tag}__{N_tag}__{kim_tag}__"
                 f"{prom_tag}__{dist_tag}__{thr_tag}__{manual_tag}__{excl_tag}.{file_format}"
@@ -533,13 +537,13 @@ class ExperimentalMixin:
         else:
             zoom_min, zoom_max = lam_min, lam_max
 
-        fig_z0 = self.plot_three_panel_derivatives(
+        fig_z0 = self._plot_three_panel_derivatives(
             lam_um=lam_plot, T=T_plot, d1=d1_plot, d2=d2_plot,
             component=component, peaks_lam_um=None,
             title=f"Zoom vs λ (no markers) [{zoom_min:.3f}, {zoom_max:.3f}] µm",
             xlim=(zoom_min, zoom_max),
         )
-        if save:
+        if save_fig:
             zoom_name = (
                 f"Zoom_3panel_lambda_nopeaks__S{i}{j}__lam{_sanitize_float(zoom_min)}-{_sanitize_float(zoom_max)}__"
                 f"{N_tag}__{kim_tag}__{prom_tag}__{dist_tag}__{thr_tag}__{manual_tag}__{excl_tag}.{file_format}"
@@ -553,13 +557,13 @@ class ExperimentalMixin:
         mask_zoom    = (lam_res_plot >= zoom_min) & (lam_res_plot <= zoom_max)
         lam_res_zoom = lam_res_plot[mask_zoom]
 
-        fig_z1 = self.plot_three_panel_derivatives(
+        fig_z1 = self._plot_three_panel_derivatives(
             lam_um=lam_plot, T=T_plot, d1=d1_plot, d2=d2_plot,
             component=component, peaks_lam_um=lam_res_zoom,
             title=f"Zoom vs λ (with markers) [{zoom_min:.3f}, {zoom_max:.3f}] µm",
             xlim=(zoom_min, zoom_max),
         )
-        if save:
+        if save_fig:
             zoom_name2 = (
                 f"Zoom_3panel_lambda_peaks__S{i}{j}__lam{_sanitize_float(zoom_min)}-{_sanitize_float(zoom_max)}__"
                 f"{N_tag}__{kim_tag}__{prom_tag}__{dist_tag}__{thr_tag}__{manual_tag}__{excl_tag}.{file_format}"
@@ -624,7 +628,7 @@ class ExperimentalMixin:
         title_k = rf"Spectrum + derivatives vs $k$ (S$_{{{i}{j}}}$), markers at extracted resonances"
         fig_k   = _plot_three_panel_k(k_real, T, dT_dk, d2T_dk2,
                                       k_peaks=k_res_plot, title=title_k)
-        if save:
+        if save_fig:
             figk_name = (
                 f"Spectrum_3panel_k__d2dk2__S{i}{j}__{lam_tag}__{N_tag}__{kim_tag}__"
                 f"{prom_tag}__{dist_tag}__{thr_tag}__{manual_tag}__{excl_tag}.{file_format}"

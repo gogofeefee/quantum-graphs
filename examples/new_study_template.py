@@ -54,7 +54,7 @@ couplings = 0.5                      # float, list, dict {vertex: C} or function
 # ============================================================================
 
 if True:
-    g = qg.ClosedDirectionalGraphs(**layout, vertex_couplings=couplings, **physics,
+    g = qg.ClosedDirectionalGraphs(**layout, couplings=couplings, **physics,
                                    name="my_graph_closed")
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True)
     spectrum, degeneracies = g.compute_spectrum(N_scan=200_000)
@@ -76,18 +76,18 @@ if False:
         leads=[(3, 0), (3, 2)],
         lead_orientations={(3, 0): -150.0, (3, 2): -30.0},    # drawing only
     )
-    o = qg.OpenDirectionalGraphs(**open_layout, internal_coupling=0.5, external_coupling=0.3,
+    o = qg.OpenDirectionalGraphs(**open_layout, couplings=0.5, access_couplings=0.3,
                                  **physics, name="my_graph_open")
     resonances, _ = o.find_resonances(N_re=200_000, N_im=15, im_min=-1e-4, im_max=0.0)
     o.plot_S_amplitude(*physics["wavelength_range"], n_points=200_000, components=(1, 0),
-                       spectrum=o.best_spectrum, save=True)
+                       spectrum=o.best_spectrum, save_fig=True)
 
 # ============================================================================
 #  5. Classical dynamics and periodic orbits on the same graph
 # ============================================================================
 
 if True:
-    c = qg.DirectionalClassicalGraphs(**layout, vertex_couplings=couplings, name="my_graph_cl")
+    c = qg.DirectionalClassicalGraphs(**layout, couplings=couplings, name="my_graph_cl")
     print("spectral gap:", c.spectral_gap(), " mixing:", c.is_mixing())
 
     po = qg.PeriodicOrbits(**layout, ng=physics["neff"], name="my_graph_orbits")

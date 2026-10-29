@@ -39,7 +39,8 @@ class CoreMixin(GraphBase):
         self,
         vertex_positions,
         bonds,
-        vertex_matrices=None,
+        *,
+        vertex_matrices,
         bond_spacing=None,
         name="MyClassicalGraph",
         save_path=None,
@@ -48,8 +49,6 @@ class CoreMixin(GraphBase):
         self.name = str(name)
         self._setup_topology(vertex_positions, bonds)
         self.bond_spacing = bond_spacing
-        if vertex_matrices is None:
-            raise ValueError("vertex_matrices is required (dict, list, array or sigma(k)).")
         self._setup_vertex_matrices(resolve_vertex_matrices(vertex_matrices, self.n_vertices))
         self._setup_save_path(self.name, self._build_save_dir_name(), save_path, base_dir)
 

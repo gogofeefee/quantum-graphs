@@ -188,7 +188,7 @@ class ResonancesMixin:
                 y_lo, y_hi = (center - eps, center + eps) if lo == y_lo else (y_lo, y_hi)
 
         def obj(xy):
-            return self._sigma_min(float(xy[0]) + 1j * float(xy[1]))
+            return self.sigma_min(float(xy[0]) + 1j * float(xy[1]))
 
         res = minimize(
             obj, x0=np.array([x0, y0]), method="L-BFGS-B",
@@ -234,7 +234,7 @@ class ResonancesMixin:
 
     def _nullity(self, k: complex, atol: float) -> int:
         """Nullity of (I − U(k))."""
-        U = self._U(k)
+        U = self.U(k)
         A = np.eye(U.shape[0], dtype=np.complex128) - U
         s = np.linalg.svd(A, compute_uv=False)
         return int(np.sum(s <= atol))
@@ -259,7 +259,7 @@ class ResonancesMixin:
                         overwrite_grid: bool     = False,
                         overwrite_refined: bool  = False,
                         overwrite_spectrum: bool = False,
-                        plot: bool    = True,
+                        plot: bool    = False,
                         verbose: bool = None):
         """
         Find the complex resonances of the open quantum graph via the σ_min method.
@@ -311,7 +311,7 @@ class ResonancesMixin:
                     plot_heatmap=has_grid,
                     overwrite_grid=False,
                     grid_dtype=grid_dtype,
-                    save=True, verbose=verbose,
+                    save_fig=True, verbose=verbose,
                 )
             return self.spectrum, self.degeneracies
 
@@ -434,7 +434,7 @@ class ResonancesMixin:
                 plot_heatmap=True,
                 overwrite_grid=False,
                 grid_dtype=grid_dtype,
-                save=True, verbose=verbose,
+                save_fig=True, verbose=verbose,
             )
 
         if verbose:
@@ -456,7 +456,7 @@ class ResonancesMixin:
                               overwrite_grid: bool = False,
                               grid_dtype: str = "float32",
                               max_cols: int = None,
-                              save: bool = True, save_fig=None,
+                              save_fig: bool = False,
                               file_format: str = "pdf",
                               verbose: bool = None):
         """
@@ -486,15 +486,13 @@ class ResonancesMixin:
             wider than the figure: matplotlib's own resampling *averages*, which
             erases σ_min valleys narrower than a pixel — that is, the very
             resonances the plot is about — while the block minimum keeps them.
-        save : bool
+        save_fig : bool
             Save the figure to ``self.save_path``.
         file_format : str
             Figure format (``"pdf"``, ``"png"``, …).
         verbose : bool
             Print progress messages.
         """
-        if save_fig is not None:          # same keyword as the other modules
-            save = save_fig
         verbose = resolve("verbose", verbose)
         from matplotlib.ticker import ScalarFormatter
 
@@ -581,7 +579,7 @@ class ResonancesMixin:
 
         plt.tight_layout()
 
-        if save:
+        if save_fig:
             os.makedirs(self.save_path, exist_ok=True)
             tag = "heatmap" if plot_heatmap else "crossesOnly"
             fname = (f"ResonancesSigma_{tag}"

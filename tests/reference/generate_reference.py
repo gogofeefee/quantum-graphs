@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
 from quantum_graphs.closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG  # noqa: E402
 from quantum_graphs.open_graphs import DirectionalGraphs as OpenDG                    # noqa: E402
-from quantum_graphs.classical_graphs import DirectionalClassicalGraphs                # noqa: E402
+from quantum_graphs.classical_graphs import ClassicalGraphs                          # noqa: E402
 from quantum_graphs.periodic_orbits import PeriodicOrbits                             # noqa: E402
 import quantum_graphs                                                                 # noqa: E402
 quantum_graphs.set_options(verbose=False, show=False)
@@ -81,7 +81,7 @@ def topology(prefix, graph):
 
 def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
     topology(prefix, graph)
-    U = [graph._build_propagation_matrix(k) @ graph._build_sigma_alpha_alpha(k) for k in k_probe]
+    U = [graph.U(k) for k in k_probe]
     # eigenvalues of U are basis-independent
     store(prefix, U_eigvals=np.array([np.sort_complex(np.linalg.eigvals(u)) for u in U]),
           secular_det=np.array([graph.secular_det(k) for k in k_probe]))
@@ -90,7 +90,7 @@ def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
     labels = bond_labels(graph)
     for i in wf_levels:
         a = graph.compute_wavefunction(spectrum[i])
-        U_k = graph._build_propagation_matrix(spectrum[i]) @ graph._build_sigma_alpha_alpha(spectrum[i])
+        U_k = graph.U(spectrum[i])
         resid = max(np.linalg.norm(v - U_k @ v) for v in a)
         # intensity per directed bond, keyed by bond label: diagonal of the projector
         # onto the eigenspace (sum over its orthonormal basis), basis-independent
@@ -121,11 +121,11 @@ def run_closed():
                      save_path=tmp("single"))
     closed_case("closed/single_ring", g, k_probe, 20_000)
 
-    g = ClosedDG(**G.DOUBLE_RING, vertex_couplings=0.5, neff=1.0,
+    g = ClosedDG(**G.DOUBLE_RING, couplings=0.5, neff=1.0,
                  wavelength_range=(1.48, 1.64), name="ref_double_ring", save_path=tmp("dr"))
     closed_case("closed/double_ring", g, k_probe, 60_000)
 
-    g = ClosedDG(**G.DOUBLE_RING, vertex_couplings=G.coupling_dispersive, neff=G.neff_dispersive,
+    g = ClosedDG(**G.DOUBLE_RING, couplings=G.coupling_dispersive, neff=G.neff_dispersive,
                  wavelength_range=(1.48, 1.64), name="ref_double_ring_disp", save_path=tmp("drd"))
     closed_case("closed/double_ring_dispersive", g, k_probe, 60_000)
     store("closed/double_ring_dispersive", ng=np.array([g.ng(k) for k in k_probe]))
@@ -135,12 +135,12 @@ def run_closed():
     closed_case("closed/tetrahedron", g, k_probe, 60_000)
 
     for name, geom in (("flower", G.FG_CLOSED), ("bowtie", G.BTG_CLOSED)):
-        g = ClosedDG(**geom, vertex_couplings=0.5, neff=3.97,
+        g = ClosedDG(**geom, couplings=0.5, neff=3.97,
                      wavelength_range=(1.50, 1.53), name=f"ref_{name}", save_path=tmp(name))
         closed_case(f"closed/{name}", g, k_probe, 150_000, wf_levels=(0, 50))
 
     # dict couplings
-    g = ClosedDG(**G.FG_CLOSED, vertex_couplings={0: 0.5, 1: 0.3, 2: 0.5, 3: 0.7, 4: 0.5},
+    g = ClosedDG(**G.FG_CLOSED, couplings={0: 0.5, 1: 0.3, 2: 0.5, 3: 0.7, 4: 0.5},
                  neff=3.97, wavelength_range=(1.55, 1.56), name="ref_flower_dict", save_path=tmp("fgd"))
     closed_case("closed/flower_dict_couplings", g, k_probe, 60_000, stats=False)
 
@@ -151,19 +151,19 @@ def run_closed():
 
 def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
     topology(prefix, graph)
-    S = np.array([graph.compute_S_matrix(k) for k in k_probe])
+    S = np.array([graph.S(k) for k in k_probe])
     store(prefix, S=S, n_leads=graph.n_leads)
     spectrum, deg = graph.find_resonances(**resonances_kw, plot=False, verbose=False)
     store(prefix, resonances=spectrum, degeneracies=deg)
     if spectrum.size:
         vecs = graph._compute_resonance_wavefunction_vectors(spectrum[0], 1e-3)
-        U = graph._U(spectrum[0])
+        U = graph.U(spectrum[0])
         store(prefix, res_wf_residual=np.linalg.norm(vecs[0] - U @ vecs[0]))
         if hasattr(graph, "localization_measures"):        # reference_v3 and later
             _, S_norm, ipr = graph._compute_all_resonance_quantities(1e-3)
             store(prefix, loc_S_norm_resonances=S_norm, loc_ipr_resonances=ipr)
     if exp_kw is not None:
-        exp = graph.find_experimental_resonances(**exp_kw, plot_figures=False, save=False,
+        exp = graph.find_experimental_resonances(**exp_kw, plot=False, cache=False,
                                                  verbose=False)
         store(prefix, exp_resonances=exp)
 
@@ -172,28 +172,28 @@ def run_open():
     k_probe = [4.0 - 1e-5j, 4.05 + 0.0j, 4.1003 - 3e-6j]
     res_small = dict(N_re=40_000, N_im=8, im_min=-1e-4, im_max=0.0)
 
-    g = OpenDG(**G.RING_1ACCESS, internal_coupling=0.5,
-               external_coupling=0.3, neff=2.41, wavelength_range=(1.54, 1.56),
+    g = OpenDG(**G.RING_1ACCESS, couplings=0.5,
+               access_couplings=0.3, neff=2.41, wavelength_range=(1.54, 1.56),
                lead_orientations={(0, 0): -150.0, (0, 2): -30.0},
                name="ref_ring1", save_path=tmp("ring1"))
     open_case("open/ring_1access", g, k_probe, res_small,
               dict(n_points=20_000, component=(1, 0), k_imag=2e-7, amp_threshold=0))
 
-    g = OpenDG(**G.RING_2ACCESS, internal_coupling=0.5, external_coupling=0.3, neff=2.41,
+    g = OpenDG(**G.RING_2ACCESS, couplings=0.5, access_couplings=0.3, neff=2.41,
                wavelength_range=(1.54, 1.56),
                lead_orientations={(0, 0): -150.0, (0, 2): -30.0, (1, 0): 150.0, (1, 2): 30.0},
                name="ref_ring2", save_path=tmp("ring2"))
     open_case("open/ring_2access", g, k_probe, res_small)
 
     for name, geom in (("flower", G.FG_OPEN), ("bowtie", G.BTG_OPEN)):
-        g = OpenDG(**geom, internal_coupling=0.5, external_coupling=0.3, neff=3.97,
+        g = OpenDG(**geom, couplings=0.5, access_couplings=0.3, neff=3.97,
                    wavelength_range=(1.550, 1.552), name=f"ref_open_{name}", save_path=tmp("o" + name))
         open_case(f"open/{name}", g, k_probe, dict(N_re=8_000, N_im=8, im_min=-1e-4, im_max=0.0))
 
-    g = OpenDG(**G.FG_OPEN, internal_coupling=G.coupling_dispersive, external_coupling=0.3,
+    g = OpenDG(**G.FG_OPEN, couplings=G.coupling_dispersive, access_couplings=0.3,
                neff=G.neff_dispersive, wavelength_range=(1.550, 1.552), name="ref_open_flower_disp",
                save_path=tmp("ofd"))
-    store("open/flower_dispersive", S=np.array([g.compute_S_matrix(k) for k in k_probe]))
+    store("open/flower_dispersive", S=np.array([g.S(k) for k in k_probe]))
 
 
 # ---------------------------------------------------------------------------
@@ -203,9 +203,9 @@ def run_open():
 def run_classical():
     for name, geom in (("flower", G.FG_CLOSED), ("bowtie", G.BTG_CLOSED),
                        ("double_ring", G.DOUBLE_RING)):
-        g = DirectionalClassicalGraphs(**geom, vertex_matrices=G.directional_coupler(0.5),
-                                       name=f"ref_cl_{name}", save_path=tmp("cl" + name))
-        P = g.build_perron_frobenius_operator()
+        g = ClassicalGraphs(**geom, vertex_matrices=G.directional_coupler(0.5),
+                            name=f"ref_cl_{name}", save_path=tmp("cl" + name))
+        P = g.perron_frobenius()
         summary = g.classical_summary()
         rho = g.evolve_rho(g.basis_state(index=0), n_steps=7)
         store(f"classical/{name}", eigvals=np.sort_complex(summary["eigenvalues"]),

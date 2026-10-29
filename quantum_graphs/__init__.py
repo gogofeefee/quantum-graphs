@@ -6,7 +6,7 @@ One graph, four points of view::
     import quantum_graphs as qg
 
     layout = qg.layouts.flower_graph()                 # vertex_positions, bonds
-    closed = qg.ClosedDirectionalGraphs(**layout, vertex_couplings=0.5, neff=3.97,
+    closed = qg.ClosedDirectionalGraphs(**layout, couplings=0.5, neff=3.97,
                                         wavelength_range=(1.50, 1.53))
     spectrum, degeneracies = closed.compute_spectrum(N_scan=150_000)
 

@@ -122,21 +122,63 @@ def test_neumann_matrix_is_unitary(n):
     assert np.allclose(s.conj().T @ s, np.eye(n))
 
 
+WINDOW = dict(wavelength_range=(1.50, 1.51))
+
+
 def test_wrong_vertex_matrix_shape_raises(save):
     with pytest.raises(ValueError, match="shape"):
-        qg.ClosedGraphs(**qg.layouts.tetrahedron(), vertex_matrices=np.eye(4), **save)
+        qg.ClosedGraphs(**qg.layouts.tetrahedron(), vertex_matrices=np.eye(4), **WINDOW, **save)
 
 
 def test_non_unitary_vertex_matrix_warns(save):
     with pytest.warns(RuntimeWarning, match="not unitary"):
-        qg.ClosedGraphs(**qg.layouts.tetrahedron(), vertex_matrices=0.9 * neumann_matrix(3), **save)
+        qg.ClosedGraphs(**qg.layouts.tetrahedron(), vertex_matrices=0.9 * neumann_matrix(3),
+                        **WINDOW, **save)
 
 
 def test_coupling_list_and_dict(save):
     layout = qg.layouts.flower_graph()
-    g1 = qg.ClosedDirectionalGraphs(**layout, vertex_couplings=[0.5, 0.3, 0.5, 0.7, 0.5], **save)
-    g2 = qg.ClosedDirectionalGraphs(**layout, vertex_couplings={0: 0.5, 1: 0.3, 2: 0.5, 3: 0.7, 4: 0.5},
-                                    **save)
+    g1 = qg.ClosedDirectionalGraphs(**layout, couplings=[0.5, 0.3, 0.5, 0.7, 0.5], **WINDOW, **save)
+    g2 = qg.ClosedDirectionalGraphs(**layout, couplings={0: 0.5, 1: 0.3, 2: 0.5, 3: 0.7, 4: 0.5},
+                                    **WINDOW, **save)
     assert np.allclose(g1.U(4.0), g2.U(4.0))
     with pytest.raises(ValueError, match="Missing coupling"):
-        qg.ClosedDirectionalGraphs(**layout, vertex_couplings={0: 0.5}, **save)
+        qg.ClosedDirectionalGraphs(**layout, couplings={0: 0.5}, **WINDOW, **save)
+
+
+def test_wavelength_range_is_required_and_checked(save):
+    layout = qg.layouts.flower_graph()
+    with pytest.raises(TypeError, match="wavelength_range"):
+        qg.ClosedDirectionalGraphs(**layout, couplings=0.5, **save)
+    with pytest.raises(ValueError, match="lambda_min < lambda_max"):
+        qg.ClosedDirectionalGraphs(**layout, couplings=0.5, wavelength_range=(1.6, 1.5), **save)
+
+
+def test_construction_writes_nothing_until_the_first_save(tmp_path):
+    out = tmp_path / "out"
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, **WINDOW,
+                                   save_path=str(out))
+    g.plot_graph()
+    assert not out.exists()
+    g.plot_graph(save_fig=True, file_format="png")
+    assert (out / "graph_parameters.txt").exists() and any(out.glob("*.png"))
+
+
+def test_open_graph_access_couplings(save):
+    layout = qg.layouts.flower_graph(open=True)
+    g = qg.OpenDirectionalGraphs(**layout, couplings=0.5, access_couplings=0.3, **WINDOW, **save)
+    h = qg.OpenDirectionalGraphs(**layout, couplings={v: (0.3 if v == 0 else 0.5) for v in range(6)},
+                                 **WINDOW, **save)
+    assert np.allclose(g.S(4.0), h.S(4.0))
+    ks = np.array([4.0, 4.01 - 1e-5j])
+    assert g.S(ks).shape == (2, 2, 2) and np.allclose(g.S(ks)[1], g.S(ks[1]))
+
+
+def test_from_port_map_converts_the_1_0_description():
+    vp = [(0.0, 0.0), (3.0, 4.0)]
+    port_map = [[None, (1, 0), (1, 1), None], [(0, 1), (0, 2)]]
+    out = qg.layouts.from_port_map(vp, port_map, {((1, 1), (0, 2)): 7.0})
+    assert out["bonds"] == [(0, 1, 1, 0), (0, 2, 1, 1, 7.0)]
+    assert out["leads"] == [(0, 0), (0, 3)]
+    t = build_topology(**out)
+    assert np.allclose(t.length, [5.0, 7.0])

@@ -7,16 +7,16 @@ import quantum_graphs as qg
 
 
 def classical(layout, save):
-    return qg.DirectionalClassicalGraphs(**layout, vertex_couplings=0.5, **save)
+    return qg.DirectionalClassicalGraphs(**layout, couplings=0.5, **save)
 
 
 def test_perron_frobenius_is_doubly_stochastic(save):
     g = classical(qg.layouts.flower_graph(), save)
-    P = g.build_perron_frobenius_operator()
+    P = g.perron_frobenius()
     assert np.allclose(P.sum(axis=0), 1) and np.allclose(P.sum(axis=1), 1)
     rho = g.evolve_rho(g.basis_state(index=0), n_steps=11)
     assert np.isclose(rho.sum(), 1.0)
-    assert np.allclose(g.get_invariant_measure(), 1.0 / g.topology.n_directed)
+    assert np.allclose(g.invariant_measure(), 1.0 / g.topology.n_directed)
 
 
 def test_ergodicity_and_mixing(save):
@@ -24,7 +24,7 @@ def test_ergodicity_and_mixing(save):
     # one step = one bond traversal: FG has eigenvalue -1 (period two), BTG a gap
     # 1 - 1/sqrt(2) ≈ 0.29 (the values of the paper's supplementary material)
     assert fg.is_ergodic() and not fg.is_mixing()
-    assert np.any(np.isclose(fg.diagonalize_perron_frobenius()[0], -1.0))
+    assert np.any(np.isclose(fg.perron_frobenius_spectrum()[0], -1.0))
     assert btg.is_ergodic() and btg.is_mixing()
     assert np.isclose(btg.spectral_gap(), 1 - 1 / np.sqrt(2), atol=1e-12)
 

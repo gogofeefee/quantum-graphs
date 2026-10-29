@@ -5,7 +5,7 @@ Every function returns a dict that can be passed to any graph class with
 ``**``::
 
     import quantum_graphs as qg
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), vertex_couplings=0.5,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5,
                                    neff=3.97, wavelength_range=(1.50, 1.53))
 
 The dict contains ``vertex_positions`` and ``bonds`` (``(i, p, j, q, L)``, L in
@@ -141,6 +141,33 @@ def remove_access_coupler(layout, vertex=0):
         out["leads"] = leads
         out["lead_orientations"] = {(renum(v), p): ang for (v, p), ang
                                     in layout.get("lead_orientations", {}).items() if v != vertex}
+    return out
+
+
+def from_port_map(vertex_positions, port_map, lengths=None):
+    """Convert the description of 1.0 (``port_map[i][p] = (j, q)`` or ``None``
+    for a lead, ``lengths = {((i, p), (j, q)): L}``) into a layout dict with
+    ``bonds`` and ``leads``, for tools that still produce port maps (e.g. GDS
+    layout builders). Bonds are listed in order of first appearance; a bond
+    without a length gets the Euclidean distance."""
+    lengths = {} if lengths is None else lengths
+    canon = {tuple(sorted(((int(a[0]), int(a[1])), (int(b[0]), int(b[1]))))): float(L)
+             for (a, b), L in lengths.items()}
+    bonds, leads, seen = [], [], set()
+    for i, ports in enumerate(port_map):
+        for p, conn in enumerate(ports):
+            if conn is None:
+                leads.append((i, p))
+                continue
+            j, q = int(conn[0]), int(conn[1])
+            key = tuple(sorted(((i, p), (j, q))))
+            if key in seen:
+                continue
+            seen.add(key)
+            bonds.append((i, p, j, q, canon[key]) if key in canon else (i, p, j, q))
+    out = dict(vertex_positions=[tuple(map(float, xy)) for xy in vertex_positions], bonds=bonds)
+    if leads:
+        out["leads"] = leads
     return out
 
 

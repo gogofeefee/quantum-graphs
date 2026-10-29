@@ -27,11 +27,13 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
     ----------
     vertex_positions : list of (float, float)
     bonds : list of (i, p, j, q[, L])
-    vertex_couplings : dict, list, float, or callable
-        Coupling constants.  float/callable → same for all vertices.
+    couplings : float, callable, list or dict
+        Power cross-coupling C of the couplers: one value or function C(k) for
+        all, a list (one per vertex) or a dict {vertex: C}.
     neff : float or callable
     ng : float, callable, or None
     wavelength_range : (float, float)
+        Vacuum wavelength window (µm), required.
     bond_spacing : float, sequence, or None
         Drawing only: distance between parallel bonds (see BondPaths).
     name : str
@@ -42,19 +44,17 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
     def __init__(self,
                  vertex_positions,
                  bonds,
-                 vertex_couplings=None,
+                 *,
+                 couplings,
+                 wavelength_range,
                  neff=1.0,
                  ng=None,
-                 wavelength_range=(1.48, 1.64),
                  bond_spacing=None,
                  name="MyClosedDirectionalGraph",
                  save_path=None,
                  base_dir=None):
 
-        if vertex_couplings is None:
-            raise ValueError("vertex_couplings is required: a float C, a function C(k), "
-                             "a list (one C per vertex) or a dict {vertex: C}.")
-        self.vertex_couplings = vertex_couplings
+        self.couplings = couplings
         vertex_matrices = self._build_vertex_matrices(vertex_positions, bonds)
         self.coupling_info = self._get_coupling_description()
 
@@ -77,16 +77,16 @@ class DirectionalGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
 
     def _build_vertex_matrices(self, vertex_positions, bonds):
         n = len(vertex_positions)
-        couplings = couplings_for_vertices(self.vertex_couplings, n)
+        couplings = couplings_for_vertices(self.couplings, n)
         missing = [v for v, C in enumerate(couplings) if C is None]
         if missing:
             raise ValueError(f"Missing coupling constant for vertices {missing}.")
         return {v: directional_coupler_matrix(C) for v, C in enumerate(couplings)}
 
     def _get_coupling_description(self):
-        if isinstance(self.vertex_couplings, (dict, list, tuple)):
-            return "custom_vertex_couplings"
-        C = self.vertex_couplings
+        if isinstance(self.couplings, (dict, list, tuple)):
+            return "custom_couplings"
+        C = self.couplings
         if callable(C):
             return getattr(C, "__name__", "Cfunc")
         return f"C={C:.2f}"

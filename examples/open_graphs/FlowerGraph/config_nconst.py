@@ -121,8 +121,8 @@ graph = DirectionalGraphs(
     vertex_positions       = vertex_positions,
     bonds                  = bonds,
     leads                  = leads,
-    internal_coupling      = C_internal,
-    external_coupling      = C_external,
+    couplings      = C_internal,
+    access_couplings      = C_external,
     neff                   = neff,
     wavelength_range       = wavelength_range,
     lead_orientations      = lead_orientations,
@@ -214,9 +214,9 @@ if True:
         prominence    = None,
         amp_threshold = 9e7,
         distance      = 5,
-        save          = True,
+        save_fig      = True,
         overwrite     = False,
-        plot_figures  = True,
+        plot          = True,
         verbose       = True,
         file_format   = "pdf",
     )
@@ -232,7 +232,7 @@ S_kwargs = dict(
     n_points   = 500_000,
     components = (1, 0),
     k_imag     = k_imag,
-    save       = True,
+    save_fig   = True,
     file_format = "pdf",
 )
 
@@ -252,7 +252,7 @@ if True:
 if True:
     test_k = float(np.real(graph.best_spectrum[0])) + 1j * k_imag
     graph.plot_energy_distribution(k=test_k, injection_port=0, show_leads=True,
-                                   save=True, file_format="pdf")
+                                   save_fig=True, file_format="pdf")
 
 
 # ============================================================================

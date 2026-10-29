@@ -9,8 +9,8 @@ C_EXT, NEFF, R = 0.3, 2.41, 100.0
 
 
 def ring1(save, wr=(1.54, 1.56)):
-    return qg.OpenDirectionalGraphs(**qg.layouts.ring_with_access(R, 1), external_coupling=C_EXT,
-                                    internal_coupling=0.5, neff=NEFF, wavelength_range=wr, **save)
+    return qg.OpenDirectionalGraphs(**qg.layouts.ring_with_access(R, 1), access_couplings=C_EXT,
+                                    couplings=0.5, neff=NEFF, wavelength_range=wr, **save)
 
 
 def test_single_access_ring_is_the_analytic_all_pass_filter(save):
@@ -19,7 +19,7 @@ def test_single_access_ring_is_the_analytic_all_pass_filter(save):
     t, L = np.sqrt(1 - C_EXT), 2 * np.pi * R
     for k in np.linspace(4.03, 4.08, 50) - 2e-6j:
         phi = np.exp(1j * k * NEFF * L)
-        assert np.isclose(g.compute_S_matrix(k)[1, 0], (t - phi) / (1 - t * phi), atol=1e-12)
+        assert np.isclose(g.S(k)[1, 0], (t - phi) / (1 - t * phi), atol=1e-12)
 
 
 def test_single_access_ring_resonances(save):
@@ -37,20 +37,20 @@ def test_single_access_ring_resonances(save):
                                     qg.layouts.bow_tie_graph(open=True),
                                     qg.layouts.ring_with_access(n_access=2)])
 def test_S_is_unitary_and_symmetric_on_the_real_axis(layout, save):
-    g = qg.OpenDirectionalGraphs(**layout, internal_coupling=0.5, external_coupling=0.3,
+    g = qg.OpenDirectionalGraphs(**layout, couplings=0.5, access_couplings=0.3,
                                  neff=3.97, wavelength_range=(1.55, 1.56), **save)
-    S = g.compute_S_matrices(np.linspace(4.03, 4.06, 40))
+    S = g.S(np.linspace(4.03, 4.06, 40))
     eye = np.eye(g.n_leads)
     assert np.allclose(np.conj(np.swapaxes(S, 1, 2)) @ S, eye, atol=1e-12)
     assert np.allclose(S, np.swapaxes(S, 1, 2), atol=1e-12)       # reciprocity
 
 
 def test_batched_and_single_S_agree(save):
-    g = qg.OpenDirectionalGraphs(**qg.layouts.flower_graph(open=True), internal_coupling=0.5,
-                                 external_coupling=0.3, neff=lambda k: 3.9 + 0.01 * k,
+    g = qg.OpenDirectionalGraphs(**qg.layouts.flower_graph(open=True), couplings=0.5,
+                                 access_couplings=0.3, neff=lambda k: 3.9 + 0.01 * k,
                                  wavelength_range=(1.55, 1.56), **save)
     ks = np.linspace(4.03, 4.06, 7) - 1e-5j
-    assert np.allclose(g.compute_S_matrices(ks), [g.compute_S_matrix(k) for k in ks], atol=1e-13)
+    assert np.allclose(g.S(ks), [g.S(k) for k in ks], atol=1e-13)
 
 
 def test_coarse_S_cache_is_never_interpolated(save):
@@ -58,7 +58,7 @@ def test_coarse_S_cache_is_never_interpolated(save):
     g = ring1(save)
     get_S_full(g, 1.54, 1.56, 200, 0.0)                     # coarse, wide
     lam, k, dk, S_fine = get_S_full(g, 1.545, 1.555, 4000, 0.0)
-    exact = g.compute_S_matrices(k)
+    exact = g.S(k)
     assert np.allclose(S_fine, exact, atol=1e-12)
 
 
@@ -71,11 +71,11 @@ def test_resonance_cache_detects_changed_detection_parameters(save):
 
 
 def test_results_do_not_depend_on_the_number_of_threads(save):
-    g = qg.OpenDirectionalGraphs(**qg.layouts.flower_graph(open=True), internal_coupling=0.5,
-                                 external_coupling=0.3, neff=3.97, wavelength_range=(1.55, 1.56), **save)
+    g = qg.OpenDirectionalGraphs(**qg.layouts.flower_graph(open=True), couplings=0.5,
+                                 access_couplings=0.3, neff=3.97, wavelength_range=(1.55, 1.56), **save)
     ks = np.linspace(4.03, 4.06, 9000) - 1e-5j
     out = {}
     for w in (1, 4):
         with qg.options(n_workers=w):
-            out[w] = (g.model.sigma_min_many(ks), g.compute_S_matrices(ks))
+            out[w] = (g.model.sigma_min_many(ks), g.S(ks))
     assert np.array_equal(out[1][0], out[4][0]) and np.array_equal(out[1][1], out[4][1])

@@ -6,7 +6,7 @@ directional coupler.  Inherits all OpenGraphs functionality; scattering
 matrices are built automatically from coupling constants.
 """
 
-from ..core.vertices import directional_coupler_matrix
+from ..core.vertices import couplings_for_vertices, directional_coupler_matrix
 from .core           import CoreMixin
 from .scattering     import ScatteringMixin
 from .resonances     import ResonancesMixin
@@ -26,8 +26,7 @@ class DirectionalGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
     Open quantum graph where every real vertex is a lossless 4-port
     directional coupler.
 
-    Coupling constants determine the scattering matrices automatically.
-    Optionally, per-vertex couplings can be specified via ``vertex_couplings``.
+    The coupling constants determine the scattering matrices.
 
     Parameters
     ----------
@@ -38,20 +37,18 @@ class DirectionalGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
         ``L`` (µm; Euclidean if omitted).
     leads : list of (vertex, port)
         External leads, numbered in this order in the S-matrix.
-    vertex_couplings : dict, optional
-        Per-vertex coupling constants ``{v: C}`` (float or callable).
-        When provided, overrides ``internal_coupling`` / ``external_coupling``
-        for the specified vertices.
-    internal_coupling : float, callable, or None
-        Default coupling for internal (non-lead) vertices.
-    external_coupling : float, callable, or None
-        Default coupling for external (lead-connected) vertices.
+    couplings : float, callable, list or dict
+        Power cross-coupling C of the couplers: one value or function C(k) for
+        all, a list (one per vertex) or a dict {vertex: C}.
+    access_couplings : same forms, or None
+        Coupling of the access couplers (vertices carrying a lead); default:
+        ``couplings``.
+    wavelength_range : (float, float)
+        Vacuum wavelength window (µm), required.
     neff : float or callable
         Effective refractive index.
     ng : float, callable, or None
         Group index.  Derived from ``neff`` if ``None``.
-    wavelength_range : (float, float)
-        Vacuum wavelength range (µm).
     bond_spacing : float, sequence, or None
         Drawing only: distance between parallel bonds (see BondPaths).
     lead_orientations : dict or None
@@ -65,33 +62,36 @@ class DirectionalGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
     def __init__(self,
                  vertex_positions,
                  bonds,
-                 leads=(),
-                 vertex_couplings=None,
-                 internal_coupling=None,
-                 external_coupling=None,
+                 leads,
+                 *,
+                 couplings,
+                 wavelength_range,
+                 access_couplings=None,
                  neff=1.0,
                  ng=None,
-                 wavelength_range=(1.48, 1.64),
                  bond_spacing=None,
                  lead_orientations=None,
                  name="MyOpenDirectionalGraph",
                  save_path=None,
                  base_dir=None):
 
-        self.vertex_couplings   = vertex_couplings
-        self.internal_coupling  = internal_coupling
-        self.external_coupling  = external_coupling
-
-        vertex_matrices    = self._build_vertex_matrices(vertex_positions, leads)
+        self.couplings = couplings
+        self.access_couplings = access_couplings
+        n = len(vertex_positions)
+        matrices = _coupler_matrices(couplings, range(n), n, "couplings")
+        access = None
+        if access_couplings is not None:
+            lead_vertices = sorted({int(v) for v, _ in leads})
+            access = matrices.copy()
+            access.update(_coupler_matrices(access_couplings, lead_vertices, n, "access_couplings"))
         self.coupling_info = self._get_coupling_description()
 
         super().__init__(
             vertex_positions=vertex_positions,
             bonds=bonds,
             leads=leads,
-            vertex_matrices=vertex_matrices,
-            internal_matrix=None,
-            external_matrix=None,
+            vertex_matrices=matrices,
+            access_matrices=access,
             neff=neff,
             ng=ng,
             wavelength_range=wavelength_range,
@@ -106,41 +106,25 @@ class DirectionalGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
     # Coupling helpers
     # -------------------------------------------------------------------------
 
-    def _build_vertex_matrices(self, vertex_positions, leads):
-        """Directional-coupler matrix of every vertex from its coupling constant
-        (``vertex_couplings[v]``, else ``external_coupling`` for a vertex carrying
-        a lead, else ``internal_coupling``)."""
-        lead_vertices = {int(v) for v, _ in leads}
-        matrices = {}
-        for v in range(len(vertex_positions)):
-            if self.vertex_couplings is not None and v in self.vertex_couplings:
-                C = self.vertex_couplings[v]
-            else:
-                kind = "external" if v in lead_vertices else "internal"
-                C = self.external_coupling if kind == "external" else self.internal_coupling
-                if C is None:
-                    raise ValueError(f"No coupling constant for vertex {v} ({kind}). Provide "
-                                     f"``{kind}_coupling`` or ``vertex_couplings``.")
-            matrices[v] = directional_coupler_matrix(C)
-        return matrices
-
     def _get_coupling_description(self):
-        """Build a compact coupling string for the deterministic save-path."""
+        """Compact coupling string for the deterministic save path."""
         def _str(C):
-            if C is None:
-                return None
+            if isinstance(C, (dict, list, tuple)):
+                return "custom"
             if callable(C):
                 return getattr(C, "__name__", "Cfunc")
             return f"{C:.2f}"
+        parts = [f"C={_str(self.couplings)}"]
+        if self.access_couplings is not None:
+            parts.append(f"Caccess={_str(self.access_couplings)}")
+        return "_".join(parts)
 
-        if self.vertex_couplings is not None:
-            return "custom_vertex_couplings"
 
-        parts = []
-        cin  = _str(self.internal_coupling)
-        cext = _str(self.external_coupling)
-        if cin  is not None:
-            parts.append(f"Cin={cin}")
-        if cext is not None:
-            parts.append(f"Cext={cext}")
-        return "_".join(parts) if parts else "no_coupling"
+def _coupler_matrices(couplings, vertices, n, name):
+    """{v: directional-coupler matrix} for ``vertices`` from a float, a function
+    C(k), a list (one value per vertex) or a dict {vertex: C}."""
+    values = couplings_for_vertices(couplings, n)
+    missing = [v for v in vertices if values[v] is None]
+    if missing:
+        raise ValueError(f"Missing coupling constant in {name} for vertices {missing}.")
+    return {v: directional_coupler_matrix(values[v]) for v in vertices}

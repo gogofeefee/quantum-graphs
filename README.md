@@ -42,7 +42,7 @@ import quantum_graphs as qg
 layout = qg.layouts.double_ring()              # vertex_positions, bonds (lengths in µm)
 graph = qg.ClosedDirectionalGraphs(
     **layout,
-    vertex_couplings=0.5,                      # power cross-coupling C of every coupler
+    couplings=0.5,                      # power cross-coupling C of every coupler
     neff=1.0,                                  # float, or a function neff(k)
     wavelength_range=(1.48, 1.64),             # vacuum wavelength window, µm
     name="MyDoubleRing",
@@ -210,7 +210,7 @@ graph = qg.OpenDirectionalGraphs(
     bonds=[(0, 1, 1, 0, 120.0), (0, 3, 1, 2, 180.0),   # two bonds between 0 and 1
            (1, 1, 1, 3, 400.0)],                       # a self-loop on vertex 1
     leads=[(0, 0), (0, 2)],
-    internal_coupling=0.5, external_coupling=0.3, neff=2.4,
+    couplings=0.5, access_couplings=0.3, neff=2.4,
     wavelength_range=(1.50, 1.60))
 ```
 
@@ -250,11 +250,11 @@ list or dict per vertex, or a function `C(k)`); ports (0, 1) are one arm,
      [ i√C,    √(1−C), 0,      0      ]]
 ```
 
-In `open_graphs`, `internal_coupling` and `external_coupling` set different
-values for the graph couplers and for the couplers that carry leads. For any
-other junction, use the base classes with `vertex_matrices` (one array per
-vertex, one array for all, or a function σ(k)); `qg.neumann_matrix(n)` gives
-the Neumann-Kirchhoff matrix.
+In `open_graphs`, `access_couplings` (default: `couplings`) sets the couplers
+that carry leads. For any other junction, use the base classes with
+`vertex_matrices` (one array per vertex, one array for all, or a function
+σ(k); `access_matrices` for the vertices with leads of an open graph);
+`qg.neumann_matrix(n)` gives the Neumann-Kirchhoff matrix.
 
 ### Caching and reproducibility
 

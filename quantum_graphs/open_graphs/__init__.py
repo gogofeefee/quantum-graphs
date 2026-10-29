@@ -51,20 +51,17 @@ class OpenGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
         omitted). Self-loops and multiple bonds are allowed.
     leads : list of (vertex, port)
         External leads, numbered in this order in the S-matrix.
-    vertex_matrices : dict or None
-        Per-vertex scattering matrices ``{v: σ}`` where ``σ`` is a 2-D array or
-        a callable ``σ(k)``.  Overrides ``internal_matrix`` / ``external_matrix``
-        for the specified vertices.
-    internal_matrix : array, callable, or None
-        Default scattering matrix for internal (non-lead) vertices.
-    external_matrix : array, callable, or None
-        Default scattering matrix for external (lead-connected) vertices.
+    vertex_matrices : dict, list, ndarray, or callable
+        Scattering matrices: dict/list one per vertex, one array for all, or a
+        callable ``σ(k)`` for all.
+    access_matrices : same forms, or None
+        Overrides ``vertex_matrices`` on the vertices that carry a lead.
     neff : float or callable
         Effective refractive index (or ``neff(k)``).
     ng : float, callable, or None
         Group index.  Derived numerically from ``neff(k)`` if ``None``.
     wavelength_range : (float, float)
-        Vacuum wavelength range (µm).
+        Vacuum wavelength range (µm), required.
     bond_spacing : float, sequence, or None
         Drawing only: distance between parallel bonds (see
         :class:`quantum_graphs.plotting.drawing.BondPaths`).

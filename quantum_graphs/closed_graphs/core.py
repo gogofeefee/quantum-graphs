@@ -20,11 +20,11 @@ from ..core.vertices import resolve_vertex_matrices
 class CoreMixin(GraphBase):
     """Graph construction, save path and parameter report of a closed graph."""
 
-    def __init__(self, vertex_positions, bonds,
-                 vertex_matrices=None,
+    def __init__(self, vertex_positions, bonds, *,
+                 vertex_matrices,
+                 wavelength_range,
                  neff=1.0,
                  ng=None,
-                 wavelength_range=(1.48, 1.64),
                  bond_spacing=None,
                  name="MyClosedGraph",
                  save_path=None,
@@ -40,14 +40,12 @@ class CoreMixin(GraphBase):
         unconnected, a non-positive length) or vertex matrices whose size
         differs from the valency.
         """
-        self.wavelength_range = wavelength_range
+        self.wavelength_range = self._check_wavelength_range(wavelength_range)
         self.neff = neff
         self.ng = ng if ng is not None else self._compute_group_index()
 
         self._setup_topology(vertex_positions, bonds)
         self.bond_spacing = bond_spacing
-        if vertex_matrices is None:
-            raise ValueError("vertex_matrices is required (dict, list, array or sigma(k)).")
         self._setup_vertex_matrices(resolve_vertex_matrices(vertex_matrices, self.n_vertices),
                                     self._k_samples())
 

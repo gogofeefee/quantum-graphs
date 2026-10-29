@@ -29,34 +29,8 @@ from ..core.persistence import use_cache, write_cache_meta
 class SpectrumMixin:
 
     # =========================================================================
-    # Matrices
+    # Nullity
     # =========================================================================
-
-    def _build_propagation_matrix(self, k):
-        """Diagonal propagation matrix D(k), D_bb = exp(i k n_eff L_b)."""
-        return self.model.D(k)
-
-    def _build_sigma_alpha_alpha(self, k):
-        """Internal scattering block Σ_αα(k)."""
-        return np.array(self.model.block("aa", k))
-
-    def U(self, k):
-        """Quantum evolution map U(k) = D(k) Σ_αα(k)."""
-        return self.model.U(k)
-
-    def sigma_min(self, k):
-        """Smallest singular value of I − U(k); scalar or array of k."""
-        if np.ndim(k) == 0:
-            return self.model.sigma_min(k)
-        return self.model.sigma_min_many(np.asarray(k))
-
-    # =========================================================================
-    # Secular determinant and nullity
-    # =========================================================================
-
-    def secular_det(self, k):
-        """Secular determinant f(k) = det(I − D(k) Σ_αα(k))."""
-        return np.linalg.det(np.eye(self.topology.n_directed) - self.model.U(k))
 
     def _nullity_at_k(self, k, tol_abs=1e-4):
         """Dimension of ker(I − U(k)): number of singular values ≤ tol_abs."""

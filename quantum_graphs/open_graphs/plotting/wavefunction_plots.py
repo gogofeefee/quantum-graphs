@@ -78,7 +78,7 @@ class WavefunctionPlotsMixin:
         vecs : ndarray, shape (dim_kernel, 2B)
             Rows are orthonormal kernel vectors (conjugated rows of Vh).
         """
-        U = self._U(k)
+        U = self.U(k)
         A = np.eye(U.shape[0], dtype=np.complex128) - U
         _, s, Vh = np.linalg.svd(A)
         s_max = s[0] if s[0] > 0 else 1.0

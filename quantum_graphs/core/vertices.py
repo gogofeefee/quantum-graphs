@@ -55,21 +55,21 @@ def directional_coupler_matrix(C):
     return matrix(float(C))
 
 
-def couplings_for_vertices(vertex_couplings, n_vertices, default=None):
+def couplings_for_vertices(couplings, n_vertices, default=None):
     """Return one coupling (float or callable) per vertex.
 
-    ``vertex_couplings`` may be a float, a callable C(k), a list (one value per
+    ``couplings`` may be a float, a callable C(k), a list (one value per
     vertex) or a dict {vertex: C}; vertices missing from a dict get ``default``.
     """
-    if isinstance(vertex_couplings, dict):
-        out = [vertex_couplings.get(v, default) for v in range(n_vertices)]
-    elif isinstance(vertex_couplings, (list, tuple, np.ndarray)):
-        if len(vertex_couplings) != n_vertices:
-            raise ValueError(f"vertex_couplings has {len(vertex_couplings)} values for "
+    if isinstance(couplings, dict):
+        out = [couplings.get(v, default) for v in range(n_vertices)]
+    elif isinstance(couplings, (list, tuple, np.ndarray)):
+        if len(couplings) != n_vertices:
+            raise ValueError(f"couplings has {len(couplings)} values for "
                              f"{n_vertices} vertices.")
-        out = list(vertex_couplings)
+        out = list(couplings)
     else:
-        out = [vertex_couplings] * n_vertices
+        out = [couplings] * n_vertices
     return out
 
 

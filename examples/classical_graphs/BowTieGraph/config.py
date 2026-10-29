@@ -46,19 +46,6 @@ except ImportError:
 from quantum_graphs.classical_graphs import DirectionalClassicalGraphs
 
 
-def directional_coupler_matrix(C):
-    """4×4 scattering matrix of a lossless directional coupler (power coupling C).
-
-    Ports (0, 1) form one arm and ports (2, 3) the other; through amplitude
-    sqrt(1 - C), cross amplitude i sqrt(C), no back-reflection.
-    """
-    t, c = np.sqrt(1.0 - C), 1j * np.sqrt(C)
-    return np.array([[0, 0, t, c],
-                     [0, 0, c, t],
-                     [t, c, 0, 0],
-                     [c, t, 0, 0]], dtype=complex)
-
-
 # ============================================================================
 #  Geometry
 # ============================================================================
@@ -97,7 +84,7 @@ C_all = 0.5
 graph = DirectionalClassicalGraphs(
     vertex_positions       = vertex_positions,
     bonds                  = bonds,
-    vertex_matrices        = directional_coupler_matrix(C_all),
+    couplings              = C_all,
     name                   = f"BowTieGraph_classical_C{C_all:.2f}",
     base_dir               = _here,
 )
@@ -113,7 +100,7 @@ print(f"  Save path      : {graph.save_path}\n")
 # ============================================================================
 
 if True:
-    graph.build_perron_frobenius_operator()
+    graph.perron_frobenius()
     summary = graph.classical_summary()
     print("=== Classical summary ===")
     print(f"  Spectral gap        : {summary['spectral_gap']:.6f}")

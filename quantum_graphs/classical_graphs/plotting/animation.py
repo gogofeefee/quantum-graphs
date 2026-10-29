@@ -233,7 +233,6 @@ class AnimationMixin:
         n_steps,
         style="flow",
         k=None,
-        rebuild=False,
         normalize_input=True,
         figsize=(10, 8),
         fps=15,
@@ -297,11 +296,8 @@ class AnimationMixin:
         if writer not in {"mp4", "gif"}:
             raise ValueError("writer must be 'mp4' or 'gif'.")
 
-        trajectory = self.evolve_rho_trajectory(
-            rho0=rho0, n_steps=n_steps, k=k,
-            rebuild=rebuild, normalize_input=normalize_input,
-        )
-        self.last_rho_trajectory = trajectory
+        trajectory = self.evolve_rho(rho0, n_steps, k=k, trajectory=True,
+                                     normalize_input=normalize_input)
 
         # rho_max strategy
         if rho_max_mode == "global":

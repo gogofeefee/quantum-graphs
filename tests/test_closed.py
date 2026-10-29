@@ -25,7 +25,7 @@ def test_single_ring_matches_analytic_spectrum(save):
 
 
 def test_eigenvectors_solve_a_equals_Ua(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), vertex_couplings=0.5,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5,
                                    neff=3.97, wavelength_range=(1.550, 1.552), **save)
     spectrum, deg = g.compute_spectrum(N_scan=20_000, save_spectrum=False)
     assert spectrum.size > 5 and np.all(deg == 1)
@@ -40,7 +40,7 @@ def test_eigenvectors_solve_a_equals_Ua(save):
 
 
 def test_double_ring_levels_are_doubly_degenerate(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.double_ring(), vertex_couplings=0.5, neff=1.0,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.double_ring(), couplings=0.5, neff=1.0,
                                    wavelength_range=(1.48, 1.64), **save)
     spectrum, deg = g.compute_spectrum(N_scan=60_000, save_spectrum=False)
     assert spectrum.size == 71 and np.all(deg == 2)
@@ -48,14 +48,14 @@ def test_double_ring_levels_are_doubly_degenerate(save):
 
 
 def test_level_count_agrees_with_weyl_law(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.bow_tie_graph(), vertex_couplings=0.5, neff=3.97,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.bow_tie_graph(), couplings=0.5, neff=3.97,
                                    wavelength_range=(1.50, 1.53), **save)
     spectrum, deg = g.compute_spectrum(N_scan=150_000, save_spectrum=False)
     assert abs(deg.sum() - g.weyl_count()) < 3
 
 
 def test_too_coarse_scan_warns_about_missing_levels(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), vertex_couplings=0.5, neff=3.97,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, neff=3.97,
                                    wavelength_range=(1.50, 1.53), **save)
     with pytest.warns(RuntimeWarning, match="Weyl law"):
         g.compute_spectrum(N_scan=300, save_spectrum=False)

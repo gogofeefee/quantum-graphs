@@ -35,6 +35,38 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   results cached by 1.0.0 are recomputed.
 - **networkx is no longer a dependency** (it only drew the figures).
 
+### Changed (API, continued)
+- **Constructors**: everything after `bonds` (and `leads` for open graphs) is
+  keyword-only; `wavelength_range` is required (no silent (1.48, 1.64)
+  window) and checked. **Nothing is written to disk at construction**: the
+  output directory and `graph_parameters.txt` are created by the first save
+  (`graph.save_path` is resolved lazily).
+- **Coupling names**: `couplings` (float, C(k), list or dict) for every
+  directional class (was `vertex_couplings`, `internal_coupling`); open
+  graphs: `access_couplings` for the couplers carrying leads (was
+  `external_coupling`); `OpenGraphs`: `vertex_matrices` + `access_matrices`
+  (were `internal_matrix` / `external_matrix`). `DirectionalClassicalGraphs`
+  takes `couplings` only (use `ClassicalGraphs` for arbitrary matrices).
+- **Matrices**: `graph.U(k)`, `graph.sigma_min(k)` (one k or an array) and
+  `graph.secular_det(k)` for every graph; `graph.S(k)` (one k or an array)
+  replaces `compute_S_matrix` / `compute_S_matrices`. Removed the private
+  wrappers `_build_propagation_matrix`, `_build_sigma_*`, `_U`, `_sigma_min`.
+- **Classical dynamics**: `perron_frobenius(k)`, `perron_frobenius_spectrum(k)`,
+  `invariant_measure(k)`, `spectral_gap`, `is_ergodic`, `is_mixing`,
+  `classical_summary`, `basis_state`, `evolve_rho(rho0, n, trajectory=False)`,
+  cached per k; removed `build_` / `get_` / `diagonalize_` variants,
+  `evolve_rho_trajectory`, `evolve_and_store`, `perron_power`, the `rebuild`
+  arguments and the results stored on the object (`P`, `P_evals`, ...).
+- **Saving and plotting**: `save_fig` everywhere (the open-graph `save`
+  argument is gone). Computations no longer plot by default:
+  `find_resonances(plot=False)`, `find_experimental_resonances(plot=False,
+  cache=True, save_fig=False)` (was `plot_figures=True, save=True`);
+  `plot_length_spectrum` / `plot_resonances_sigma` no longer save by default.
+  Figures are closed after drawing when display is disabled (`show=False`).
+- Experimental-search helpers are private (`_k_to_lambda_um`, ...).
+- `layouts.from_port_map(vertex_positions, port_map, lengths)` converts the
+  1.0 description (for tools that still produce port maps, e.g. GDS builders).
+
 ### Changed (figures)
 - One `plot_graph` for every class (`plotting.topology_plot`), drawn with
   matplotlib along `graph.bond_paths` (`plotting.drawing.BondPaths`):

@@ -11,6 +11,7 @@ from collections import defaultdict
 from ..core.base import GraphBase
 from ..core.optics import group_index_function
 from ..core.persistence import topology_hash
+from ..core.vertices import resolve_vertex_matrices
 
 
 class CoreMixin(GraphBase):
@@ -20,12 +21,12 @@ class CoreMixin(GraphBase):
 
     _allow_leads = True
 
-    def __init__(self, vertex_positions, bonds, leads=(),
-                 vertex_matrices=None,
-                 internal_matrix=None, external_matrix=None,
+    def __init__(self, vertex_positions, bonds, leads, *,
+                 vertex_matrices,
+                 wavelength_range,
+                 access_matrices=None,
                  neff=1.0,
                  ng=None,
-                 wavelength_range=(1.48, 1.64),
                  bond_spacing=None,
                  lead_orientations=None,
                  name="MyOpenGraph",
@@ -36,12 +37,13 @@ class CoreMixin(GraphBase):
 
         ``bonds``: ``[(i, p, j, q[, L]), ...]``; ``leads``: ``[(v, p), ...]``,
         numbered in this order in the S-matrix (see
-        :mod:`quantum_graphs.core.topology`). A vertex gets
-        ``vertex_matrices[v]`` if given, else ``external_matrix`` if it carries a
-        lead, else ``internal_matrix``. ``lead_orientations`` {(v, p): degrees}
-        is for drawing only (generated if None).
+        :mod:`quantum_graphs.core.topology`). ``vertex_matrices``: dict, list,
+        array or callable σ(k), as for closed graphs; ``access_matrices``
+        (same forms) overrides it on the vertices that carry a lead.
+        ``lead_orientations`` {(v, p): degrees} is for drawing only (generated
+        if None).
         """
-        self.wavelength_range = wavelength_range
+        self.wavelength_range = self._check_wavelength_range(wavelength_range)
         self.neff             = neff
         self.ng               = ng if ng is not None else self._compute_group_index()
         self.lead_orientations = lead_orientations
@@ -49,19 +51,11 @@ class CoreMixin(GraphBase):
         self._setup_topology(vertex_positions, bonds, leads)
         self.bond_spacing = bond_spacing
 
-        lead_vertices = {v for v, _ in self.topology.leads}
-        matrices = {}
-        for v in range(self.n_vertices):
-            if vertex_matrices is not None and v in vertex_matrices:
-                matrices[v] = vertex_matrices[v]
-            elif v in lead_vertices:
-                if external_matrix is None:
-                    raise ValueError(f"No external_matrix provided for external vertex {v}")
-                matrices[v] = external_matrix
-            else:
-                if internal_matrix is None:
-                    raise ValueError(f"No internal_matrix provided for internal vertex {v}")
-                matrices[v] = internal_matrix
+        matrices = resolve_vertex_matrices(vertex_matrices, self.n_vertices)
+        if access_matrices is not None:
+            access = resolve_vertex_matrices(access_matrices, self.n_vertices)
+            for v in {v for v, _ in self.topology.leads}:
+                matrices[v] = access[v]
         self._setup_vertex_matrices(matrices, self._k_samples())
 
         self._generate_lead_orientations()

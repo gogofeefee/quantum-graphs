@@ -28,7 +28,7 @@ def test_eigenspace_intensity_does_not_depend_on_the_basis():
 def test_closed_eigenmode_has_one_intensity_per_bond(save):
     """I_b = |a_b|² + |a_{b+B}|² (the two waves arriving at the ends of bond b),
     S_norm and IPR over the N_b bonds."""
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.bow_tie_graph(), vertex_couplings=0.5,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.bow_tie_graph(), couplings=0.5,
                                    neff=3.97, wavelength_range=(1.550, 1.552), **save)
     spectrum, _ = g.compute_spectrum(N_scan=20_000, save_spectrum=False)
     B = g.n_bonds
@@ -43,7 +43,7 @@ def test_closed_eigenmode_has_one_intensity_per_bond(save):
 
 
 def test_degenerate_level_measures_do_not_depend_on_the_basis(save):
-    g = qg.ClosedDirectionalGraphs(**qg.layouts.double_ring(), vertex_couplings=0.5, neff=1.0,
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.double_ring(), couplings=0.5, neff=1.0,
                                    wavelength_range=(1.48, 1.52), **save)
     spectrum, deg = g.compute_spectrum(N_scan=20_000, save_spectrum=False)
     rng = np.random.default_rng(1)
@@ -77,4 +77,4 @@ def test_bond_intensity_does_not_depend_on_an_extra_pass_through_vertex(save):
     tb = b.topology
     expected = abs(amp_b[tb.arriving(0, 3)]) ** 2 + abs(amp_b[tb.arriving(0, 1)]) ** 2
     assert np.isclose(a.bond_intensities(amp_a)[0], expected, rtol=1e-10)
-    assert np.allclose(a.compute_S_matrix(k), b.compute_S_matrix(k))
+    assert np.allclose(a.S(k), b.S(k))
