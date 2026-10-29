@@ -40,7 +40,8 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   keyword-only; `wavelength_range` is required (no silent (1.48, 1.64)
   window) and checked. **Nothing is written to disk at construction**: the
   output directory and `graph_parameters.txt` are created by the first save
-  (`graph.save_path` is resolved lazily).
+  (`graph.save_path` is resolved lazily; assigning it redirects the next
+  outputs).
 - **Coupling names**: `couplings` (float, C(k), list or dict) for every
   directional class (was `vertex_couplings`, `internal_coupling`); open
   graphs: `access_couplings` for the couplers carrying leads (was

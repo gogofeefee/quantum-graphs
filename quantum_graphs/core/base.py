@@ -68,6 +68,13 @@ class GraphBase:
             self._save_parameters()
         return self._save_path
 
+    @save_path.setter
+    def save_path(self, path):
+        """Send the next outputs to another directory (created on first use)."""
+        from pathlib import Path
+        self._save_path = Path(path)
+        self._parameters_written = False
+
     # -- drawing ----------------------------------------------------------------
 
     @property

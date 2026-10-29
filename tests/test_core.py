@@ -182,3 +182,12 @@ def test_from_port_map_converts_the_1_0_description():
     assert out["leads"] == [(0, 0), (0, 3)]
     t = build_topology(**out)
     assert np.allclose(t.length, [5.0, 7.0])
+
+
+def test_save_path_can_be_redirected(tmp_path):
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, **WINDOW,
+                                   save_path=str(tmp_path / "a"))
+    g.save_path = tmp_path / "b"
+    g.plot_graph(save_fig=True, file_format="png")
+    assert not (tmp_path / "a").exists()
+    assert (tmp_path / "b" / "graph_parameters.txt").exists() and any((tmp_path / "b").glob("*.png"))
