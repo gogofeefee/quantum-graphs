@@ -9,7 +9,7 @@ Geometry
 The five-petal flower graph of examples/closed_graphs/FlowerGraph (five 4-port
 directional couplers, each neighbouring pair joined by two bonds), opened by
 an access coupler (vertex 0) inserted on the short bond of one petal. Ports 0
-and 2 of the access coupler are external leads (``None`` in ``port_map``):
+and 2 of the access coupler are external leads (``leads``):
 
     6 vertices, 11 bonds, 2 leads, total internal length L_tot = 1599.62 um.
 
@@ -77,31 +77,24 @@ vertex_positions = [
     ( 78.195,  25.407),   # vertex 5
 ]
 
-# port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j.
-# None = external lead. Ports (0, 1) are one arm of the coupler, (2, 3) the other.
-port_map = [
-    [None,   (3, 3), None,   (4, 2)],   # vertex 0: leads on ports 0 and 2
-    [(5, 1), (2, 0), (5, 3), (2, 2)],   # vertex 1
-    [(1, 1), (3, 0), (1, 3), (3, 2)],   # vertex 2
-    [(2, 1), (4, 0), (2, 3), (0, 1)],   # vertex 3
-    [(3, 1), (5, 0), (0, 3), (5, 2)],   # vertex 4
-    [(4, 1), (1, 0), (4, 3), (1, 2)],   # vertex 5
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
+# Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
+bonds = [
+    (0, 1, 3, 3, 92.324),   # access coupler -> vertex 3
+    (0, 3, 4, 2, 91.162),   # access coupler -> vertex 4
+    (1, 0, 5, 1, 123.830),   # petal 1-5
+    (1, 2, 5, 3, 224.798),
+    (1, 1, 2, 0, 112.068),   # petal 1-2
+    (1, 3, 2, 2, 215.516),
+    (2, 1, 3, 0, 100.260),   # petal 2-3
+    (2, 3, 3, 2, 207.531),
+    (3, 1, 4, 0, 92.901),   # petal 3-4 (its long arm goes through the access coupler)
+    (4, 1, 5, 0, 116.961),   # petal 4-5
+    (4, 3, 5, 2, 222.271),
 ]
 
-# Bond lengths in um
-lengths = {
-    ((0, 1), (3, 3)):  92.324,   # access coupler -> vertex 3
-    ((0, 3), (4, 2)):  91.162,   # access coupler -> vertex 4
-    ((1, 0), (5, 1)): 123.830,   # petal 1-5
-    ((1, 2), (5, 3)): 224.798,
-    ((1, 1), (2, 0)): 112.068,   # petal 1-2
-    ((1, 3), (2, 2)): 215.516,
-    ((2, 1), (3, 0)): 100.260,   # petal 2-3
-    ((2, 3), (3, 2)): 207.531,
-    ((3, 1), (4, 0)):  92.901,   # petal 3-4 (its long arm goes through the access coupler)
-    ((4, 1), (5, 0)): 116.961,   # petal 4-5
-    ((4, 3), (5, 2)): 222.271,
-}
+# External leads (vertex, port), numbered in this order in the S-matrix
+leads = [(0, 0), (0, 2)]
 
 # Direction (degrees) in which each lead is drawn
 lead_orientations = {
@@ -126,14 +119,14 @@ C_external       = 0.3            # the access coupler
 
 graph = DirectionalGraphs(
     vertex_positions       = vertex_positions,
-    port_map               = port_map,
-    lengths                = lengths,
+    bonds                  = bonds,
+    leads                  = leads,
     internal_coupling      = C_internal,
     external_coupling      = C_external,
     neff                   = neff,
     wavelength_range       = wavelength_range,
     lead_orientations      = lead_orientations,
-    virtual_vertex_spacing = [40, -40, -40, -40],   # drawing only
+    bond_spacing           = [40, -40, -40, -40],   # drawing only
     name = (f"FlowerGraph_open_neff{neff:.3f}"
             f"_Cin{C_internal:.2f}_Cext{C_external:.2f}"),
     base_dir = _here,

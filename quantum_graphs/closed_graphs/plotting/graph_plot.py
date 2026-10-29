@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GraphPlotMixin — plot_graph (base ClosedGraphs), plot_zeta_B.
+GraphPlotMixin — plot_graph (shared, see quantum_graphs.plotting), plot_zeta_B.
 
 ``plot_zeta_B`` has a secondary x-axis (λ ↔ frequency) and uses
 ``layout="constrained"``.
@@ -11,8 +11,8 @@ from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import networkx as nx
 
+from ...plotting.topology_plot import TopologyPlotMixin
 from .style import (
     MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W,
     add_secondary_top_axis,
@@ -29,78 +29,7 @@ def _tick_params(ax):
                    top=True, right=True)
 
 
-class GraphPlotMixin:
-
-    # =========================================================================
-    # Topology
-    # =========================================================================
-
-    def plot_graph(self, show_lengths=False, save_fig=False, file_format="pdf",
-                   figsize=(10, 8), node_size=900, virtual_node_size=400,
-                   font_size=20, edge_width=3, length_font_size=22,
-                   filename_suffix=None):
-        """
-        Plot the graph topology: real nodes (large, labeled), virtual nodes
-        (small), and edges.
-
-        Parameters
-        ----------
-        show_lengths : bool
-        save_fig : bool
-        file_format : str
-        figsize : (float, float)
-        node_size : float
-            Marker size (points^2) for real (labeled) vertices.
-        virtual_node_size : float
-            Marker size (points^2) for virtual (unlabeled) vertices.
-        font_size : float
-            Vertex number label size.
-        edge_width : float
-            Bond line width.
-        length_font_size : float
-            Edge-length label size (only used if show_lengths=True).
-        filename_suffix : str or None
-            Extra tag appended to the saved filename, e.g. for A/B testing
-            different sizing combos without overwriting previous renders.
-        """
-        fig, ax = plt.subplots(figsize=figsize)
-        pos = nx.get_node_attributes(self.G, "pos")
-
-        real_nodes  = [i for i in self.G.nodes if i not in self.virtual_vertices]
-        virt_nodes  = self.virtual_vertices
-
-        nx.draw_networkx_nodes(self.G, pos, nodelist=real_nodes,
-                               node_size=node_size, node_color="black", ax=ax)
-        nx.draw_networkx_nodes(self.G, pos, nodelist=virt_nodes,
-                               node_size=virtual_node_size, node_color="black", ax=ax)
-
-        node_labels = {i: self.vertex_labels[i] for i in real_nodes}
-        nx.draw_networkx_labels(self.G, pos, labels=node_labels,
-                                font_color="white", font_weight="bold",
-                                font_size=font_size, ax=ax)
-
-        nx.draw_networkx_edges(self.G, pos, ax=ax, width=edge_width, edge_color="black")
-
-        if show_lengths:
-            edge_labels = {k: f"{v:.2f}"
-                           for k, v in nx.get_edge_attributes(self.G, "length").items()}
-            nx.draw_networkx_edge_labels(self.G, pos, edge_labels=edge_labels,
-                                         font_size=length_font_size, ax=ax)
-
-        ax.set_aspect("equal")
-        ax.axis("off")
-        plt.tight_layout(pad=1.0)
-
-        if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
-            suffix   = "with_lengths" if show_lengths else "no_lengths"
-            if filename_suffix:
-                suffix = f"{suffix}_{filename_suffix}"
-            filename = f"{self.name}_graph_{suffix}.{file_format}"
-            filepath = os.path.join(self.save_path, filename)
-            plt.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            log(f"Graph plot saved to {filepath}")
-        show_figure()
+class GraphPlotMixin(TopologyPlotMixin):
 
     # =========================================================================
     # Secular determinant (zeta_B)

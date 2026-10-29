@@ -57,29 +57,20 @@ vertex_positions = [
     ( 68.166, -39.356),   # vertex 4
 ]
 
-# port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j.
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
 # Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
-port_map = [
-    [(3, 2), (2, 3), (4, 0), (1, 1)],   # vertex 0
-    [(4, 1), (0, 3), (4, 3), (2, 1)],   # vertex 1
-    [(3, 1), (1, 3), (3, 3), (0, 1)],   # vertex 2
-    [(4, 2), (2, 0), (0, 0), (2, 2)],   # vertex 3
-    [(0, 2), (1, 0), (3, 0), (1, 2)],   # vertex 4
+bonds = [
+    (0, 0, 3, 2, 79.153),
+    (0, 1, 2, 3, 95.085),
+    (0, 2, 4, 0, 84.717),
+    (0, 3, 1, 1, 103.523),
+    (1, 0, 4, 1, 96.144),   # double bond 1-4
+    (1, 2, 4, 3, 262.852),
+    (1, 3, 2, 1, 279.690),
+    (2, 0, 3, 1, 255.817),   # double bond 2-3
+    (2, 2, 3, 3, 88.833),
+    (3, 0, 4, 2, 251.257),
 ]
-
-# Bond lengths in um
-lengths = {
-    ((0, 0), (3, 2)):  79.153,
-    ((0, 1), (2, 3)):  95.085,
-    ((0, 2), (4, 0)):  84.717,
-    ((0, 3), (1, 1)): 103.523,
-    ((1, 0), (4, 1)):  96.144,   # double bond 1-4
-    ((1, 2), (4, 3)): 262.852,
-    ((1, 3), (2, 1)): 279.690,
-    ((2, 0), (3, 1)): 255.817,   # double bond 2-3
-    ((2, 2), (3, 3)):  88.833,
-    ((3, 0), (4, 2)): 251.257,
-}
 
 ng = 3.97   # group index: optical length = ng × physical length
 
@@ -90,16 +81,15 @@ ng = 3.97   # group index: optical length = ng × physical length
 
 graph = PeriodicOrbits(
     vertex_positions       = vertex_positions,
-    port_map               = port_map,
-    lengths                = lengths,
+    bonds                  = bonds,
     ng                     = ng,
     name                   = f"BowTieGraph_periodic_orbits_ng{ng:.2f}",
     base_dir               = _here,
 )
 
 print("\nGraph summary:")
-print(f"  Vertices       : {graph.n_vertices} real + {graph.n_virtual_vertices} virtual")
-print(f"  Directed bonds : {graph.n_directed_bonds}")
+print(f"  Vertices       : {graph.n_vertices}")
+print(f"  Bonds          : {graph.n_bonds} ({graph.topology.n_directed} directed)")
 print(f"  Save path      : {graph.save_path}\n")
 
 

@@ -16,13 +16,14 @@ changed, to keep published results reproducible).
   (a = U a with U = D Σ). The field on bond (u, v), x measured from u:
   ψ(x) = a_{u→v} e^{i k n (x−L)} + a_{v→u} e^{−i k n x}.
 * Open graphs: S[j, i] = amplitude out of lead j for unit amplitude into
-  lead i; leads ordered as the `None` entries of `port_map`. Losses can be
+  lead i; leads ordered as in `leads`. Losses can be
   modelled with a complex k (`k_imag`): every bond is attenuated by
   exp(−Im(k) n L).
-* Virtual vertices (pass-through σ = [[0,1],[1,0]]) split self-loops (4
-  segments) and multiple bonds (2 segments); they never change the physics.
-  Entropy and IPR are computed on the physical bonds, independently of them
-  (§5); figures colour each virtualised segment separately.
+* Self-loops and multiple bonds are ordinary bonds (2.0): the bond
+  scattering matrix is indexed by ports, not by vertex pairs. Up to 1.0 they
+  were split by virtual pass-through vertices (σ = [[0,1],[1,0]]), which did
+  not change spectra, S or resonances (checked to ≤ 1e-13 when they were
+  removed) but made U up to 4× larger and the classical step shorter (§6).
 
 ## 2. Closed spectrum
 
@@ -99,15 +100,13 @@ Decided by the author (2026-10-24, plan validated 2026-10-26), implemented in
 `quantum_graphs.stats.localization` (reference_v3). Before, the measures were
 computed on the virtualised half-bonds, from one arbitrary eigenvector.
 
-* **Physical bonds.** The distribution is p_b = I_b / Σ I_b over the N_b
-  bonds of `port_map` (not the virtualised segments), with
-  I_b = |a_{u→v}|² + |a_{v→u}|², the two amplitudes arriving at the *real*
-  end vertices of bond b = (u, v) (`physical_bond_arrivals`): exactly what
-  the bond would carry if it had not been split, whatever the virtual
-  vertices. At real k (closed graphs) all segments of a bond carry this same
-  intensity; at complex k (resonances, lossy driven fields) the segments
-  differ by the attenuation along the bond and the arrival convention keeps
-  the result independent of where the bond is split (tested).
+* **Bonds.** The distribution is p_b = I_b / Σ I_b over the N_b bonds, with
+  I_b = |a_{u→v}|² + |a_{v→u}|², the two amplitudes arriving at the end
+  vertices of bond b = (u, v) (directed bonds b and b + N_b). Up to 1.0 the
+  same quantity was computed through `physical_bond_arrivals` on the
+  virtualised graph; the values are unchanged (reference_v4). At complex k
+  the arrival convention makes the result independent of a pass-through
+  vertex inserted on the bond (tested).
 * I_b is an **intensity**, not an energy (which would be ∝ L_b I_b), as in
   the THG measurement, where p_b is the mean intensity on each branch.
 * S_norm = −Σ p_b ln p_b / ln N_b ∈ [0, 1]; IPR = N_b Σ p_b² ∈ [1, N_b]
@@ -139,7 +138,12 @@ computed on the virtualised half-bonds, from one arbitrary eigenvector.
 
 ## 6. Classical dynamics
 
-P = |Σ_αα|² ignores bond lengths (one step per bond). For unitary vertex
+P = |Σ_αα|² ignores bond lengths: one step = one bond traversal. Up to 1.0
+the virtual vertices made a multiple bond take 2 steps and a self-loop 4,
+which changed the classical spectrum (BTG gap 0.121 instead of 1 − 1/√2 ≈
+0.293; FG eigenvalues ±i instead of −1). The paper's supplementary material
+(Δ_BTG ≈ 0.29, FG eigenvalue −1) was computed without virtual vertices and
+agrees with 2.0. For unitary vertex
 matrices P is doubly stochastic and the uniform vector is invariant.
 Ergodicity is tested as "eigenvalue 1 is simple" and mixing as "all other
 eigenvalues have modulus < 1" (tolerance 1e-10).
@@ -152,4 +156,9 @@ one arm, leave on the other). Before 2026-10-24,
 L_max − (its shortest bond) and L_max (9 of 99 flower-graph orbits up to
 1500 µm); the enumeration is now tested against brute force. Searches stopped
 by `max_orbits` / `max_search_nodes` raise a warning and set
-`orbits_complete = False`.
+`orbits_complete = False`. An irreducible orbit visits no vertex twice; up to
+1.0 the rule also counted the virtual vertices, which is equivalent
+(traversing a bond twice means leaving one of its end vertices twice): the
+catalogues of reference_v4 are those of reference_v3. Names "1-4[a]",
+"1-4[b]" of orbits sharing a vertex sequence follow the search order, which
+depends on the bond order.

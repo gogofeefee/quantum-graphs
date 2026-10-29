@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 
-#: 2-port pass-through matrix used for the virtual vertices
+#: 2-port vertex with full transmission (e.g. a point on a ring)
 PASS_THROUGH = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex)
 
 

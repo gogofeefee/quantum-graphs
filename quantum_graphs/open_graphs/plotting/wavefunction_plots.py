@@ -6,8 +6,8 @@ WavefunctionPlotsMixin — plot_resonance_wavefunction, plot_entropy, plot_ipr.
 For open graphs the "wavefunction" at a complex resonance k is the null-space
 of (I − U_b(k)), where U_b = D(k) Σ_αα(k) is the internal bond-scattering
 evolution operator.  Energy density on bond b is |a_fwd[b]|² + |a_bwd[b]|².
-Entropy and IPR are computed per physical bond (amplitudes arriving at its real
-end vertices), on the projector onto the null-space when it has dimension > 1
+Entropy and IPR are computed per bond (amplitudes arriving at its two end
+vertices), on the projector onto the null-space when it has dimension > 1
 (:mod:`quantum_graphs.stats.localization`).
 
 Helpers
@@ -21,8 +21,9 @@ from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import networkx as nx
 
+from ...plotting.drawing import (add_colorbar, draw_bond_values, draw_vertices, finish_axes,
+                                size_scale)
 from ...stats.localization import localization_measures
 from .style import MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W
 
@@ -94,8 +95,7 @@ class WavefunctionPlotsMixin:
         Parameters
         ----------
         energy_per_bond : ndarray, shape (N_b,)
-            Raw (unnormalised) energy on each bond; pass physical bonds
-            (``bond_intensities``) for virtualisation-independent values.
+            Raw (unnormalised) energy on each bond (``bond_intensities``).
 
         Returns
         -------
@@ -109,7 +109,7 @@ class WavefunctionPlotsMixin:
         """
         Iterate over self.spectrum and compute per-resonance entropy and IPR.
 
-        Per physical bond; when the null-space has dimension > 1 (degenerate
+        Per bond; when the null-space has dimension > 1 (degenerate
         or nearly degenerate resonance, see ``nullity_tol``) the diagonal of
         its projector is used, not one arbitrary basis vector.
 
@@ -151,8 +151,8 @@ class WavefunctionPlotsMixin:
 
         Computes the null-space of (I − U_b(k)) at the selected resonance.
         One plot per kernel vector (degenerate resonances produce multiple plots).
-        Leads are not shown. Each virtualised segment is drawn with its own
-        intensity; S_norm in the title is per physical bond, for that vector.
+        Leads are not shown. Each bond is coloured by its intensity; S_norm in
+        the title is that of the vector.
 
         Parameters
         ----------
@@ -168,8 +168,6 @@ class WavefunctionPlotsMixin:
             raise AttributeError(
                 "No complex spectrum available. Run find_resonances() first.")
 
-        from matplotlib.colors import LinearSegmentedColormap
-
         k          = complex(self.spectrum[index])
         wavelength = 2 * np.pi / float(np.real(k))
         im_k       = float(np.imag(k))
@@ -177,59 +175,20 @@ class WavefunctionPlotsMixin:
 
         vecs    = self._compute_resonance_wavefunction_vectors(k, nullity_tol)
         N_modes = len(vecs)
-        N_b     = self.n_internal_bonds
-
-        if cmap is None:
-            base     = plt.get_cmap("Reds")
-            cmap_obj = LinearSegmentedColormap.from_list(
-                "Reds_truncated",
-                [base(x) for x in np.linspace(0.0, 0.75, 256)],
-            )
-        elif isinstance(cmap, str):
-            cmap_obj = plt.get_cmap(cmap)
-        else:
-            cmap_obj = cmap
-
-        edgelist = [(a_[0], b_[0]) for (a_, b_) in self.updated_bonds]
+        paths   = self.bond_paths
+        radius  = 0.065 * size_scale(self.topology)
 
         for mode_idx, a in enumerate(vecs):
-            rho          = np.abs(a[:N_b])**2 + np.abs(a[N_b:])**2
+            rho          = self.bond_intensities(a)
             _, S_norm, _ = self.localization_measures(a)
 
             max_e            = np.max(rho) if rho.size else 1.0
             energy_densities = rho / max_e if max_e > 0 else rho
-            edge_widths      = 6 + 8 * energy_densities
-            border_widths    = edge_widths + 2
 
             fig, ax = plt.subplots(figsize=(10, 8))
-            pos        = nx.get_node_attributes(self.G, "pos")
-            real_nodes = [i for i in self.G.nodes if i not in self.virtual_vertices]
-
-            nx.draw_networkx_nodes(self.G, pos, nodelist=real_nodes,
-                                   node_size=900, node_color="black", ax=ax)
-            nx.draw_networkx_nodes(self.G, pos, nodelist=self.virtual_vertices,
-                                   node_size=400, node_color="black", ax=ax)
-            nx.draw_networkx_labels(self.G, pos,
-                                    labels={i: self.vertex_labels[i] for i in real_nodes},
-                                    font_color="white", font_weight="bold",
-                                    font_size=20, ax=ax)
-
-            nx.draw_networkx_edges(self.G, pos, ax=ax,
-                                   edgelist=edgelist,
-                                   width=border_widths, edge_color="black")
-            edges = nx.draw_networkx_edges(self.G, pos, ax=ax,
-                                           edgelist=edgelist,
-                                           width=edge_widths,
-                                           edge_color=energy_densities,
-                                           edge_cmap=cmap_obj,
-                                           edge_vmin=0.0, edge_vmax=1.0)
-
-            # Core-matplotlib inset instead of mpl_toolkits.axes_grid1: a stale
-            # system mpl_toolkits can shadow the pip one and break append_axes.
-            cax     = ax.inset_axes([1.02, 0.0, 0.04, 1.0])
-            cbar    = plt.colorbar(edges, cax=cax)
-            cbar.set_label("Energy Density", fontsize=22)
-            cbar.ax.tick_params(labelsize=22)
+            edges = draw_bond_values(ax, paths, energy_densities, cmap=cmap)
+            draw_vertices(ax, self.topology, radius)
+            add_colorbar(ax, edges, "Energy Density")
 
             Q_str      = f"{Q:.1f}" if np.isfinite(Q) else r"\infty"
             mode_label = f"Mode {mode_idx + 1}, " if N_modes > 1 else ""
@@ -238,8 +197,7 @@ class WavefunctionPlotsMixin:
                      f"$Q = {Q_str}$, "
                      f"$S_{{\\rm norm}} = {S_norm:.3f}$")
             ax.set_title(title, fontsize=20)
-            ax.set_aspect("equal")
-            ax.axis("off")
+            finish_axes(ax, paths)
             plt.tight_layout(pad=3.0)
 
             if save_fig:
@@ -263,7 +221,7 @@ class WavefunctionPlotsMixin:
         """
         Normalised Shannon entropy S_norm vs Re(k)·L_tot and vs mode index.
 
-        Per physical bond; see ``_compute_all_resonance_quantities``.
+        Per bond; see ``_compute_all_resonance_quantities``.
 
         Parameters
         ----------
@@ -331,7 +289,7 @@ class WavefunctionPlotsMixin:
         """
         Inverse participation ratio I = N_b · Σ p_b² vs Re(k)·L_tot and mode index.
 
-        Per physical bond (N_b = number of internal bonds of ``port_map``).
+        Per bond (N_b = number of bonds).
 
         Parameters
         ----------

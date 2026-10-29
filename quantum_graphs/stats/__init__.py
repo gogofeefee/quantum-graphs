@@ -9,7 +9,7 @@ from .rmt import (
     normalize_ensemble, table_range,
 )
 from .localization import (
-    eigenspace_intensity, physical_bond_intensity, localization_measures,
+    eigenspace_intensity, bond_intensity, localization_measures,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "spectral_rigidity",
     "nnsd", "sigma2_rmt", "delta3_rmt", "sigma2_dyson_mehta",
     "delta3_dyson_mehta", "normalize_ensemble", "table_range",
-    "eigenspace_intensity", "physical_bond_intensity", "localization_measures",
+    "eigenspace_intensity", "bond_intensity", "localization_measures",
 ]

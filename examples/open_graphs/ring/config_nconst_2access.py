@@ -80,15 +80,14 @@ vertex_positions = [
     (0.0,  R),   # top access coupler
 ]
 
-port_map = [
-    [None, (1, 1), None, (1, 3)],   # vertex 0 (bottom)
-    [None, (0, 1), None, (0, 3)],   # vertex 1 (top)
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um)
+bonds = [
+    (0, 1, 1, 1, L_half),   # one half ring
+    (0, 3, 1, 3, L_half),   # the other half ring
 ]
 
-lengths = {
-    tuple(sorted([(0, 1), (1, 1)])): L_half,
-    tuple(sorted([(0, 3), (1, 3)])): L_half,
-}
+# External leads (vertex, port), numbered in this order in the S-matrix
+leads = [(0, 0), (0, 2), (1, 0), (1, 2)]
 
 lead_orientations = {
     (0, 0): -150.0,
@@ -116,8 +115,8 @@ C_external       = 0.3   # coupling at each access coupler
 
 graph = DirectionalGraphs(
     vertex_positions  = vertex_positions,
-    port_map          = port_map,
-    lengths           = lengths,
+    bonds             = bonds,
+    leads             = leads,
     internal_coupling = C_internal,
     external_coupling = C_external,
     neff              = neff,

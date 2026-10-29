@@ -10,8 +10,8 @@ quantum_graphs/
   __init__.py          public API (classes with unambiguous names, options, layouts, stats)
   core/
     config.py          options verbose / show / n_workers, log(), show_figure()
-    topology.py        build_topology(): validation, canonical lengths, virtual vertices,
-                       directed-bond indexing  -> Topology (attributes copied onto graphs)
+    topology.py        Topology (graph.topology): bonds (i, p, j, q, L) and leads as
+                       validated read-only arrays, directed bonds d / d + B, lookups
     vertices.py        directional_coupler_matrix, neumann_matrix, PASS_THROUGH,
                        couplings_for_vertices, shape / unitarity validation
     scattering.py      ScatteringModel: D(k), Σ blocks (constant ones cached), U(k),
@@ -28,7 +28,10 @@ quantum_graphs/
   stats/               spectral.py (pure functions: weyl_staircase, unfold, number_variance,
                        spectral_rigidity), rmt.py (nnsd, tabulated and exact RMT curves, data/),
                        localization.py (bond intensities, entropy, IPR)
-  plotting/style.py    shared figure style and axis helpers
+  plotting/            style.py (figure style, axis helpers); drawing.py (BondPaths: one
+                       curve per bond -- segment, Bézier arcs for parallel bonds, teardrops
+                       for loops -- and the draw_* primitives); topology_plot.py (the
+                       single plot_graph shared by every class)
   layouts.py           reference geometries; remove_access_coupler
   dispersion.py        load_mpb_indices / plot_mpb_indices_vs_k / apply_index_scaling
 ```
@@ -41,10 +44,12 @@ specific to their point of view.
 ## Data flow
 
 1. **Construction** (`CoreMixin.__init__` of each subpackage):
-   `build_topology` validates `port_map` / `lengths` and virtualises loops and
-   multiple bonds; vertex matrices are resolved and validated; the save path
-   is resolved (historical directory names are kept so old results are
-   found) and `graph_parameters.txt` is written.
+   `build_topology` validates `vertex_positions` / `bonds` / `leads` into
+   `graph.topology` (loops and multiple bonds are ordinary bonds); vertex
+   matrices are resolved and validated; the save path is resolved and
+   `graph_parameters.txt` is written. The graph exposes only the shortcuts
+   `n_vertices`, `n_bonds`, `n_leads`, `total_length`; everything else is
+   read from `graph.topology`.
 2. **Numerics** go through `graph.model` (a `ScatteringModel` built lazily
    from the topology, the vertex matrices and `neff`). The historical methods
    (`_build_sigma_alpha_alpha`, `_build_propagation_matrix`, `compute_S_matrix`,
@@ -52,13 +57,15 @@ specific to their point of view.
 3. **Caches**: `persistence.use_cache(path, graph.fingerprint, params,
    overwrite)` before loading, `write_cache_meta(...)` after writing. The
    fingerprint samples every function of k at 9 wavenumbers of the window.
-4. **Plots** end with `show_figure()` (respects the `show` option); messages
-   go through `log()` or `print` guarded by a resolved `verbose`.
+4. **Plots** draw every bond along `graph.bond_paths` (geometry only, for
+   figures; the physics uses the bond lengths) and end with `show_figure()`
+   (respects the `show` option); messages go through `log()` or `print`
+   guarded by a resolved `verbose`.
 
 ## Extending
 
-* **A new graph**: no code needed — describe it with `vertex_positions`,
-  `port_map`, `lengths` (see `examples/new_study_template.py`); add it to
+* **A new graph**: no code needed — describe it with `vertex_positions` and
+  `bonds` (+ `leads`) (see `examples/new_study_template.py`); add it to
   `layouts.py` if it is reused.
 * **A new vertex model**: write a function returning σ (or σ(k)) in
   `core/vertices.py`; pass it through `vertex_matrices`. Add a test of

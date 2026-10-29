@@ -72,29 +72,20 @@ vertex_positions = [
     ( 78.195,  25.407),   # vertex 4
 ]
 
-# port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j.
-port_map = [
-    [(4, 1), (1, 0), (4, 3), (1, 2)],   # vertex 0
-    [(0, 1), (2, 0), (0, 3), (2, 2)],   # vertex 1
-    [(1, 1), (3, 0), (1, 3), (3, 2)],   # vertex 2
-    [(2, 1), (4, 0), (2, 3), (4, 2)],   # vertex 3
-    [(3, 1), (0, 0), (3, 3), (0, 2)],   # vertex 4
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
+# Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
+bonds = [
+    (0, 0, 4, 1, 123.830),   # petal 0-4
+    (0, 2, 4, 3, 224.798),
+    (0, 1, 1, 0, 112.068),   # petal 0-1
+    (0, 3, 1, 2, 215.516),
+    (1, 1, 2, 0, 100.260),   # petal 1-2
+    (1, 3, 2, 2, 207.531),
+    (2, 1, 3, 0, 92.901),   # petal 2-3
+    (2, 3, 3, 2, 183.485),
+    (3, 1, 4, 0, 116.961),   # petal 3-4
+    (3, 3, 4, 2, 222.271),
 ]
-
-# Bond lengths in um (only used for drawing labels here: the classical map
-# counts steps, not time of flight)
-lengths = {
-    ((0, 0), (4, 1)): 123.830,   # petal 0-4
-    ((0, 2), (4, 3)): 224.798,
-    ((0, 1), (1, 0)): 112.068,   # petal 0-1
-    ((0, 3), (1, 2)): 215.516,
-    ((1, 1), (2, 0)): 100.260,   # petal 1-2
-    ((1, 3), (2, 2)): 207.531,
-    ((2, 1), (3, 0)):  92.901,   # petal 2-3
-    ((2, 3), (3, 2)): 183.485,
-    ((3, 1), (4, 0)): 116.961,   # petal 3-4
-    ((3, 3), (4, 2)): 222.271,
-}
 
 C_all = 0.5
 
@@ -105,17 +96,16 @@ C_all = 0.5
 
 graph = DirectionalClassicalGraphs(
     vertex_positions       = vertex_positions,
-    port_map               = port_map,
-    lengths                = lengths,
+    bonds                  = bonds,
     vertex_matrices        = directional_coupler_matrix(C_all),
-    virtual_vertex_spacing = [40, -40, -40, -40, -40],   # drawing only
+    bond_spacing           = [40, -40, -40, -40, -40],   # drawing only
     name                   = f"FlowerGraph_classical_C{C_all:.2f}",
     base_dir               = _here,
 )
 
 print("\nGraph summary:")
-print(f"  Vertices       : {graph.n_vertices} real + {graph.n_virtual_vertices} virtual")
-print(f"  Directed bonds : {graph.n_directed_bonds}")
+print(f"  Vertices       : {graph.n_vertices}")
+print(f"  Bonds          : {graph.n_bonds} ({graph.topology.n_directed} directed)")
 print(f"  Save path      : {graph.save_path}\n")
 
 

@@ -20,9 +20,7 @@ see examples/open_graphs/BowTieGraph for the open version of the same graph.
 Here the access coupler is removed and its two bonds are merged into the
 single bond 3-4 (251.257 um), which closes the graph.
 
-The two double bonds are handled automatically: internally, each of them is
-split by a virtual 2-port vertex (pure transmission), drawn as a small black
-dot.
+The two double bonds are ordinary bonds of the list, drawn as arcs.
 
 Analysis pipeline: same as the FlowerGraph example (topology, spectrum,
 secular function, wavefunctions, entropy / IPR, spectral statistics, length
@@ -65,29 +63,20 @@ vertex_positions = [
     ( 68.166, -39.356),   # vertex 4
 ]
 
-# port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j.
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
 # Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
-port_map = [
-    [(3, 2), (2, 3), (4, 0), (1, 1)],   # vertex 0
-    [(4, 1), (0, 3), (4, 3), (2, 1)],   # vertex 1
-    [(3, 1), (1, 3), (3, 3), (0, 1)],   # vertex 2
-    [(4, 2), (2, 0), (0, 0), (2, 2)],   # vertex 3
-    [(0, 2), (1, 0), (3, 0), (1, 2)],   # vertex 4
+bonds = [
+    (0, 0, 3, 2, 79.153),
+    (0, 1, 2, 3, 95.085),
+    (0, 2, 4, 0, 84.717),
+    (0, 3, 1, 1, 103.523),
+    (1, 0, 4, 1, 96.144),   # double bond 1-4
+    (1, 2, 4, 3, 262.852),
+    (1, 3, 2, 1, 279.690),
+    (2, 0, 3, 1, 255.817),   # double bond 2-3
+    (2, 2, 3, 3, 88.833),
+    (3, 0, 4, 2, 251.257),   # merged bond (former access coupler)
 ]
-
-# Bond lengths in um
-lengths = {
-    ((0, 0), (3, 2)):  79.153,
-    ((0, 1), (2, 3)):  95.085,
-    ((0, 2), (4, 0)):  84.717,
-    ((0, 3), (1, 1)): 103.523,
-    ((1, 0), (4, 1)):  96.144,   # double bond 1-4
-    ((1, 2), (4, 3)): 262.852,
-    ((1, 3), (2, 1)): 279.690,
-    ((2, 0), (3, 1)): 255.817,   # double bond 2-3
-    ((2, 2), (3, 3)):  88.833,
-    ((3, 0), (4, 2)): 251.257,   # merged bond (former access coupler)
-}
 
 
 # ============================================================================
@@ -106,8 +95,7 @@ C_all                  = 0.5            # same coupling for all 5 couplers
 
 graph = DirectionalGraphs(
     vertex_positions       = vertex_positions,
-    port_map               = port_map,
-    lengths                = lengths,
+    bonds                  = bonds,
     vertex_couplings       = C_all,
     neff                   = neff,
     wavelength_range       = wavelength_range,
@@ -116,7 +104,7 @@ graph = DirectionalGraphs(
 )
 
 print("\nGraph summary:")
-print(f"  Vertices (incl. virtual) : {graph.n_vertices}")
+print(f"  Vertices                 : {graph.n_vertices}")
 print(f"  Bonds                    : {graph.n_bonds}")
 print(f"  Total length             : {graph.total_length:.3f} um")
 print(f"  Save path                : {graph.save_path}\n")

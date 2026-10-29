@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 import quantum_graphs as qg
-from quantum_graphs.core.topology import build_topology, canonical_edge
+from quantum_graphs.core.topology import build_topology
 from quantum_graphs.core.vertices import directional_coupler_matrix, neumann_matrix
 
 
@@ -12,84 +12,83 @@ from quantum_graphs.core.vertices import directional_coupler_matrix, neumann_mat
 # Topology
 # ---------------------------------------------------------------------------
 
-def test_double_ring_virtualisation():
+def test_double_ring_has_two_self_loops_and_no_extra_vertex():
     t = build_topology(**qg.layouts.double_ring())
-    # two self-loops, each split into 4 segments by 3 virtual vertices
-    assert t.n_virtual_vertices == 6
-    assert t.n_internal_bonds == 8 and t.n_directed_bonds == 16
-    assert np.isclose(sum(t.virtual_lengths.values()), t.total_length)
+    assert (t.n_vertices, t.n_bonds, t.n_directed) == (1, 2, 4)
     assert np.isclose(t.total_length, 2 * np.pi * (100 + 100 / np.sqrt(2)))
+    assert list(t.valency) == [4]
 
 
-def test_flower_graph_virtualisation_and_indexing():
+def test_flower_graph_directed_bond_indexing():
     t = build_topology(**qg.layouts.flower_graph())
-    assert (t.n_bonds, t.n_virtual_vertices, t.n_directed_bonds) == (10, 10, 40)
-    B = t.n_internal_bonds
-    for (a, b), i in t.directed_bond_index.items():
-        j = t.directed_bond_index[(b, a)]
-        assert abs(i - j) == B and min(i, j) < B
-        assert t.reverse_directed_bond[(a, b)] == (b, a)
-    assert np.isclose(sum(t.virtual_lengths.values()), 1599.62, atol=1e-2)
-    # every port of every vertex is connected exactly once in the virtual graph
-    for v, ports in enumerate(t.virtual_port_map):
-        for p, conn in enumerate(ports):
-            assert t.virtual_port_map[conn[0]][conn[1]] == (v, p)
+    assert (t.n_bonds, t.n_directed) == (10, 20)
+    B = t.n_bonds
+    for d in range(t.n_directed):
+        r = t.reverse(d)
+        assert abs(r - d) == B and t.reverse(r) == d
+        assert (t.src_vertex[r], t.src_port[r]) == (t.dst_vertex[d], t.dst_port[d])
+        assert t.bond_of(d) == t.bond_of(r) == d % B and t.is_forward(d) == (d < B)
+        assert t.directed_length[d] == t.directed_length[r] == t.length[t.bond_of(d)]
+        assert t.directed(t.src_vertex[d], t.src_port[d], t.dst_vertex[d], t.dst_port[d]) == d
+        assert t.leaving(t.src_vertex[d], t.src_port[d]) == d
+        assert t.arriving(t.dst_vertex[d], t.dst_port[d]) == d
+    assert np.isclose(t.total_length, 1599.62, atol=1e-2)
+    # five pairs of parallel bonds
+    assert sorted(len(g) for g in t.parallel_groups().values()) == [2] * 5
 
 
-def test_length_keys_in_either_orientation_are_equivalent():
-    layout = qg.layouts.double_ring()
-    flipped = {(b, a): L for (a, b), L in layout["lengths"].items()}
-    t1 = build_topology(layout["vertex_positions"], layout["port_map"], layout["lengths"])
-    t2 = build_topology(layout["vertex_positions"], layout["port_map"], flipped)
-    assert t1.virtual_lengths == t2.virtual_lengths
+def test_bond_without_length_uses_the_euclidean_distance():
+    t = build_topology([(0, 0), (3, 4)], [(0, 0, 1, 0), (0, 1, 1, 1, 7.0)])
+    assert np.allclose(t.length, [5.0, 7.0])
+    assert t.bonds[0] == (0, 0, 1, 0, 5.0)
 
 
-@pytest.mark.parametrize("lengths, message", [
-    ({((0, 0), (0, 2)): 10.0}, "Missing bond lengths"),
-    ({((0, 0), (0, 2)): 10.0, ((0, 1), (0, 3)): 5.0, ((0, 0), (0, 1)): 1.0}, "not in port_map"),
-    ({((0, 0), (0, 2)): 10.0, ((0, 2), (0, 0)): 10.0, ((0, 1), (0, 3)): 5.0}, "given twice"),
-    ({((0, 0), (0, 2)): -1.0, ((0, 1), (0, 3)): 5.0}, "> 0"),
+@pytest.mark.parametrize("bonds, leads, message", [
+    ([(0, 0, 0, 2, 1.0), (0, 1, 0, 2, 1.0)], (), "used twice"),
+    ([(0, 0, 0, 0, 1.0)], (), "to itself"),
+    ([(0, 0, 0, 2, 1.0), (0, 1, 0, 3, 1.0)], [(0, 1)], "used twice"),
+    ([(0, 0, 0, 2, 1.0), (0, 1, 1, 3, 1.0)], (), "no such vertex"),
+    ([(0, 0, 0, 3, 1.0)], (), r"ports \[1, 2\] are not connected"),
+    ([(0, 0, 0, 2, -1.0), (0, 1, 0, 3, 1.0)], (), "> 0"),
+    ([(0, 0, 0, 2)], (), "zero Euclidean length"),
+    ([(0, 0, 0)], (), "must be"),
 ])
-def test_invalid_lengths_raise(lengths, message):
+def test_invalid_bonds_raise(bonds, leads, message):
     with pytest.raises(ValueError, match=message):
-        build_topology([(0, 0)], [[(0, 2), (0, 3), (0, 0), (0, 1)]], lengths)
-
-
-@pytest.mark.parametrize("port_map, message", [
-    ([[(0, 2), (0, 3), (0, 0), (0, 0)]], "not symmetric"),
-    ([[(0, 0), (0, 2), (0, 1), (0, 3)]], "connected to itself"),
-    ([[(0, 2), (1, 0), (0, 0), (0, 1)]], "non-existent"),
-    ([[(0, 2), None, (0, 0), None]], "closed graphs"),
-])
-def test_invalid_port_maps_raise(port_map, message):
-    with pytest.raises(ValueError, match=message):
-        build_topology([(0, 0)], port_map, {((0, 0), (0, 2)): 1.0})
-
-
-def test_zero_euclidean_length_requires_explicit_length():
-    with pytest.raises(ValueError, match="zero Euclidean length"):
-        build_topology([(0, 0)], [[(0, 1), (0, 0)]], None)
+        build_topology([(0, 0)], bonds, leads)
 
 
 def test_leads_allowed_only_on_request():
     layout = qg.layouts.ring_with_access(n_access=2)
-    t = build_topology(layout["vertex_positions"], layout["port_map"], layout["lengths"],
-                       allow_leads=True)
-    assert t.leads == [(0, 0), (0, 2), (1, 0), (1, 2)]
+    t = build_topology(layout["vertex_positions"], layout["bonds"], layout["leads"])
+    assert t.leads == ((0, 0), (0, 2), (1, 0), (1, 2))
+    assert t.lead_index(1, 0) == 2 and t.leaving(1, 0) is None
+    with pytest.raises(ValueError, match="closed graphs"):
+        build_topology(layout["vertex_positions"], layout["bonds"], layout["leads"],
+                       allow_leads=False)
 
 
 def test_remove_access_coupler_matches_the_closed_bow_tie():
     closed = qg.layouts.remove_access_coupler(qg.layouts.bow_tie_graph(open=True))
     ref = qg.layouts.bow_tie_graph()
-    assert closed["port_map"] == ref["port_map"]
-    canon = lambda d: {canonical_edge(*k): round(v, 6) for k, v in d.items()}
-    assert canon(closed["lengths"]) == canon(ref["lengths"])
+    assert closed["vertex_positions"] == ref["vertex_positions"]
+    assert [b[:4] for b in closed["bonds"]] == [b[:4] for b in ref["bonds"]]
+    assert np.allclose([b[4] for b in closed["bonds"]], [b[4] for b in ref["bonds"]])
+    assert "leads" not in closed
+
+
+def test_as_dict_rebuilds_the_same_topology():
+    t = build_topology(**qg.layouts.closed(qg.layouts.flower_graph(open=True)),
+                       leads=[(0, 0), (0, 2)])
+    t2 = build_topology(**t.as_dict())
+    assert t2.bonds == t.bonds and t2.leads == t.leads
+    assert np.array_equal(t2.positions, t.positions)
 
 
 def test_vertex_labels_start_at_1_and_mark_the_access_couplers():
     def labels(layout):
-        return build_topology(layout["vertex_positions"], layout["port_map"],
-                              layout["lengths"], allow_leads=True).vertex_labels
+        return build_topology(layout["vertex_positions"], layout["bonds"],
+                              layout.get("leads", ())).vertex_labels
     assert labels(qg.layouts.bow_tie_graph()) == {v: str(v + 1) for v in range(5)}
     # open graph: access coupler "A", the others keep their closed-graph labels
     assert labels(qg.layouts.bow_tie_graph(open=True)) == {0: "A", 1: "1", 2: "2", 3: "3",

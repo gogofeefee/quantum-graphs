@@ -59,14 +59,8 @@ class AnimationMixin:
     def _draw_background_graph(self, ax, title=None, show_port_markers=True):
         """Clear ax and redraw the background graph."""
         ax.clear()
-        try:
-            self.plot_graph(
-                ax=ax, show_lengths=False, show_port_markers=show_port_markers,
-                marker_radius_frac=0.04, marker_offset_frac=0.02,
-                title=None, save_fig=False,
-            )
-        except TypeError:
-            self.plot_graph(ax=ax, show_lengths=False, title=None, save_fig=False)
+        self.plot_graph(ax=ax, show_lengths=False, show_port_markers=show_port_markers,
+                        marker_radius_frac=0.04, title=None, save_fig=False)
 
     # ==================================================================
     # Single-frame drawing
@@ -147,8 +141,8 @@ class AnimationMixin:
         # ----------------------------------------------------------
         if style == "step" or rho_next is None:
             bonds = [
-                (d, float(rho_current[self.directed_bond_index[d]]), 0.5, 1.0)
-                for d in self.directed_bonds
+                (d, float(rho_current[d]), 0.5, 1.0)
+                for d in range(self.topology.n_directed)
             ]
             self._draw_arrows_for_rho(ax=ax, bonds_to_draw=bonds, **arrow_kw)
 
@@ -167,21 +161,21 @@ class AnimationMixin:
 
             if phase == "move":
                 bonds = [
-                    (d, float(rho_current[self.directed_bond_index[d]]), tau_motion, 1.0)
-                    for d in self.directed_bonds
+                    (d, float(rho_current[d]), tau_motion, 1.0)
+                    for d in range(self.topology.n_directed)
                 ]
                 self._draw_arrows_for_rho(ax=ax, bonds_to_draw=bonds, **arrow_kw)
             else:
                 # Outgoing (fade out) at tau = 1
                 bonds_out = [
-                    (d, float(rho_current[self.directed_bond_index[d]]), 1.0, fade_out)
-                    for d in self.directed_bonds
+                    (d, float(rho_current[d]), 1.0, fade_out)
+                    for d in range(self.topology.n_directed)
                 ]
                 self._draw_arrows_for_rho(ax=ax, bonds_to_draw=bonds_out, **arrow_kw)
                 # Incoming (fade in) at tau = 0
                 bonds_in = [
-                    (d, float(rho_next[self.directed_bond_index[d]]), 0.0, fade_in)
-                    for d in self.directed_bonds
+                    (d, float(rho_next[d]), 0.0, fade_in)
+                    for d in range(self.topology.n_directed)
                 ]
                 self._draw_arrows_for_rho(ax=ax, bonds_to_draw=bonds_in,
                                           base_zorder=7, **arrow_kw)
@@ -213,8 +207,8 @@ class AnimationMixin:
         self._draw_background_graph(ax, title=title)
         rho_final = self.validate_rho(rho_final, normalize=False)
         bonds = [
-            (d, float(rho_final[self.directed_bond_index[d]]), tau_settle, 1.0)
-            for d in self.directed_bonds
+            (d, float(rho_final[d]), tau_settle, 1.0)
+            for d in range(self.topology.n_directed)
         ]
         self._draw_arrows_for_rho(ax=ax, bonds_to_draw=bonds, rho_max=rho_max, **arrow_kw)
         if title:

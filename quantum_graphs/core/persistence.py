@@ -61,10 +61,9 @@ def resolve_save_path(name, leaf, save_path=None, base_dir=None):
     return base / str(name) / leaf
 
 
-def legacy_config_hash(port_map, lengths):
-    """8-hex hash used in the historical save-directory names (kept unchanged so
-    that results computed with earlier versions are found again)."""
-    return hashlib.md5((str(port_map) + str(lengths)).encode()).hexdigest()[:8]
+def topology_hash(topology):
+    """8-hex hash of the bonds and leads, used in the save-directory names."""
+    return hashlib.md5((str(topology.bonds) + str(topology.leads)).encode()).hexdigest()[:8]
 
 
 # ---------------------------------------------------------------------------

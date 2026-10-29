@@ -3,7 +3,7 @@ Bond scattering model: propagation D(k), vertex blocks Σ(k), U(k), S(k).
 
 Notation (Kottos-Smilansky / Gnutzmann-Smilansky)
 --------------------------------------------------
-* α = internal directed bonds (2B of them), β = external leads.
+* α = directed bonds (2B of them, numbered as in :mod:`.topology`), β = leads.
 * ``D(k)`` diagonal, ``D_bb = exp(i k n_eff(Re k) L_b)``.
 * ``Σ_αα[b', b]`` = σ_v[port where b' leaves v, port where b arrives at v].
   ``Σ_αβ`` (lead -> bond), ``Σ_βα`` (bond -> lead), ``Σ_ββ`` (lead -> lead)
@@ -11,7 +11,7 @@ Notation (Kottos-Smilansky / Gnutzmann-Smilansky)
 * ``U(k) = D(k) Σ_αα(k)``; closed-graph eigenvalues solve det(I − U) = 0.
 * ``S(k) = Σ_ββ + Σ_βα (I − D Σ_αα)⁻¹ D Σ_αβ``; ``S[j, i]`` is the amplitude
   leaving lead j for unit amplitude injected in lead i. Leads are numbered in
-  the order of the ``None`` entries of ``port_map``.
+  the order of the graph's ``leads``.
 
 Eigenvector convention: a solution of ``a = U a`` gives, for each directed bond
 u → v, the amplitude of the wave *arriving* at v.
@@ -63,31 +63,27 @@ class ScatteringModel:
 
     def __init__(self, topology, vertex_matrices, neff):
         t = topology
-        self.n = t.n_directed_bonds
+        self.n = t.n_directed
         self.n_leads = t.n_leads
-        self.lengths = t.directed_length_array()
+        self.lengths = np.asarray(t.directed_length, dtype=float)
         self.neff = neff
         self.vertex_matrices = dict(vertex_matrices)
         self.constant = not any(callable(s) for s in self.vertex_matrices.values())
-        idx = t.directed_bond_index
-        lead_idx = {lead: i for i, lead in enumerate(t.leads)}
-        vpm = t.virtual_port_map
 
-        aa, ba = [], []
-        for db_in, i_in in idx.items():
-            v, p_in = db_in[1]
-            for p_out, conn in enumerate(vpm[v]):
-                if conn is None:
-                    ba.append((lead_idx[(v, p_out)], i_in, v, p_out, p_in))
-                else:
-                    aa.append((idx[((v, p_out), conn)], i_in, v, p_out, p_in))
-        ab, bb = [], []
-        for i_in, (v, p_in) in enumerate(t.leads):
-            for p_out, conn in enumerate(vpm[v]):
-                if conn is None:
-                    bb.append((lead_idx[(v, p_out)], i_in, v, p_out, p_in))
-                else:
-                    ab.append((idx[((v, p_out), conn)], i_in, v, p_out, p_in))
+        def outputs(v):
+            """(port, 'a' or 'b', row index) for every port of v."""
+            for p_out in range(t.valency[v]):
+                d = t.leaving(v, p_out)
+                yield (p_out, "a", d) if d is not None else (p_out, "b", t.lead_index(v, p_out))
+
+        aa, ab, ba, bb = [], [], [], []
+        for d_in in range(self.n):                      # wave arriving at (v, p_in) on d_in
+            v, p_in = int(t.dst_vertex[d_in]), int(t.dst_port[d_in])
+            for p_out, kind, row in outputs(v):
+                (aa if kind == "a" else ba).append((row, d_in, v, p_out, p_in))
+        for l_in, (v, p_in) in enumerate(t.leads):      # wave injected by lead l_in
+            for p_out, kind, row in outputs(v):
+                (ab if kind == "a" else bb).append((row, l_in, v, p_out, p_in))
         self._entries = {"aa": (aa, (self.n, self.n)), "ab": (ab, (self.n, self.n_leads)),
                          "ba": (ba, (self.n_leads, self.n)), "bb": (bb, (self.n_leads, self.n_leads))}
         self._const_blocks = {}

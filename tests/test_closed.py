@@ -31,10 +31,11 @@ def test_eigenvectors_solve_a_equals_Ua(save):
     assert spectrum.size > 5 and np.all(deg == 1)
     for k in spectrum[:3]:
         a = g.compute_wavefunction(k)
-        assert a.shape == (1, g.n_directed_bonds)
+        assert a.shape == (1, g.topology.n_directed)
         assert np.isclose(np.linalg.norm(a[0]), 1.0)
-        assert np.linalg.norm(a[0] - g.U(k) @ a[0]) < 1e-5
-        assert g.sigma_min(k) < 1e-4          # eps_accept; |dk| ~ sigma_min / (n L) ~ 1e-9
+        # residual ~ sigma_min(I - U(k)) <= eps_accept; |dk| ~ sigma_min / (n L) ~ 1e-9
+        assert np.linalg.norm(a[0] - g.U(k) @ a[0]) < 1e-4
+        assert g.sigma_min(k) < 1e-4
         assert abs(g.secular_det(k)) < 1e-2 * abs(g.secular_det(k + 2e-4))
 
 

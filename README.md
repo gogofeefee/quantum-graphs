@@ -39,7 +39,7 @@ animations as `.mp4` (use `writer="gif"` otherwise).
 ```python
 import quantum_graphs as qg
 
-layout = qg.layouts.double_ring()              # vertex_positions, port_map, lengths (µm)
+layout = qg.layouts.double_ring()              # vertex_positions, bonds (lengths in µm)
 graph = qg.ClosedDirectionalGraphs(
     **layout,
     vertex_couplings=0.5,                      # power cross-coupling C of every coupler
@@ -152,17 +152,17 @@ the field on bond (u, v) is
     ψ(x) = a_{u→v} exp(i k n_eff (x − L)) + a_{v→u} exp(−i k n_eff x)
 
 `plot_entropy` / `plot_ipr` (and `graph.localization_measures(a)`) measure the
-localisation of a mode on the **physical** bonds of `port_map`, with
+localisation of a mode on the bonds, with
 p_b ∝ |a_{u→v}|² + |a_{v→u}|²: S_norm = −Σ p_b ln p_b / ln N_b and
 IPR = N_b Σ p_b² (1 when uniform). A degenerate level counts once, through the
 projector onto its eigenspace.
 
-**Open graphs.** Ports with `port_map[i][p] = None` are external leads, and
+**Open graphs.** The ports listed in `leads` carry external leads, and
 
     S(k) = Σ_ββ + Σ_βα (I − D Σ_αα)⁻¹ D Σ_αβ
 
-Leads are numbered in the order in which the `None` entries appear in
-`port_map`; `S[j, i]` is the amplitude leaving lead j for a unit amplitude
+Leads are numbered in the order of `leads`; `S[j, i]` is the amplitude
+leaving lead j for a unit amplitude
 injected in lead i. Resonances (poles of S) are minima of
 σ_min(I − D Σ_αα) on a grid of the complex k-plane (`find_resonances`);
 `find_experimental_resonances` locates peaks of d²|S_ij|²/dk² on the real
@@ -184,7 +184,7 @@ evolves probability vectors on the directed bonds, ρ_{n+1} = P ρ_n.
 **Periodic orbits.** For directional-coupler graphs (a ray entering a coupler
 on one arm leaves on the other), `PeriodicOrbits` enumerates the irreducible
 orbits and all orbits up to a given length (validated against a brute-force
-enumeration); orbits are named by their sequence of real vertices, unique up
+enumeration); orbits are named by their sequence of vertices, unique up
 to rotation and time reversal (e.g. `1-4-5`).
 
 The conventions, the accuracy of each algorithm and the points where a
@@ -197,24 +197,37 @@ All lengths are in µm and all wavelengths are vacuum wavelengths in µm.
 
 ```python
 vertex_positions = [(x0, y0), (x1, y1), ...]   # um, used for drawing (and default lengths)
-port_map[i][p] = (j, q)     # port p of vertex i <-> port q of vertex j (give both directions)
-port_map[i][p] = None       # open graphs only: external lead
-lengths = {((i, p), (j, q)): L_um, ...}        # one entry per bond, either orientation;
-                                               # None -> Euclidean distances
+bonds = [(i, p, j, q, L), ...]   # port p of vertex i <-> port q of vertex j, length L (um);
+                                 # (i, p, j, q) without L: Euclidean distance
+leads = [(v, p), ...]            # open graphs only: external leads, in S-matrix order
 ```
 
-The inputs are validated: an asymmetric `port_map`, a missing, unknown or
-duplicated bond length, or a vertex matrix whose size differs from the vertex
-valency raise a `ValueError`.
+For example, two couplers joined by two bonds, with leads on vertex 0:
 
-* **Self-loops and multiple bonds are allowed.** They are replaced internally
-  by chains of *virtual* 2-port vertices with σ = [[0, 1], [1, 0]] (pure
-  transmission, total length kept), drawn as small dots; `virtual_vertex_spacing`
-  only changes the drawing. The original graph stays in `port_map` /
-  `lengths`, the virtualised one is in `virtual_port_map` / `virtual_lengths`.
-* Directed-bond indexing: for B (virtualised) bonds, indices `0 … B−1` are the
-  bonds in one orientation and `B … 2B−1` the same bonds reversed;
-  `graph.directed_bond_index[(src, dst)]` gives the index of a directed bond.
+```python
+graph = qg.OpenDirectionalGraphs(
+    vertex_positions=[(0, 0), (100, 0)],
+    bonds=[(0, 1, 1, 0, 120.0), (0, 3, 1, 2, 180.0),   # two bonds between 0 and 1
+           (1, 1, 1, 3, 400.0)],                       # a self-loop on vertex 1
+    leads=[(0, 0), (0, 2)],
+    internal_coupling=0.5, external_coupling=0.3, neff=2.4,
+    wavelength_range=(1.50, 1.60))
+```
+
+The inputs are validated: a port used twice or left unconnected (the ports of
+a vertex are numbered 0 … valency−1), a non-positive length, or a vertex matrix
+whose size differs from the vertex valency raise a `ValueError`.
+
+* **Self-loops and multiple bonds are ordinary bonds.** Figures draw parallel
+  bonds as symmetric arcs (`bond_spacing` sets their distance) and self-loops
+  as teardrops of their true length; this geometry is for drawing only.
+* `graph.topology` holds the validated graph as read-only arrays: `bonds`,
+  `leads`, `length`, `valency`, `positions`, and the directed bonds — bond
+  `b = (i, p, j, q)` gives `d = b` from (i, p) to (j, q) and `d = b + B` back —
+  with `src_vertex`, `src_port`, `dst_vertex`, `dst_port`, `directed_length`
+  and the lookups `reverse(d)`, `bond_of(d)`, `is_forward(d)`, `leaving(v, p)`, `arriving(v, p)`,
+  `directed(i, p, j, q)`. `graph.n_vertices`, `n_bonds`, `n_leads` and
+  `total_length` are shortcuts.
 * `neff` can be a constant or a function `neff(k)`; the group index `ng` is
   derived numerically from it when not given.
 * Vertex labels on the figures (`graph.vertex_labels`) start at 1: the

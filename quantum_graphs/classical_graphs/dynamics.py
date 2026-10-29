@@ -17,8 +17,10 @@ class DynamicsMixin:
     """
     Classical Perron-Frobenius dynamics on directed bonds.
 
-    Depends on CoreMixin attributes: directed_bonds, directed_bond_index,
-    vertex_scattering_matrix, virtual_port_map, valencies, n_directed_bonds.
+    One step of P moves the probability on a directed bond to the directed
+    bonds leaving its end vertex (one bond traversal per step, whatever the
+    bond length). Directed bonds are numbered as in
+    :mod:`quantum_graphs.core.topology`.
     """
 
     # ==================================================================
@@ -71,7 +73,7 @@ class DynamicsMixin:
 
     def _check_perron_frobenius_operator(self, P, atol=1e-12):
         P = np.asarray(P, dtype=float)
-        if P.shape != (self.n_directed_bonds, self.n_directed_bonds):
+        if P.shape != (self.topology.n_directed, self.topology.n_directed):
             raise ValueError(f"Invalid PF shape {P.shape}.")
         if not _safe_logical_allclose_nonnegative(P, atol=atol):
             raise ValueError(
@@ -199,9 +201,9 @@ class DynamicsMixin:
         rho : np.ndarray, shape (2B,)
         """
         rho = np.asarray(rho, dtype=float).reshape(-1)
-        if rho.shape != (self.n_directed_bonds,):
+        if rho.shape != (self.topology.n_directed,):
             raise ValueError(
-                f"rho must have shape ({self.n_directed_bonds},), got {rho.shape}."
+                f"rho must have shape ({self.topology.n_directed},), got {rho.shape}."
             )
         if np.min(rho) < -atol:
             raise ValueError(
@@ -219,13 +221,14 @@ class DynamicsMixin:
         """
         Return a one-hot probability vector concentrated on one directed bond.
 
-        Provide exactly one of `index` (integer) or `dbond` (bond key).
+        Provide exactly one of `index` (integer) or `dbond` = (i, p, j, q), the
+        directed bond from port (i, p) to port (j, q).
         """
         if (index is None) == (dbond is None):
             raise ValueError("Provide exactly one of 'index' or 'dbond'.")
         if dbond is not None:
-            index = self.directed_bond_index[dbond]
-        rho0 = np.zeros(self.n_directed_bonds, dtype=float)
+            index = self.topology.directed(*dbond)
+        rho0 = np.zeros(self.topology.n_directed, dtype=float)
         rho0[int(index)] = 1.0
         return rho0
 

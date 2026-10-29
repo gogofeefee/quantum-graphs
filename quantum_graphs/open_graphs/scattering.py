@@ -4,7 +4,7 @@ ScatteringMixin — Σ blocks, S(k), U(k) and σ_min for open graphs.
 All matrices come from the shared :class:`quantum_graphs.core.scattering.ScatteringModel`
 (``self.model``); see its docstring for the conventions. ``S[j, i]`` is the
 amplitude leaving lead j for a unit amplitude injected in lead i, leads being
-numbered in the order of the ``None`` entries of ``port_map`` (``self.leads``).
+numbered in the order of ``topology.leads``.
 """
 
 import numpy as np

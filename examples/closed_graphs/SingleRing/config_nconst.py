@@ -73,14 +73,10 @@ print(f"Ring geometry: R = {R:.2f} µm  →  L = {L:.3f} µm")
 # port 0 ↔ port 1 : single self-loop
 vertex_positions = [(0.0, 0.0)]
 
-port_map = [
-    [(0, 1),   # port 0 → port 1
-     (0, 0)],  # port 1 → port 0
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um)
+bonds = [
+    (0, 0, 0, 1, L),
 ]
-
-lengths = {
-    ((0, 0), (0, 1)): L,
-}
 
 
 # ============================================================================
@@ -108,8 +104,7 @@ vertex_matrices = {0: S_vertex}
 
 graph = ClosedGraphs(
     vertex_positions = vertex_positions,
-    port_map         = port_map,
-    lengths          = lengths,
+    bonds            = bonds,
     vertex_matrices  = vertex_matrices,
     neff             = neff,
     wavelength_range = wavelength_range,

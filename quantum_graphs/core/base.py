@@ -3,12 +3,9 @@ GraphBase — what every graph class shares: topology, vertex matrices, save
 path, physics fingerprint and the bond scattering model.
 """
 
-import copy
-
 import numpy as np
 
-from ..stats.localization import (eigenspace_intensity, localization_measures,
-                                  physical_bond_intensity)
+from ..stats.localization import bond_intensity, eigenspace_intensity, localization_measures
 from .config import log
 from .persistence import fingerprint, resolve_save_path, sample_function
 from .scattering import ScatteringModel
@@ -19,33 +16,41 @@ from .vertices import validate_vertex_matrices
 class GraphBase:
     """Mixin used by the graph classes of every subpackage."""
 
-    #: subclasses set True if ``None`` entries (leads) are allowed in port_map
+    #: subclasses set True if the graph may have leads
     _allow_leads = False
 
     # -- construction ---------------------------------------------------------
 
-    def _setup_topology(self, vertex_positions, port_map, lengths, virtual_vertex_spacing):
-        """Validate and virtualise the graph; set the topology attributes."""
-        topo = build_topology(vertex_positions, port_map, lengths,
-                              virtual_vertex_spacing=virtual_vertex_spacing,
-                              allow_leads=self._allow_leads)
-        topo.apply_to(self)
-        self._topology = topo
-        self.port_map = port_map
-        # keep the user's dict (and its key orientation); Euclidean lengths if none given
-        self.lengths = dict(lengths) if lengths is not None else dict(topo.canonical_lengths)
-        self.virtual_vertex_spacing = virtual_vertex_spacing
-        return topo
+    def _setup_topology(self, vertex_positions, bonds, leads=()):
+        """Validate the graph and set ``self.topology``."""
+        self.topology = build_topology(vertex_positions, bonds, leads,
+                                       allow_leads=self._allow_leads)
+        return self.topology
 
     def _setup_vertex_matrices(self, matrices, k_samples=()):
-        """Store {real vertex: σ} plus pass-through matrices for virtual vertices."""
-        from .vertices import PASS_THROUGH
-        validate_vertex_matrices(matrices, self.valencies, k_samples)
-        self.vertex_scattering_matrix = {}
-        for v in range(self.n_vertices_total):
-            self.vertex_scattering_matrix[v] = (PASS_THROUGH if v in self.virtual_vertices
-                                                else matrices[v])
+        """Store {vertex: σ} after checking their shapes (and unitarity)."""
+        validate_vertex_matrices(matrices, self.topology.valency, k_samples)
+        self.vertex_scattering_matrix = dict(matrices)
         self._model = None
+
+    # -- shortcuts to the topology -------------------------------------------------
+
+    @property
+    def n_vertices(self):
+        return self.topology.n_vertices
+
+    @property
+    def n_bonds(self):
+        return self.topology.n_bonds
+
+    @property
+    def n_leads(self):
+        return self.topology.n_leads
+
+    @property
+    def total_length(self):
+        """Sum of the bond lengths (µm)."""
+        return self.topology.total_length
 
     def _setup_save_path(self, name, leaf, save_path, base_dir, write_parameters=True):
         self.name = name
@@ -53,6 +58,17 @@ class GraphBase:
         self.save_path.mkdir(parents=True, exist_ok=True)
         if write_parameters:
             self._save_parameters()
+
+    # -- drawing ----------------------------------------------------------------
+
+    @property
+    def bond_paths(self):
+        """:class:`~quantum_graphs.plotting.drawing.BondPaths` used by every figure."""
+        if getattr(self, "_bond_paths", None) is None:
+            from ..plotting.drawing import BondPaths
+            self._bond_paths = BondPaths(self.topology, getattr(self, "bond_spacing", None),
+                                         getattr(self, "lead_orientations", None))
+        return self._bond_paths
 
     # -- wavenumbers ----------------------------------------------------------
 
@@ -73,24 +89,24 @@ class GraphBase:
     def model(self):
         """The :class:`~quantum_graphs.core.scattering.ScatteringModel` of the graph."""
         if getattr(self, "_model", None) is None:
-            self._model = ScatteringModel(self._topology, self.vertex_scattering_matrix,
+            self._model = ScatteringModel(self.topology, self.vertex_scattering_matrix,
                                           getattr(self, "neff", 1.0))
         return self._model
 
     # -- wavefunction localisation -------------------------------------------
 
     def bond_intensities(self, vecs):
-        """Intensity on each physical bond (order of ``bonds``).
+        """Intensity on each bond (order of ``topology.bonds``).
 
         ``vecs``: one vector of directed-bond amplitudes, or the orthonormal
         rows of a degenerate eigenspace (diagonal of its projector / g). See
         :mod:`quantum_graphs.stats.localization`.
         """
-        return physical_bond_intensity(eigenspace_intensity(vecs), self.physical_bond_arrivals)
+        return bond_intensity(eigenspace_intensity(vecs))
 
     def localization_measures(self, vecs):
         """``(S, S_norm, IPR)`` of :meth:`bond_intensities` (IPR = N_b Σ p_b²,
-        N_b = number of physical bonds)."""
+        N_b = number of bonds)."""
         return localization_measures(self.bond_intensities(vecs))
 
     # -- fingerprint ----------------------------------------------------------
@@ -100,12 +116,10 @@ class GraphBase:
         ks = self._k_samples()
         spec = {
             "class": type(self).__name__,
-            "port_map": [[None if c is None else list(c) for c in ports] for ports in self.port_map],
-            "lengths": sorted([list(a) + list(b) + [L] for (a, b), L
-                               in self._topology.canonical_lengths.items()]),
+            "bonds": [list(b) for b in self.topology.bonds],
+            "leads": [list(lead) for lead in self.topology.leads],
             "vertex_matrices": {v: sample_function(s, ks)
-                                for v, s in self.vertex_scattering_matrix.items()
-                                if v not in self.virtual_vertices},
+                                for v, s in self.vertex_scattering_matrix.items()},
             "wavelength_range": list(getattr(self, "wavelength_range", None) or []),
         }
         if hasattr(self, "neff"):
@@ -125,8 +139,3 @@ class GraphBase:
     def _log(self, *args, verbose=None, **kwargs):
         log(*args, verbose=verbose, **kwargs)
 
-    def copy_topology_kwargs(self):
-        """``dict(vertex_positions, port_map, lengths)`` of the *original* graph, to
-        build another graph class on the same topology."""
-        return dict(vertex_positions=list(self.vertex_positions[:self.n_vertices]),
-                    port_map=copy.deepcopy(self.port_map), lengths=dict(self.lengths))

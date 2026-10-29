@@ -41,12 +41,10 @@ class ClosedGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
     ----------
     vertex_positions : list of (float, float)
         Cartesian coordinates of each vertex (µm).
-    port_map : list of lists
-        Connectivity.  ``port_map[i][p] = (j, q)`` connects port p of vertex i
-        to port q of vertex j.  No ``None`` entries (closed graph: no leads).
-    lengths : dict or None
-        Bond lengths ``{((i,p),(j,q)): L_um}``.  ``None`` → Euclidean distances
-        from ``vertex_positions``.
+    bonds : list of (i, p, j, q) or (i, p, j, q, L)
+        Port ``p`` of vertex ``i`` joined to port ``q`` of vertex ``j`` by a bond
+        of length ``L`` (µm; Euclidean distance between the vertices if
+        omitted). Self-loops and multiple bonds are allowed.
     vertex_matrices : dict, list, ndarray, or callable
         Scattering matrices.  dict/list: one per vertex.  ndarray: same for all.
         callable: same function for all.
@@ -56,8 +54,9 @@ class ClosedGraphs(CoreMixin, SpectrumMixin, SpectralStatsMixin,
         Group index.  Derived numerically from ``neff(k)`` if ``None``.
     wavelength_range : (float, float)
         Vacuum wavelength range (µm).
-    virtual_vertex_spacing : float, sequence, or None
-        Spacing when splitting self-loops / multiple bonds into virtual chains.
+    bond_spacing : float, sequence, or None
+        Drawing only: distance between parallel bonds (see
+        :class:`quantum_graphs.plotting.drawing.BondPaths`).
     name : str
         Graph label used in save-path construction and plot titles.
     save_path : str, Path, or None

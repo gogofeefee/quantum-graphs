@@ -45,12 +45,12 @@ class OpenGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
     ----------
     vertex_positions : list of (float, float)
         Cartesian coordinates of each vertex (µm).
-    port_map : list of lists
-        Connectivity.  ``port_map[i][p] = (j, q)`` connects port p of vertex i
-        to port q of vertex j.  ``port_map[i][p] = None`` marks an external lead.
-    lengths : dict or None
-        Bond lengths ``{((i,p),(j,q)): L_um}``.  ``None`` → Euclidean distances
-        from ``vertex_positions``.
+    bonds : list of (i, p, j, q) or (i, p, j, q, L)
+        Port ``p`` of vertex ``i`` joined to port ``q`` of vertex ``j`` by a bond
+        of length ``L`` (µm; Euclidean distance between the vertices if
+        omitted). Self-loops and multiple bonds are allowed.
+    leads : list of (vertex, port)
+        External leads, numbered in this order in the S-matrix.
     vertex_matrices : dict or None
         Per-vertex scattering matrices ``{v: σ}`` where ``σ`` is a 2-D array or
         a callable ``σ(k)``.  Overrides ``internal_matrix`` / ``external_matrix``
@@ -65,8 +65,9 @@ class OpenGraphs(CoreMixin, ScatteringMixin, ResonancesMixin,
         Group index.  Derived numerically from ``neff(k)`` if ``None``.
     wavelength_range : (float, float)
         Vacuum wavelength range (µm).
-    virtual_vertex_spacing : float, sequence, or None
-        Spacing when splitting self-loops / multiple bonds into virtual chains.
+    bond_spacing : float, sequence, or None
+        Drawing only: distance between parallel bonds (see
+        :class:`quantum_graphs.plotting.drawing.BondPaths`).
     lead_orientations : dict or None
         ``{(vertex, port): angle_deg}`` for plotting lead stubs.
     name : str

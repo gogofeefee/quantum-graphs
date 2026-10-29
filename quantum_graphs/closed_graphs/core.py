@@ -1,8 +1,8 @@
 """
 CoreMixin — construction of a closed graph and its parameter report.
 
-Topology handling (validation, virtual vertices, directed bonds) is shared with
-the other subpackages through :class:`quantum_graphs.core.base.GraphBase`.
+Topology handling (validation, directed bonds) is shared with the other
+subpackages through :class:`quantum_graphs.core.base.GraphBase`.
 """
 
 import datetime
@@ -13,34 +13,39 @@ import numpy as np
 
 from ..core.base import GraphBase
 from ..core.optics import group_index_function
-from ..core.persistence import legacy_config_hash
+from ..core.persistence import topology_hash
 from ..core.vertices import resolve_vertex_matrices
 
 
 class CoreMixin(GraphBase):
     """Graph construction, save path and parameter report of a closed graph."""
 
-    def __init__(self, vertex_positions, port_map,
-                 lengths=None,
+    def __init__(self, vertex_positions, bonds,
                  vertex_matrices=None,
                  neff=1.0,
                  ng=None,
                  wavelength_range=(1.48, 1.64),
-                 virtual_vertex_spacing=None,
+                 bond_spacing=None,
                  name="MyClosedGraph",
                  save_path=None,
                  base_dir=None):
         """
         Initialize a closed quantum graph (no external leads).
 
-        Raises ValueError for an inconsistent ``port_map``, missing / unknown
-        bond lengths, or vertex matrices whose size differs from the valency.
+        ``bonds``: ``[(i, p, j, q[, L]), ...]`` (see :mod:`quantum_graphs.core.topology`);
+        ``bond_spacing``: drawing of parallel bonds (see
+        :class:`quantum_graphs.plotting.drawing.BondPaths`).
+
+        Raises ValueError for inconsistent bonds (a port used twice or left
+        unconnected, a non-positive length) or vertex matrices whose size
+        differs from the valency.
         """
         self.wavelength_range = wavelength_range
         self.neff = neff
         self.ng = ng if ng is not None else self._compute_group_index()
 
-        self._setup_topology(vertex_positions, port_map, lengths, virtual_vertex_spacing)
+        self._setup_topology(vertex_positions, bonds)
+        self.bond_spacing = bond_spacing
         if vertex_matrices is None:
             raise ValueError("vertex_matrices is required (dict, list, array or sigma(k)).")
         self._setup_vertex_matrices(resolve_vertex_matrices(vertex_matrices, self.n_vertices),
@@ -63,14 +68,14 @@ class CoreMixin(GraphBase):
 
     def _build_save_dir_name(self, coupling_info=None):
         """Deterministic save directory leaf name (historical format)."""
-        info_str = f"Nv={self.n_vertices_total}_Nb={self.n_internal_bonds}"
+        info_str = f"Nv={self.n_vertices}_Nb={self.n_bonds}"
         if callable(self.neff):
             neff_str = getattr(self.neff, "__name__", "neff_func")
         else:
             neff_str = f"neff={float(self.neff):.5f}"
         lamb_min, lamb_max = self.wavelength_range
         lamb_str = f"lambda={lamb_min:.3f}-{lamb_max:.3f}"
-        hash_digest = legacy_config_hash(self.port_map, self.lengths)
+        hash_digest = topology_hash(self.topology)
         if coupling_info:
             return f"{info_str}_{neff_str}_{lamb_str}_{coupling_info}_{hash_digest}"
         return f"{info_str}_{neff_str}_{lamb_str}_{hash_digest}"
@@ -83,9 +88,8 @@ class CoreMixin(GraphBase):
             f.write(f"Graph Name: {self.name}\n")
             f.write(f"Saved on: {datetime.datetime.now()}\n")
             f.write(f"Physics fingerprint: {self.fingerprint}\n")
-            f.write(f"Total vertices: {self.n_vertices_total} "
-                    f"(virtual: {self.n_virtual_vertices})\n")
-            f.write(f"Internal bonds: {self.n_internal_bonds}\n")
+            f.write(f"Vertices: {self.n_vertices}\n")
+            f.write(f"Bonds: {self.n_bonds}\n")
             f.write(f"Total length: {self.total_length:.6f} µm\n")
             f.write(f"Wavelength range (vacuum): {self.wavelength_range[0]:.3f} – "
                     f"{self.wavelength_range[1]:.3f} µm\n\n")
@@ -107,21 +111,17 @@ class CoreMixin(GraphBase):
                     f.write(f"Vertex {v}: function of k\n")
                     f.write(_source_or_placeholder(getattr(sigma, "coupling", sigma)))
                 else:
-                    f.write(f"Vertex {v} (valency {self.valencies[v]}):\n")
+                    f.write(f"Vertex {v} (valency {self.topology.valency[v]}):\n")
                     np.savetxt(f, np.asarray(sigma), fmt="%-8.4f", delimiter=" ", newline="\n")
                     f.write("\n")
 
-            f.write("\n### Port Map (raw, before virtualization) ###\n")
-            for i, ports in enumerate(self.port_map):
-                f.write(f"Vertex {i} ports: {ports}\n")
+            f.write("\n### Vertex positions (µm) ###\n")
+            for v, (x, y) in enumerate(self.topology.positions):
+                f.write(f"Vertex {v}: ({x:.6f}, {y:.6f})\n")
 
-            f.write("\n### Bond Lengths (raw, before virtualization) ###\n")
-            for (a, b), L in self.lengths.items():
-                f.write(f"{a} — {b} : {L:.6f} µm\n")
-
-            f.write("\n### Virtualization Info ###\n")
-            f.write(f"Virtual vertices: {self.virtual_vertices}\n")
-            f.write(f"Updated bonds (after virtualization): {self.updated_bonds}\n")
+            f.write("\n### Bonds (i, p, j, q, L in µm) ###\n")
+            for b, (i, p, j, q, L) in enumerate(self.topology.bonds):
+                f.write(f"{b}: ({i}, {p}) — ({j}, {q}) : {L:.6f}\n")
 
         self._log(f"Graph parameters saved to {filepath}")
 

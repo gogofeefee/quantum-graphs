@@ -3,26 +3,22 @@
 """
 PeriodicOrbits — Periodic-orbit enumeration on closed directional-coupler graphs.
 
-This module follows the same conventions as `closed_graphs` and
-`classical_graphs`: a graph is defined from `vertex_positions` + `port_map`
-(+ optional `lengths`), and self-loops / multiple bonds are automatically
-resolved with virtual Neumann (pass-through) vertices.
+A graph is defined, as everywhere in the package, by ``vertex_positions`` and
+``bonds`` = ``[(i, p, j, q[, L]), ...]``; self-loops and multiple bonds are
+ordinary bonds.
 
 Scope
 -----
 Unlike `ClassicalGraphs`/`ClosedGraphs`, this module does NOT accept an
-arbitrary vertex scattering matrix. It assumes every real (non-virtual)
-vertex is a lossless 4-port directional coupler with zero self/back
-reflection:
+arbitrary vertex scattering matrix. It assumes every vertex is a lossless
+4-port directional coupler with zero self/back reflection:
 
     ports (0, 1) <-> ports (2, 3)
 
 i.e. entering via port 0 or 1 always exits via port 2 or 3, and vice versa.
-Virtual (Neumann pass-through) vertices are 2-port and deterministic:
-port 0 <-> port 1. This is exactly the directional-coupler vertex model used
-by the `DirectionalGraphs` classes of this repository (direct back-reflection
-is zero), so periodic orbits can be enumerated from pure topology
-(port_map + lengths) without needing coupling-constant values.
+This is exactly the vertex model of the `DirectionalGraphs` classes of this
+package (direct back-reflection is zero), so periodic orbits can be
+enumerated from the topology alone, without coupling-constant values.
 
 What a "periodic orbit" is here
 --------------------------------
@@ -30,33 +26,31 @@ Following Kottos & Smilansky (Ann. Phys. 274 (1999) 76-124): an orbit is an
 itinerary of successively connected directed bonds, periodic with period n
 if it returns to its starting directed bond after n steps.
 
-- Irreducible orbit: no vertex (real or virtual) appears more than once in
-  the code. There are finitely many of these (bounded by the total vertex
-  count), and every longer orbit can be built by concatenating them.
+- Irreducible orbit: no vertex appears more than once in the code (hence no
+  bond is traversed twice either). There are finitely many of these, and
+  every longer orbit can be built by concatenating them.
 - Primitive orbit: the code is not the repetition of a shorter code.
 - Reducible / non-primitive orbits: everything else. Their number grows
-  exponentially with allowed length, since every real vertex offers 2
-  valid continuations (the two ports on the opposite arm).
+  exponentially with allowed length, since every vertex offers 2 valid
+  continuations (the two ports on the opposite arm).
 
 Naming
 ------
-Orbits are named by their canonical sequence of REAL vertices only
-(virtual vertices are internal bookkeeping and are hidden from the name),
-made unique under the two operations that leave a periodic orbit
-unchanged: cyclic rotation of the code, and traversal in the reverse
-direction. The lexicographically smallest such representative is used,
-e.g. "1-4-5". If two physically distinct orbits (e.g. using different
-parallel bonds between the same two vertices) happen to share the same
-vertex-sequence name, the name is disambiguated with a bracket suffix:
-"1-4[a]", "1-4[b]", ...
+Orbits are named by their canonical vertex sequence (vertices numbered from
+1 in index order), made unique under the two operations that leave a
+periodic orbit unchanged: cyclic rotation of the code, and traversal in the
+reverse direction. The lexicographically smallest such representative is
+used, e.g. "1-4-5". If two physically distinct orbits (using different
+parallel bonds between the same vertices) share the same vertex-sequence
+name, the name is disambiguated with a bracket suffix, in the order in which
+the search finds them: "1-4[a]", "1-4[b]", ...
 
-Conventions inherited from ClassicalGraphs / ClosedGraphs
------------------------------------------------------------
-- port_map[i][p] = (j, q): port p of vertex i connects to port q of vertex j.
-- lengths is a dict {((i, p), (j, q)): L}. If omitted, Euclidean distances
-  between vertex_positions are used.
-- All physical lengths are in micrometers (um). An optional group index
-  `ng` converts physical lengths to optical lengths (L_opt = ng * L_phys).
+Records
+-------
+``path`` is the tuple of directed-bond indices of the orbit (numbering of
+:mod:`quantum_graphs.core.topology`), ``path_ports`` the same as
+``(i, p, j, q)`` tuples. Lengths are in micrometers; an optional group index
+``ng`` converts physical lengths to optical lengths (L_opt = ng * L_phys).
 """
 
 # ======================================================================
@@ -66,20 +60,19 @@ Conventions inherited from ClassicalGraphs / ClosedGraphs
 from ..core.config import log
 from ..core.config import resolve
 from ..core.base import GraphBase
+from ..core.persistence import topology_hash
+from ..plotting.topology_plot import TopologyPlotMixin
 import os
 import warnings
 import csv
-import copy
-import hashlib
 import datetime
 
 from pathlib import Path
 from collections import OrderedDict
 
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import networkx as nx
+from matplotlib.path import Path as MplPath
 
 
 # %% ======================================================================
@@ -91,79 +84,17 @@ def _as_path(path_like):
     return path_like if isinstance(path_like, Path) else Path(path_like)
 
 
-def _is_number(x):
-    """Return True if x behaves like a real scalar number."""
-    return isinstance(x, (int, float, np.integer, np.floating))
-
-
-def _normalize(vec, eps=1e-15):
-    """Normalize a 2D vector; returns [1, 0] if the norm is too small."""
-    vec = np.asarray(vec, dtype=float)
-    nrm = np.linalg.norm(vec)
-    if nrm < eps:
-        return np.array([1.0, 0.0], dtype=float)
-    return vec / nrm
-
-
-def _perpendicular(vec):
-    """Return a vector perpendicular to vec in 2D: [-y, x]."""
-    vec = np.asarray(vec, dtype=float)
-    return np.array([-vec[1], vec[0]], dtype=float)
-
-
 def _format_float_for_name(x, ndigits=3):
     """Format a float in a deterministic compact way for folder/file names."""
     return f"{float(x):.{ndigits}f}"
 
 
-def _hash_graph_signature(port_map, lengths):
-    """Build a short deterministic hash from the graph connectivity and lengths."""
-    payload = str(port_map) + str(lengths)
-    return hashlib.md5(payload.encode()).hexdigest()[:8]
-
-
-def _marker_border_distance(Rv, delta, Rm, Lseg):
-    """
-    Distance (from the vertex center, along the vertex->neighbor direction)
-    at which a port-marker disk of radius Rm is centered, given the desired
-    offset `delta` beyond the vertex radius `Rv` and the segment length
-    `Lseg`. Clamped to stay within the segment (mirrors plot_graph's
-    placement exactly, including the short-segment clamp).
-    """
-    s_des = Rv + delta
-    margin = 1.1 * Rm
-    s_min = max(0.0, Rv - 5.0 * Rm)
-    s_max = max(Rv, Lseg - margin)
-    return min(max(s_des, s_min), s_max)
-
-
-def _marker_center_on_border(vertex_xy, neighbor_xy, Rv, delta, Rm):
-    v = np.asarray(vertex_xy, dtype=float)
-    n = np.asarray(neighbor_xy, dtype=float)
-    d = n - v
-    Lseg = float(np.hypot(d[0], d[1]))
-    if Lseg == 0.0:
-        return None
-    u = d / Lseg
-    s = _marker_border_distance(Rv, delta, Rm, Lseg)
-    return v + s * u
-
-
-def _draw_marker_disk(ax, center_xy, radius, color, z=10_000):
-    x, y = float(center_xy[0]), float(center_xy[1])
-    circ = plt.Circle(
-        (x, y), radius=float(radius), facecolor=color,
-        edgecolor="black", linewidth=0.8, zorder=z, clip_on=False,
-    )
-    ax.add_patch(circ)
-
-
 # %% ======================================================================
-# PeriodicOrbits class — geometry, virtualization, transition graph,
+# PeriodicOrbits class — geometry, transition graph,
 # orbit enumeration, naming, export, and plotting
 # ======================================================================
 
-class PeriodicOrbits(GraphBase):
+class PeriodicOrbits(GraphBase, TopologyPlotMixin):
     """
     Periodic-orbit enumeration on a closed graph of 4-port directional
     couplers (see module docstring for the exact vertex model).
@@ -175,10 +106,9 @@ class PeriodicOrbits(GraphBase):
     def __init__(
         self,
         vertex_positions,
-        port_map,
-        lengths=None,
+        bonds,
         ng=None,
-        virtual_vertex_spacing=None,
+        bond_spacing=None,
         name="MyPeriodicOrbitGraph",
         save_path=None,
         base_dir=None,
@@ -187,39 +117,31 @@ class PeriodicOrbits(GraphBase):
         Parameters
         ----------
         vertex_positions : list of (float, float)
-        port_map : list of list — port_map[i][p] = (j, q)
-        lengths : dict or None — {((i, p), (j, q)): L_um}. Euclidean if None.
+        bonds : list of (i, p, j, q) or (i, p, j, q, L) — L in um, Euclidean if omitted.
         ng : float or None — group index used to convert physical lengths
             (um) to optical lengths (um). Defaults to 1.0 (optical == physical)
             if not given.
-        virtual_vertex_spacing : float | sequence | None
+        bond_spacing : float | sequence | None — drawing of parallel bonds.
         name : str
         save_path : str | Path | None
         base_dir : str | Path | None — base directory for the default save
             path. Priority: ``save_path`` > ``base_dir`` > directory of the
             running script > ``cwd``.
         """
-        # ------------------------------------------------------------------
-        # 1) Validate inputs
-        # ------------------------------------------------------------------
         self.ng = float(ng) if ng is not None else 1.0
         self.name = str(name)
-        self._setup_topology(vertex_positions, copy.deepcopy(port_map), lengths,
-                             virtual_vertex_spacing)
+        self._setup_topology(vertex_positions, bonds)
+        self.bond_spacing = bond_spacing
         for i in range(self.n_vertices):
-            if self.valencies[i] != 4:
+            if self.topology.valency[i] != 4:
                 raise ValueError(
                     "PeriodicOrbits only supports 4-port directional-coupler "
-                    f"vertices. Vertex {i} has valency {self.valencies[i]} "
+                    f"vertices. Vertex {i} has valency {self.topology.valency[i]} "
                     "(expected 4)."
                 )
-        self._virtual_vertex_set = set(self.virtual_vertices)
-        self.directed_optical_lengths = {db: L * self.ng for db, L in self.directed_lengths.items()}
         self._build_bond_transitions()
 
-        # ------------------------------------------------------------------
-        # 11) Orbit registries
-        # ------------------------------------------------------------------
+        # Orbit registries
         self.orbit_registry = {}       # name -> record (union of all searches)
         self.irreducible_orbits = {}   # name -> record (last find_irreducible_orbits() call)
         self.orbits = {}               # name -> record (last find_orbits_up_to_length() call)
@@ -228,119 +150,100 @@ class PeriodicOrbits(GraphBase):
 
         self._setup_save_path(self.name, self._build_save_dir_name(), save_path, base_dir)
 
-
     # ==================================================================
     # Transition graph (directional-coupler rule)
     # ==================================================================
-    def _allowed_exit_ports(self, vertex, entry_port):
+    @staticmethod
+    def _allowed_exit_ports(entry_port):
         """
-        Ports reachable when arriving at `vertex` via `entry_port`.
-
-        - Virtual (2-port) vertex: deterministic pass-through, 0 <-> 1.
-        - Real (4-port) directional-coupler vertex: ports (0, 1) form one
-          arm and ports (2, 3) the other; entering on one arm always exits
-          on the other (zero back-reflection).
+        Ports reachable when arriving at a directional coupler via
+        `entry_port`: ports (0, 1) form one arm and ports (2, 3) the other;
+        entering on one arm always exits on the other (zero back-reflection).
         """
-        if vertex in self._virtual_vertex_set:
-            return [1 - entry_port]
         return [2, 3] if entry_port in (0, 1) else [0, 1]
 
     def _build_bond_transitions(self):
         """
-        Build self.bond_transitions: dbond -> list of valid next dbonds.
+        Build self.bond_transitions: directed bond d -> list of valid next
+        directed bonds (those leaving the vertex where d arrives).
         """
-        self.bond_transitions = {}
-        for dbond in self.directed_bonds:
-            _, (v_to, p_to) = dbond
+        t = self.topology
+        self.bond_transitions = []
+        for d in range(t.n_directed):
+            v, p = int(t.dst_vertex[d]), int(t.dst_port[d])
             nxts = []
-            for q in self._allowed_exit_ports(v_to, p_to):
-                conn = self.virtual_port_map[v_to][q]
-                if conn is None:
+            for q in self._allowed_exit_ports(p):
+                nxt = t.leaving(v, q)
+                if nxt is None:
                     raise RuntimeError(
-                        f"Open port at vertex {v_to}, port {q}: PeriodicOrbits "
+                        f"Open port at vertex {v}, port {q}: PeriodicOrbits "
                         "requires a fully closed graph."
                     )
-                nxts.append(((v_to, q), conn))
-            self.bond_transitions[dbond] = nxts
+                nxts.append(nxt)
+            self.bond_transitions.append(nxts)
+
+    def directed_bond_ports(self, d):
+        """``(i, p, j, q)``: directed bond ``d`` goes from port (i, p) to port (j, q)."""
+        t = self.topology
+        return (int(t.src_vertex[d]), int(t.src_port[d]), int(t.dst_vertex[d]), int(t.dst_port[d]))
 
     # ==================================================================
     # Saving helpers
     # ==================================================================
     def _build_save_dir_name(self):
-        info_str = f"Nv={len(self.vertex_positions)}_Nb={len(self.updated_bonds)}"
-        vvs = self.virtual_vertex_spacing
-        if vvs is None:
-            spacing_str = "vvs=None"
-        elif _is_number(vvs):
-            spacing_str = f"vvs={_format_float_for_name(vvs, ndigits=3)}"
+        info_str = f"Nv={self.n_vertices}_Nb={self.n_bonds}"
+        bs = self.bond_spacing
+        if bs is None:
+            spacing_str = "bs=None"
+        elif np.isscalar(bs):
+            spacing_str = f"bs={_format_float_for_name(bs, ndigits=3)}"
         else:
-            spacing_str = "vvs=seq"
+            spacing_str = "bs=seq"
         ng_str = f"ng={_format_float_for_name(self.ng, ndigits=3)}"
-        digest = _hash_graph_signature(self.port_map, self.lengths)
-        return f"{info_str}_{spacing_str}_{ng_str}_{digest}"
+        return f"{info_str}_{spacing_str}_{ng_str}_{topology_hash(self.topology)}"
 
     def _save_parameters(self):
         filepath = self.save_path / "graph_parameters.txt"
+        t = self.topology
         with open(filepath, "w", encoding="utf-8") as f:
             f.write("### PeriodicOrbits Graph Parameters ###\n")
             f.write(f"Graph name: {self.name}\n")
             f.write(f"Saved on: {datetime.datetime.now()}\n")
-            f.write(
-                "Vertex model: directional coupler only "
-                "(ports 0,1 <-> ports 2,3; virtual vertices pass-through 0<->1)\n\n"
-            )
+            f.write("Vertex model: directional coupler only (ports 0,1 <-> ports 2,3)\n\n")
             f.write(f"Group index ng: {self.ng}\n\n")
 
             f.write("### Counts ###\n")
-            f.write(f"Original vertices: {self.n_vertices}\n")
-            f.write(f"Total vertices after virtualization: {len(self.vertex_positions)}\n")
-            f.write(f"Virtual vertices: {self.virtual_vertices}\n")
-            f.write(f"Internal undirected bonds: {len(self.updated_bonds)}\n")
-            f.write(f"Directed bonds: {2 * len(self.updated_bonds)}\n")
-            f.write(f"Total raw physical length: {self.total_length:.6f}\n\n")
+            f.write(f"Vertices: {self.n_vertices}\n")
+            f.write(f"Bonds: {self.n_bonds}\n")
+            f.write(f"Directed bonds: {t.n_directed}\n")
+            f.write(f"Total physical length: {self.total_length:.6f}\n\n")
 
-            f.write("### Raw vertex positions ###\n")
-            for i, pos in enumerate(self.vertex_positions[:self.n_vertices]):
-                f.write(f"{i}: {pos}\n")
+            f.write("### Vertex positions ###\n")
+            for i, pos in enumerate(t.positions):
+                f.write(f"{i}: ({pos[0]:.6f}, {pos[1]:.6f})\n")
 
-            f.write("\n### Raw port_map ###\n")
-            for i, ports in enumerate(self.port_map):
-                f.write(f"Vertex {i}: {ports}\n")
-
-            f.write("\n### Raw lengths ###\n")
-            for key, val in self.lengths.items():
-                f.write(f"{key}: {float(val):.6f}\n")
-
-            f.write("\n### Virtualized lengths ###\n")
-            for key, val in self.virtual_lengths.items():
-                f.write(f"{key}: {float(val):.6f}\n")
-
-            f.write("\n### Updated bonds ###\n")
-            for bond in self.updated_bonds:
-                f.write(f"{bond}\n")
+            f.write("\n### Bonds (i, p, j, q, L) ###\n")
+            for b, bond in enumerate(t.bonds):
+                f.write(f"{b}: {bond}\n")
 
     # ==================================================================
-    # Graph plotting (same style as ClosedGraphs/ClassicalGraphs DirectionalGraphs)
+    # Graph plotting
     # ==================================================================
     def plot_graph(
         self,
         ax=None,
         show_lengths: bool = False,
         show_port_markers: bool = True,
-        vertex_radius_frac: float = 0.12,
-        marker_radius_frac: float = 0.04,
-        marker_offset_frac: float = 0.02,
         xl: bool = False,
         save_fig: bool = False,
         file_format: str = "svg",
         title=None,
+        **kwargs,
     ):
         """
-        Plot the graph: real vertices as large numbered black disks, virtual
-        vertices as smaller gray disks, edges as thin light-gray lines, and
-        (by default) colored port-marker disks on every real vertex:
-        BLUE for ports (0, 1), ORANGE for ports (2, 3) — same convention as
-        ClosedGraphs/ClassicalGraphs DirectionalGraphs.plot_graph.
+        Plot the graph (light-gray bonds, so that orbits stand out) with the
+        port markers of the shared ``plot_graph`` (blue: ports 0, 1; orange:
+        ports 2, 3).
 
         xl : bool
             If True, scale up vertices, edges, fonts, and port markers
@@ -351,78 +254,14 @@ class PeriodicOrbits(GraphBase):
         -------
         fig, ax
         """
-        BLUE = "#1f77b4"
-        ORANGE = "#ff7f0e"
         scale = 1.8 if xl else 1.0
-
-        created_fig = False
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 8))
-            created_fig = True
-        else:
-            fig = ax.figure
-
-        pos = nx.get_node_attributes(self.G, "pos")
-        if not pos:
-            raise AttributeError("Graph must have node positions stored as G.nodes[i]['pos'].")
-
-        real_nodes = [i for i in self.G.nodes if i not in self.virtual_vertices]
-        virtual_nodes = list(self.virtual_vertices)
-
-        nx.draw_networkx_nodes(self.G, pos, nodelist=real_nodes, node_size=1000 * scale ** 2, node_color="black", ax=ax)
-        nx.draw_networkx_nodes(self.G, pos, nodelist=virtual_nodes, node_size=400 * scale ** 2, node_color="gray", ax=ax)
-
-        node_labels = {i: self.vertex_labels[i] for i in real_nodes}
-        nx.draw_networkx_labels(self.G, pos, labels=node_labels, font_color="white", font_weight="bold", font_size=20 * scale, ax=ax)
-
-        nx.draw_networkx_edges(self.G, pos, ax=ax, width=1.5 * scale, edge_color="lightgray")
-
-        if show_lengths:
-            edge_labels = {k: f"{v:.1f}" for k, v in nx.get_edge_attributes(self.G, "length").items()}
-            nx.draw_networkx_edge_labels(self.G, pos, edge_labels=edge_labels, font_size=14 * scale, ax=ax)
-
-        if show_port_markers:
-            Lmin = float(min(self.virtual_lengths.values()))
-            Rv = float(vertex_radius_frac) * scale * Lmin
-            Rm = float(marker_radius_frac) * scale * Lmin
-            delta = float(marker_offset_frac) * scale * Lmin
-
-            for v in real_nodes:
-                vxy = pos[v]
-                for p in range(4):
-                    conn = self.virtual_port_map[v][p]
-                    if conn is None:
-                        continue
-                    n, _q = conn
-                    nxy = pos[n]
-                    center = _marker_center_on_border(vxy, nxy, Rv=Rv, delta=delta, Rm=Rm)
-                    if center is None:
-                        continue
-                    color = BLUE if p in (0, 1) else ORANGE
-                    _draw_marker_disk(ax, center, radius=Rm, color=color, z=10_000)
-
-        if title is not None:
-            ax.set_title(title)
-
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-        if created_fig:
-            plt.tight_layout()
-
-        if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
-            tags = ["with_lengths" if show_lengths else "no_lengths"]
-            if show_port_markers:
-                tags.append("port_markers")
-            if xl:
-                tags.append("XL")
-            filename = f"{self.name}_graph_{'_'.join(tags)}.{file_format}"
-            filepath = os.path.join(self.save_path, filename)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight", pad_inches=0)
-            log(f"Graph plot saved to {filepath}")
-
-        return fig, ax
+        suffix = "XL" if xl else None
+        return TopologyPlotMixin.plot_graph(
+            self, show_lengths=show_lengths, show_port_markers=show_port_markers,
+            vertex_radius_frac=0.065 * scale, marker_radius_frac=0.03 * scale,
+            vertex_fontsize=20 * scale, length_fontsize=14 * scale,
+            bond_linewidth=1.5 * scale, bond_color="lightgray", ax=ax, title=title,
+            save_fig=save_fig, file_format=file_format, filename_suffix=suffix, **kwargs)
 
     # ==================================================================
     # Canonicalization (rotation + reversal invariance)
@@ -496,24 +335,20 @@ class PeriodicOrbits(GraphBase):
 
     def _register_orbit(self, path, physical_length, registry):
         """
-        Register a closed directed-bond walk `path` (tuple of dbonds,
-        b1..bn, with a valid transition from bn back to b1) as a periodic
+        Register a closed directed-bond walk `path` (tuple of directed-bond
+        indices d1..dn, with a valid transition from dn back to d1) as a periodic
         orbit, deduplicating against rotations/reversal of already-known
         orbits. Returns the (possibly pre-existing) orbit name.
         """
-        path = tuple(path)
-        dbond_key = self._bracelet_min(path, lambda b: self.reverse_directed_bond[b])
+        path = tuple(int(d) for d in path)
+        dbond_key = self._bracelet_min(path, self.topology.reverse)
 
         if dbond_key in self._orbit_dbond_keys:
             name = self._orbit_dbond_keys[dbond_key]
             registry[name] = self.orbit_registry[name]
             return name
 
-        real_hops = [b for b in path if b[0][0] not in self._virtual_vertex_set]
-        if len(real_hops) == 0:
-            raise RuntimeError("Encountered an orbit with no real-vertex hops.")
-
-        vertex_seq_0idx = tuple(b[0][0] for b in real_hops)
+        vertex_seq_0idx = tuple(int(self.topology.src_vertex[d]) for d in path)
         canon_vseq = self._bracelet_min(vertex_seq_0idx, lambda x: x)
         base_name = "-".join(str(v + 1) for v in canon_vseq)
         name = self._assign_name(base_name)
@@ -533,6 +368,7 @@ class PeriodicOrbits(GraphBase):
             "vertex_sequence": tuple(int(v + 1) for v in vertex_seq_0idx),
             "canonical_vertex_sequence": tuple(int(v + 1) for v in canon_vseq),
             "path": path,
+            "path_ports": tuple(self.directed_bond_ports(d) for d in path),
             "n_real_hops": len(vertex_seq_0idx),
             "n_bonds": len(path),
             "physical_length_um": float(physical_length),
@@ -564,8 +400,9 @@ class PeriodicOrbits(GraphBase):
         """
         verbose = resolve("verbose", verbose)
         registry = {}
-        for start_dbond in self.directed_bonds:
-            visited = {start_dbond[0][0]}
+        t = self.topology
+        for start_dbond in range(t.n_directed):
+            visited = {int(t.src_vertex[start_dbond])}
             path = [start_dbond]
             self._dfs_irreducible(start_dbond, start_dbond, path, visited, registry, max_orbits)
             if len(registry) >= max_orbits:
@@ -588,13 +425,13 @@ class PeriodicOrbits(GraphBase):
             return
         for nxt in self.bond_transitions[current_dbond]:
             if nxt == start_dbond:
-                physical_length = sum(self.directed_lengths[b] for b in path)
+                physical_length = float(sum(self.topology.directed_length[b] for b in path))
                 self._register_orbit(list(path), physical_length, registry)
                 if len(registry) >= max_orbits:
                     return
                 continue
 
-            nxt_vertex = nxt[0][0]
+            nxt_vertex = int(self.topology.src_vertex[nxt])
             if nxt_vertex in visited:
                 continue
 
@@ -636,8 +473,8 @@ class PeriodicOrbits(GraphBase):
         registry = {}
         counters = {"nodes": 0}
 
-        for start_dbond in self.directed_bonds:
-            start_length = self.directed_lengths[start_dbond]
+        for start_dbond in range(self.topology.n_directed):
+            start_length = float(self.topology.directed_length[start_dbond])
             if start_length > L_max_um:
                 continue
             path = [start_dbond]
@@ -701,7 +538,7 @@ class PeriodicOrbits(GraphBase):
                 if len(registry) >= max_orbits:
                     return
 
-            new_length = cum_length + self.directed_lengths[nxt]
+            new_length = cum_length + float(self.topology.directed_length[nxt])
             if new_length > L_max:
                 continue
 
@@ -796,9 +633,9 @@ class PeriodicOrbits(GraphBase):
     ):
         """
         Plot the graph topology with a periodic orbit overlaid as directed
-        arrows along the bonds it traverses. Each arrow is drawn centered
-        on its bond, shortened symmetrically at both ends by `shrink_frac`
-        of that bond's own length, so it never reaches the vertex disks
+        arrows along the bonds it traverses (following curved bonds). Each
+        arrow is centered on its bond, shortened symmetrically at both ends
+        by `shrink_frac` of that bond's drawn length, so it never reaches the vertex disks
         (or port-marker disks) at either end. When an orbit uses the same
         physical bond in both directions, the two arrows overlap and read
         as a single "double-headed" arrow.
@@ -852,47 +689,40 @@ class PeriodicOrbits(GraphBase):
             ax=ax, show_lengths=show_lengths,
             show_port_markers=show_port_markers, xl=xl, save_fig=False,
         )
+        paths = self.bond_paths
+        t = self.topology
+        offset_mag = float(offset_ratio) * float(np.median(t.length))
 
-        median_length = float(np.median(list(self.virtual_lengths.values())))
-        offset_mag = float(offset_ratio) * median_length
-
-        # Group traversals by physical bond (regardless of direction): if a
-        # bond is used in both directions somewhere in the orbit, draw ONE
+        # Group traversals by bond (regardless of direction): if a bond is
+        # used in both directions somewhere in the orbit, draw ONE
         # double-headed arrow instead of two overlapping opposite arrows.
         bonds_seen = OrderedDict()
-        for dbond in record["path"]:
-            rev = self.reverse_directed_bond[dbond]
-            key = dbond if dbond <= rev else rev
-            bonds_seen.setdefault(key, set()).add(dbond)
+        for d in record["path"]:
+            bonds_seen.setdefault(t.bond_of(d), set()).add(d)
 
-        for key, dirs in bonds_seen.items():
+        for b, dirs in bonds_seen.items():
             both_directions = len(dirs) == 2
-            dbond = key if key in dirs else next(iter(dirs))
-
-            p0, p1 = self.directed_positions[dbond]
-            p0 = np.asarray(p0, dtype=float)
-            p1 = np.asarray(p1, dtype=float)
-
-            direction = _normalize(p1 - p0)
-            normal = _perpendicular(direction)
-            trim = float(shrink_frac) * float(np.hypot(*(p1 - p0)))
-
-            start = p0 + trim * direction + offset_mag * normal
-            end = p1 - trim * direction + offset_mag * normal
+            d = min(dirs)
+            s_arc = np.linspace(float(shrink_frac), 1.0 - float(shrink_frac), 60)
+            pts = paths.directed_point(d, s_arc)
+            if offset_mag:
+                tang = paths.directed_tangent(d, s_arc)
+                pts = pts + offset_mag * np.stack([-tang[:, 1], tang[:, 0]], axis=1)
 
             arrowstyle = "<|-|>" if both_directions else "-|>"
 
             patch = mpatches.FancyArrowPatch(
-                posA=(start[0], start[1]), posB=(end[0], end[1]),
+                path=MplPath(pts),
                 arrowstyle=arrowstyle, mutation_scale=38.0 * scale,
                 linewidth=linewidth * scale,
-                color=color, shrinkA=0.0, shrinkB=0.0, zorder=8,
+                color=color, zorder=8,
                 capstyle="round", joinstyle="round",
             )
             ax.add_patch(patch)
 
         if title is not None:
             ax.set_title(title, fontsize=14)
+            fig.tight_layout()
 
         if save_fig:
             os.makedirs(self.save_path, exist_ok=True)

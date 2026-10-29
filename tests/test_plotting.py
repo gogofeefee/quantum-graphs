@@ -13,7 +13,7 @@ def n_files(path, ext):
 
 def test_closed_plots(save):
     g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), vertex_couplings=0.5, neff=3.97,
-                                   wavelength_range=(1.50, 1.51), virtual_vertex_spacing=[40, -40],
+                                   wavelength_range=(1.50, 1.51), bond_spacing=[40, -40],
                                    **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True, file_format="png")
     spectrum, _ = g.compute_spectrum(N_scan=40_000)

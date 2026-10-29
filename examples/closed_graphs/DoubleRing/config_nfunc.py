@@ -67,13 +67,12 @@ print(f"Ring geometry: R1 = {R1:.2f} µm  →  L1 = {L1:.3f} µm")
 print(f"               R2 = {R2:.4f} µm  →  L2 = {L2:.3f} µm")
 
 vertex_positions = [(0.0, 0.0)]
-port_map = [
-    [(0, 2), (0, 3), (0, 0), (0, 1)],
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
+# Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
+bonds = [
+    (0, 0, 0, 2, L1),
+    (0, 1, 0, 3, L2),
 ]
-lengths = {
-    ((0, 0), (0, 2)): L1,
-    ((0, 1), (0, 3)): L2,
-}
 
 
 # ============================================================================
@@ -117,8 +116,7 @@ C                = 0.5
 
 graph = DirectionalGraphs(
     vertex_positions = vertex_positions,
-    port_map         = port_map,
-    lengths          = lengths,
+    bonds            = bonds,
     vertex_couplings = C,
     neff             = neff,
     ng               = ng,

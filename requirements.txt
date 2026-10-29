@@ -2,5 +2,4 @@
 numpy>=2.0           # np.trapezoid
 scipy>=1.10
 matplotlib>=3.7
-networkx>=3.2        # older versions call np.alltrue, removed in numpy 2.0
 numdifftools>=0.9

@@ -6,15 +6,14 @@ Usage
 -----
     python tests/reference/generate_reference.py OUT.npz
 
-Computes a broad set of physical quantities with ``quantum_graphs`` (or, for
-versions up to 83ca561, with the historical top-level packages
-``closed_graphs``... found on ``sys.path``) and stores them in
-one ``.npz`` file. ``tests/reference/compare_reference.py`` compares two such
-files with physically meaningful tolerances.
+Computes a broad set of physical quantities with ``quantum_graphs`` and stores
+them in one ``.npz`` file. ``tests/reference/compare_reference.py`` compares
+two such files with physically meaningful tolerances.
 
-The reference file ``reference_v0.npz`` was produced with the code of commit
-83ca561 (the state published before the 2026-10 refactor), so every later
-version can be checked against it.
+``reference_v0.npz`` was produced with the code of commit 83ca561 (the state
+published before the 2026-10 refactor), ``reference_v1``-``v3`` with the v1 API
+(``port_map`` + virtual vertices, tag v1.0.0), ``reference_v4`` and later with
+the bond-list API (no virtual vertices).
 
 Only quantities that do not depend on internal ordering conventions are
 stored as raw arrays (spectra, S-matrix entries, eigenvalues, sorted bond
@@ -40,19 +39,13 @@ plt.show = lambda *a, **k: None
 
 warnings.filterwarnings("ignore")
 
-try:                                                                        # current layout
-    sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
-    from quantum_graphs.closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG
-    from quantum_graphs.open_graphs import DirectionalGraphs as OpenDG
-    from quantum_graphs.classical_graphs import DirectionalClassicalGraphs
-    from quantum_graphs.periodic_orbits import PeriodicOrbits
-    import quantum_graphs
-    quantum_graphs.set_options(verbose=False, show=False)
-except ImportError:                                                         # versions <= 83ca561
-    from closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG
-    from open_graphs import DirectionalGraphs as OpenDG
-    from classical_graphs import DirectionalClassicalGraphs
-    from periodic_orbits import PeriodicOrbits
+sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..", "..")))
+from quantum_graphs.closed_graphs import ClosedGraphs, DirectionalGraphs as ClosedDG  # noqa: E402
+from quantum_graphs.open_graphs import DirectionalGraphs as OpenDG                    # noqa: E402
+from quantum_graphs.classical_graphs import DirectionalClassicalGraphs                # noqa: E402
+from quantum_graphs.periodic_orbits import PeriodicOrbits                             # noqa: E402
+import quantum_graphs                                                                 # noqa: E402
+quantum_graphs.set_options(verbose=False, show=False)
 
 
 OUT = {}
@@ -70,19 +63,16 @@ def store(prefix, **arrays):
 
 def bond_labels(graph):
     """Directed-bond labels as an (n, 4) int array: src vertex, src port, dst vertex, dst port."""
-    labels = np.zeros((graph.n_directed_bonds, 4), dtype=int)
-    for (a, b), idx in graph.directed_bond_index.items():
-        labels[idx] = (a[0], a[1], b[0], b[1])
-    return labels
+    t = graph.topology
+    return np.stack([t.src_vertex, t.src_port, t.dst_vertex, t.dst_port], axis=1).astype(int)
 
 
 def topology(prefix, graph):
-    lengths = np.array([graph.directed_lengths[db] for db in sorted(graph.directed_bonds)])
+    t = graph.topology
     store(prefix,
-          n_directed_bonds=graph.n_directed_bonds,
-          n_virtual_vertices=len(graph.virtual_vertices),
+          n_bonds=t.n_bonds,
           total_length=graph.total_length,
-          sorted_directed_lengths=np.sort(lengths))
+          sorted_bond_lengths=np.sort(t.length))
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +101,7 @@ def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
             S, S_norm, ipr = graph.localization_measures(a)
             store(f"{prefix}/wf{i}", loc_entropy=S, loc_S_norm=S_norm, loc_ipr=ipr)
     if hasattr(graph, "localization_measures"):
-        # entropy / IPR of every level (per physical bond, eigenspace projector)
+        # entropy / IPR of every level (per bond, eigenspace projector)
         _, _, S_norm, ipr = graph._compute_mode_quantities()
         store(prefix, loc_S_norm_levels=S_norm, loc_ipr_levels=ipr)
     if stats and spectrum.size > 20:
@@ -182,7 +172,7 @@ def run_open():
     k_probe = [4.0 - 1e-5j, 4.05 + 0.0j, 4.1003 - 3e-6j]
     res_small = dict(N_re=40_000, N_im=8, im_min=-1e-4, im_max=0.0)
 
-    g = OpenDG(**{k: v for k, v in G.RING_1ACCESS.items()}, internal_coupling=0.5,
+    g = OpenDG(**G.RING_1ACCESS, internal_coupling=0.5,
                external_coupling=0.3, neff=2.41, wavelength_range=(1.54, 1.56),
                lead_orientations={(0, 0): -150.0, (0, 2): -30.0},
                name="ref_ring1", save_path=tmp("ring1"))

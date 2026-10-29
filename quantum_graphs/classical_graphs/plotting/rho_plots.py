@@ -37,16 +37,8 @@ class RhoPlotMixin:
             "rho_color": "tab:purple",
         }
 
-    def _get_all_virtual_bond_lengths(self):
-        if not self.virtual_lengths:
-            return np.array([], dtype=float)
-        return np.asarray(list(self.virtual_lengths.values()), dtype=float)
-
-    def _get_median_virtual_bond_length(self):
-        lengths = self._get_all_virtual_bond_lengths()
-        if lengths.size == 0:
-            return 1.0
-        return float(np.median(lengths))
+    def _get_median_bond_length(self):
+        return float(np.median(self.topology.length))
 
     # ==================================================================
     # Arrow geometry
@@ -66,11 +58,15 @@ class RhoPlotMixin:
         arrow_length_ratio=0.32,
         arrow_length_min_ratio=0.12,
         arrow_length_max_ratio=0.55,
-        vertex_radius_frac=0.12,
-        virtual_vertex_radius_scale=(400.0 / 1000.0) ** 0.5,
+        vertex_radius_frac=0.065,
     ):
         """
-        Compute the start/end points of the displayed arrow for one directed bond.
+        Start/end points of the displayed arrow for directed bond ``dbond`` (int).
+
+        The arrow is a straight chord between two points of the drawn bond
+        curve, shifted to the left of the direction of propagation (so the two
+        directions of a bond sit on opposite sides), by more where the curve
+        turns so that the chord clears it.
 
         tau in [0, 1]:
           0 → tail at start-vertex border
@@ -82,23 +78,14 @@ class RhoPlotMixin:
         start, end : np.ndarray, np.ndarray
         """
         tau = _clip01(tau)
+        d = int(dbond)
+        paths = self.bond_paths
+        b = self.topology.bond_of(d)
+        drawn = paths.drawn_length(b)
 
-        p0, p1 = self.get_directed_bond_coordinates(dbond)
-        p0 = np.asarray(p0, dtype=float)
-        p1 = np.asarray(p1, dtype=float)
-
-        a, b = dbond
-        v_start, v_end = a[0], b[0]
-        direction = _normalize(p1 - p0)
-        bond_length = float(np.linalg.norm(p1 - p0))
-
-        Lmin = float(min(self.virtual_lengths.values()))
-        real_radius = float(vertex_radius_frac) * Lmin
-        virtual_radius = float(virtual_vertex_radius_scale) * real_radius
-
-        r_start = virtual_radius if v_start in self.virtual_vertices else real_radius
-        r_end   = virtual_radius if v_end   in self.virtual_vertices else real_radius
-        usable_length = max(bond_length - r_start - r_end, 0.0)
+        Lmin = float(np.min(self.topology.length))
+        radius = float(vertex_radius_frac) * Lmin
+        usable_length = max(drawn - 2.0 * radius, 0.0)
 
         # Arrow length
         if arrow_length_mode == "bond_relative":
@@ -113,11 +100,13 @@ class RhoPlotMixin:
             raise ValueError("arrow_length_mode must be 'bond_relative' or 'constant'.")
         arrow_length = min(arrow_length, usable_length)
 
-        # Placement
+        # Placement along the curve (arc-length fractions)
         max_start = max(usable_length - arrow_length, 0.0)
         s0 = tau * max_start
-        raw_start = p0 + (r_start + s0) * direction
-        raw_end   = p0 + (r_start + s0 + arrow_length) * direction
+        s_tail = (radius + s0) / drawn
+        s_head = (radius + s0 + arrow_length) / drawn
+        raw_start, raw_end = paths.directed_point(d, np.array([s_tail, s_head]))
+        dir_start, dir_end = paths.directed_tangent(d, np.array([s_tail, s_head]))
 
         # Width-dependent lateral offset
         if width is None:
@@ -134,10 +123,13 @@ class RhoPlotMixin:
             (1.0 - t_width) * float(bond_offset_ratio_min)
             + t_width * float(bond_offset_ratio_max)
         )
-        offset_mag = bond_offset_ratio * self._get_median_virtual_bond_length()
-        normal = _perpendicular(direction)
+        offset_mag = bond_offset_ratio * self._get_median_bond_length()
+        # a straight chord dips towards a curved bond by its sagitta, ~chord·angle/8
+        angle = float(np.arccos(np.clip(np.dot(dir_start, dir_end), -1.0, 1.0)))
+        offset_mag += 1.3 * float(np.linalg.norm(raw_end - raw_start)) * angle / 8.0
 
-        return raw_start + offset_mag * normal, raw_end + offset_mag * normal
+        return (raw_start + offset_mag * _perpendicular(dir_start),
+                raw_end + offset_mag * _perpendicular(dir_end))
 
     def _rho_to_width_alpha(
         self,
@@ -215,7 +207,7 @@ class RhoPlotMixin:
         Parameters
         ----------
         bonds_to_draw : list of (dbond, rho_val, tau, alpha_multiplier)
-            - dbond : directed bond key
+            - dbond : directed bond index
             - rho_val : probability value
             - tau : position along bond in [0, 1]
             - alpha_multiplier : factor applied to computed alpha (for fading)
@@ -304,18 +296,11 @@ class RhoPlotMixin:
         else:
             fig = ax.figure
 
-        # Background graph — use show_port_markers if the subclass supports it
-        try:
-            self.plot_graph(ax=ax, show_lengths=False, show_port_markers=True,
-                            title=None, save_fig=False)
-        except TypeError:
-            self.plot_graph(ax=ax, show_lengths=False, title=None, save_fig=False)
+        self.plot_graph(ax=ax, show_lengths=False, show_port_markers=True,
+                        title=None, save_fig=False)
 
         # Build arrow list
-        bonds_to_draw = [
-            (dbond, float(rho[self.directed_bond_index[dbond]]), 0.5, 1.0)
-            for dbond in self.directed_bonds
-        ]
+        bonds_to_draw = [(d, float(rho[d]), 0.5, 1.0) for d in range(self.topology.n_directed)]
 
         self._draw_arrows_for_rho(
             ax=ax,
@@ -341,8 +326,6 @@ class RhoPlotMixin:
             title = f"{self.name} — rho on directed bonds"
         if title:
             ax.set_title(title)
-        ax.set_aspect("equal")
-        ax.axis("off")
 
         if created_fig:
             fig.tight_layout()

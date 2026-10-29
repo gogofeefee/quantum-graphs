@@ -56,11 +56,11 @@ class SpectrumMixin:
 
     def secular_det(self, k):
         """Secular determinant f(k) = det(I − D(k) Σ_αα(k))."""
-        return np.linalg.det(np.eye(self.n_directed_bonds) - self.model.U(k))
+        return np.linalg.det(np.eye(self.topology.n_directed) - self.model.U(k))
 
     def _nullity_at_k(self, k, tol_abs=1e-4):
         """Dimension of ker(I − U(k)): number of singular values ≤ tol_abs."""
-        s = np.linalg.svd(np.eye(self.n_directed_bonds) - self.model.U(k), compute_uv=False)
+        s = np.linalg.svd(np.eye(self.topology.n_directed) - self.model.U(k), compute_uv=False)
         return int(np.sum(s <= tol_abs))
 
     def weyl_count(self, k_min=None, k_max=None):
@@ -211,10 +211,10 @@ class SpectrumMixin:
 
         Returns
         -------
-        null_space : ndarray, shape (n_modes, n_directed_bonds)
+        null_space : ndarray, shape (n_modes, 2 n_bonds)
             Each row is one wavefunction coefficient vector.
         """
-        A = np.eye(self.n_directed_bonds, dtype=complex) - self.model.U(k)
+        A = np.eye(self.topology.n_directed, dtype=complex) - self.model.U(k)
         _, S, Vh = svd(A)
         rows = Vh[S < tol].conj()          # rows of Vh are v^H
         if rows.size == 0:

@@ -9,7 +9,7 @@ Geometry
 The bow-tie graph of examples/closed_graphs/BowTieGraph (five 4-port
 directional couplers, 10 bonds, two of them doubled), as fabricated: an
 access coupler (vertex 0) sits on the bond between vertices 4 and 5. Ports 0
-and 2 of the access coupler are external leads (``None`` in ``port_map``):
+and 2 of the access coupler are external leads (``leads``):
 
     6 vertices, 11 bonds, 2 leads, total internal length L_tot = 1597.07 um.
 
@@ -77,31 +77,24 @@ vertex_positions = [
     ( 68.166, -39.356),   # vertex 5
 ]
 
-# port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j.
-# None = external lead. Ports (0, 1) are one arm of the coupler, (2, 3) the other.
-port_map = [
-    [None,   (4, 0), None,   (5, 2)],   # vertex 0: leads on ports 0 and 2
-    [(4, 2), (3, 3), (5, 0), (2, 1)],   # vertex 1
-    [(5, 1), (1, 3), (5, 3), (3, 1)],   # vertex 2
-    [(4, 1), (2, 3), (4, 3), (1, 1)],   # vertex 3
-    [(0, 1), (3, 0), (1, 0), (3, 2)],   # vertex 4
-    [(1, 2), (2, 0), (0, 3), (2, 2)],   # vertex 5
+# Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um).
+# Ports (0, 1) are one arm of the coupler, ports (2, 3) the other arm.
+bonds = [
+    (0, 1, 4, 0, 124.697),   # access coupler -> vertex 4
+    (0, 3, 5, 2, 126.560),   # access coupler -> vertex 5
+    (1, 0, 4, 2, 79.153),
+    (1, 1, 3, 3, 95.085),
+    (1, 2, 5, 0, 84.717),
+    (1, 3, 2, 1, 103.523),
+    (2, 0, 5, 1, 96.144),   # double bond 2-5
+    (2, 2, 5, 3, 262.852),
+    (2, 3, 3, 1, 279.690),
+    (3, 0, 4, 1, 255.817),   # double bond 3-4
+    (3, 2, 4, 3, 88.833),
 ]
 
-# Bond lengths in um
-lengths = {
-    ((0, 1), (4, 0)): 124.697,   # access coupler -> vertex 4
-    ((0, 3), (5, 2)): 126.560,   # access coupler -> vertex 5
-    ((1, 0), (4, 2)):  79.153,
-    ((1, 1), (3, 3)):  95.085,
-    ((1, 2), (5, 0)):  84.717,
-    ((1, 3), (2, 1)): 103.523,
-    ((2, 0), (5, 1)):  96.144,   # double bond 2-5
-    ((2, 2), (5, 3)): 262.852,
-    ((2, 3), (3, 1)): 279.690,
-    ((3, 0), (4, 1)): 255.817,   # double bond 3-4
-    ((3, 2), (4, 3)):  88.833,
-}
+# External leads (vertex, port), numbered in this order in the S-matrix
+leads = [(0, 0), (0, 2)]
 
 # Direction (degrees) in which each lead is drawn
 lead_orientations = {
@@ -126,8 +119,8 @@ C_external       = 0.3            # the access coupler
 
 graph = DirectionalGraphs(
     vertex_positions       = vertex_positions,
-    port_map               = port_map,
-    lengths                = lengths,
+    bonds                  = bonds,
+    leads                  = leads,
     internal_coupling      = C_internal,
     external_coupling      = C_external,
     neff                   = neff,

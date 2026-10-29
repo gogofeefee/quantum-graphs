@@ -3,18 +3,17 @@ Localisation of a wavefunction on the bonds of a graph, as pure functions.
 
 * :func:`eigenspace_intensity` — intensity per directed bond of one
   wavefunction, or of a degenerate eigenspace (basis-independent);
-* :func:`physical_bond_intensity` — intensity per physical bond;
+* :func:`bond_intensity` — intensity per bond;
 * :func:`localization_measures` — Shannon entropy and inverse participation
   ratio (IPR) of the bond distribution.
 
 Conventions (docs/scientific_notes.md §5):
 
-* The distribution is p_b = I_b / Σ I_b over the N_b **physical** bonds (the
-  bonds of ``port_map``), with I_b = |a_{u→v}|² + |a_{v→u}|² the intensity of
-  the two waves arriving at the real end vertices of bond b = (u, v). Virtual
-  vertices do not change the result: a split bond counts once, with the
-  amplitudes it would carry if it had not been split. This is an intensity,
-  not an energy (which would be ∝ L_b I_b).
+* The distribution is p_b = I_b / Σ I_b over the N_b bonds of the graph,
+  with I_b = |a_{u→v}|² + |a_{v→u}|² the intensity of the two waves arriving
+  at the end vertices of bond b = (u, v) (directed bonds b and b + N_b). A
+  self-loop or a multiple bond counts once. This is an intensity, not an
+  energy (which would be ∝ L_b I_b).
 * A degenerate level of multiplicity g has no preferred eigenvector: its
   intensity is the diagonal of the projector onto the eigenspace divided by g,
   (1/g) Σ_m |a_b^(m)|² over any orthonormal basis, i.e. the maximally mixed
@@ -39,18 +38,14 @@ def eigenspace_intensity(vecs):
     return np.sum(np.abs(vecs) ** 2, axis=0) / vecs.shape[0]
 
 
-def physical_bond_intensity(directed_intensity, arrivals):
-    """Intensity per physical bond, I_b = I[d_fwd] + I[d_bwd].
-
-    ``arrivals`` is the graph's ``physical_bond_arrivals``: for each physical
-    bond, the two directed bonds arriving at its real end vertices.
-    """
+def bond_intensity(directed_intensity):
+    """Intensity per bond, I_b = I[b] + I[b + B] (the two directions of bond b)."""
     intensity = np.asarray(directed_intensity, dtype=float)
-    arrivals = np.asarray(arrivals, dtype=int)
-    return intensity[arrivals[:, 0]] + intensity[arrivals[:, 1]]
+    B = intensity.size // 2
+    return intensity[:B] + intensity[B:]
 
 
-def localization_measures(bond_intensity):
+def localization_measures(intensities):
     """Shannon entropy and IPR of p_b = I_b / Σ I_b.
 
     Returns
@@ -66,7 +61,7 @@ def localization_measures(bond_intensity):
     S_norm is NaN for a single bond, and all three are NaN for a zero
     distribution.
     """
-    intensity = np.asarray(bond_intensity, dtype=float)
+    intensity = np.asarray(intensities, dtype=float)
     n_b = intensity.size
     total = float(np.sum(intensity))
     if n_b == 0 or total <= 0:

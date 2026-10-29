@@ -5,7 +5,7 @@ One graph, four points of view::
 
     import quantum_graphs as qg
 
-    layout = qg.layouts.flower_graph()                 # vertex_positions, port_map, lengths
+    layout = qg.layouts.flower_graph()                 # vertex_positions, bonds
     closed = qg.ClosedDirectionalGraphs(**layout, vertex_couplings=0.5, neff=3.97,
                                         wavelength_range=(1.50, 1.53))
     spectrum, degeneracies = closed.compute_spectrum(N_scan=150_000)
@@ -24,7 +24,7 @@ Options: ``set_options(verbose=False, show=False)`` (or the ``options``
 context manager) silences messages and ``plt.show()``.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0.dev0"
 
 from .core.config import get_option, options, set_options
 from .core.vertices import directional_coupler_matrix, neumann_matrix, PASS_THROUGH

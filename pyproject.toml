@@ -15,7 +15,6 @@ dependencies = [
     "numpy>=2.0",
     "scipy>=1.10",
     "matplotlib>=3.7",
-    "networkx>=3.2",
     "numdifftools>=0.9",
 ]
 keywords = ["quantum graphs", "quantum chaos", "photonics", "random matrix theory",

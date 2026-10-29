@@ -4,7 +4,7 @@
 WavefunctionPlotsMixin — plot_wavefunction, plot_entropy, plot_ipr.
 
 ``plot_entropy`` and ``plot_ipr`` share the per-mode loop in
-``_compute_mode_quantities``. Entropy and IPR are computed per physical bond,
+``_compute_mode_quantities``. Entropy and IPR are computed per bond,
 on the eigenspace projector for degenerate levels
 (:mod:`quantum_graphs.stats.localization`).
 """
@@ -13,8 +13,9 @@ from ...core.config import log, show_figure
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import networkx as nx
 
+from ...plotting.drawing import (add_colorbar, draw_bond_values, draw_vertices, finish_axes,
+                                size_scale)
 from .style import MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W
 
 
@@ -56,7 +57,7 @@ class WavefunctionPlotsMixin:
         """
         Iterate over the spectrum and compute per-mode Shannon entropy and IPR.
 
-        Per physical bond; a degenerate level counts once, through the
+        Per bond; a degenerate level counts once, through the
         diagonal of its eigenspace projector.
 
         Parameters
@@ -122,87 +123,41 @@ class WavefunctionPlotsMixin:
 
     def plot_wavefunction(self, a_in, k, cmap=None, save_fig=False, file_format="pdf"):
         """
-        Plot energy density on the closed graph for one or more eigenvectors.
-
-        Each virtualised segment is drawn with its own |a+|² + |a-|²; S and
-        S_norm in the title are per physical bond, for that vector.
+        Plot the intensity on the bonds of the closed graph for one or more
+        eigenvectors: each bond is coloured by |a+|² + |a-|² (normalised to its
+        maximum); S and S_norm in the title are those of that vector.
 
         Parameters
         ----------
         a_in : ndarray
             Wavefunction coefficients from ``compute_wavefunction(k)``.
-            Shape (n_modes, n_directed_bonds) or (n_directed_bonds,).
+            Shape (n_modes, 2 n_bonds) or (2 n_bonds,).
         k : float
         cmap : str, Colormap, or None
         save_fig : bool
         file_format : str
         """
-        from matplotlib.colors import LinearSegmentedColormap
-
         a_in = np.asarray(a_in)
         if a_in.ndim == 1:
             a_in = a_in[np.newaxis, :]
         N_modes    = a_in.shape[0]
         wavelength = 2 * np.pi / k
-
-        edgelist_ordered = [(a[0], b[0]) for (a, b) in self.updated_bonds]
-
-        if cmap is None:
-            base     = plt.get_cmap("Reds")
-            cmap_obj = LinearSegmentedColormap.from_list(
-                "Reds_truncated",
-                [base(x) for x in np.linspace(0.0, 0.75, 256)],
-            )
-        elif isinstance(cmap, str):
-            cmap_obj = plt.get_cmap(cmap)
-        else:
-            cmap_obj = cmap
+        paths      = self.bond_paths
+        radius     = 0.065 * size_scale(self.topology)
 
         for mode in range(N_modes):
             fig, ax = plt.subplots(figsize=(10, 8))
 
-            coeffs   = a_in[mode]
-            rho_pos  = np.abs(coeffs[:self.n_internal_bonds])**2
-            rho_neg  = np.abs(coeffs[self.n_internal_bonds:])**2
-            energy_raw = rho_pos + rho_neg
-
+            coeffs     = a_in[mode]
+            energy_raw = self.bond_intensities(coeffs)
             S, S_norm, _ = self.localization_measures(coeffs)
 
             max_energy = np.max(energy_raw) if energy_raw.size else 0.0
             energy_densities = energy_raw / max_energy if max_energy > 0 else energy_raw
 
-            edge_widths   = 6 + 8 * energy_densities
-            border_widths = edge_widths + 2
-
-            pos         = nx.get_node_attributes(self.G, "pos")
-            real_nodes  = [i for i in self.G.nodes if i not in self.virtual_vertices]
-            virt_nodes  = self.virtual_vertices
-
-            nx.draw_networkx_nodes(self.G, pos, nodelist=real_nodes,
-                                   node_size=900, node_color="black", ax=ax)
-            nx.draw_networkx_nodes(self.G, pos, nodelist=virt_nodes,
-                                   node_size=400, node_color="black", ax=ax)
-            node_labels = {i: self.vertex_labels[i] for i in real_nodes}
-            nx.draw_networkx_labels(self.G, pos, labels=node_labels,
-                                    font_color="white", font_weight="bold",
-                                    font_size=20, ax=ax)
-
-            nx.draw_networkx_edges(self.G, pos, ax=ax,
-                                   edgelist=edgelist_ordered,
-                                   width=border_widths, edge_color="black")
-            edges = nx.draw_networkx_edges(self.G, pos, ax=ax,
-                                           edgelist=edgelist_ordered,
-                                           width=edge_widths,
-                                           edge_color=energy_densities,
-                                           edge_cmap=cmap_obj,
-                                           edge_vmin=0.0, edge_vmax=1.0)
-
-            # Core-matplotlib inset instead of mpl_toolkits.axes_grid1: a stale
-            # system mpl_toolkits can shadow the pip one and break append_axes.
-            cax     = ax.inset_axes([1.02, 0.0, 0.04, 1.0])
-            cbar    = plt.colorbar(edges, cax=cax)
-            cbar.set_label("Energy Density", fontsize=22)
-            cbar.ax.tick_params(labelsize=22)
+            edges = draw_bond_values(ax, paths, energy_densities, cmap=cmap)
+            draw_vertices(ax, self.topology, radius)
+            add_colorbar(ax, edges, "Energy Density")
 
             mode_label = f"Mode {mode + 1}, " if N_modes > 1 else ""
             title = (f"{mode_label}"
@@ -210,8 +165,7 @@ class WavefunctionPlotsMixin:
                      f"$\\lambda = {wavelength:.3f}\\,\\mu m$, "
                      f"$S = {S:.3f}$, $S_{{\\rm norm}} = {S_norm:.3f}$")
             ax.set_title(title, fontsize=20)
-            ax.set_aspect("equal")
-            ax.axis("off")
+            finish_axes(ax, paths)
             plt.tight_layout(pad=3.0)
 
             if save_fig:
@@ -232,7 +186,7 @@ class WavefunctionPlotsMixin:
         """
         Normalised Shannon entropy S_norm vs k·L_tot and vs mode index.
 
-        Per physical bond, S_norm = S / ln N_b; a degenerate level counts once
+        Per bond, S_norm = S / ln N_b; a degenerate level counts once
         (eigenspace projector). See :mod:`quantum_graphs.stats.localization`.
 
         Parameters
@@ -299,7 +253,7 @@ class WavefunctionPlotsMixin:
         """
         Inverse participation ratio I = N_b · Σ p_b² vs k·L_tot and vs mode index.
 
-        Per physical bond (N_b = number of bonds of ``port_map``); a degenerate
+        Per bond (N_b = number of bonds); a degenerate
         level counts once (eigenspace projector).
 
         Parameters

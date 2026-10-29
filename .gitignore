@@ -23,6 +23,7 @@ examples/**/*.svg
 examples/**/*.eps
 examples/**/*.npz
 examples/**/*.npy
+examples/**/*.meta.json
 examples/**/*.txt
 examples/**/*.csv
 examples/**/*.log

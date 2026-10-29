@@ -1,5 +1,58 @@
 # Changelog
 
+## Unreleased (2.0.0)
+
+Breaking change of the API (scripts written for 1.0.0 keep working on the tag
+`v1.0.0`). Physics unchanged: spectra, degeneracies, S-matrices, resonances,
+secular determinants, spectral statistics, entropy / IPR and periodic-orbit
+catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
+`tests/test_regression.py`), with matrices up to 4× smaller.
+
+### Changed (API)
+- **Graphs are described by a bond list**: `bonds=[(i, p, j, q, L), ...]`
+  (L optional: Euclidean distance) and, for open graphs, `leads=[(v, p), ...]`
+  (S-matrix order). `port_map` and `lengths` are gone; every layout of
+  `quantum_graphs.layouts` and every example uses the new form.
+- **No virtual vertices.** Self-loops and multiple bonds are ordinary bonds:
+  U has 2B rows for B bonds (flower graph 40 → 20, double ring 16 → 4).
+- **`graph.topology`** (`core.topology.Topology`) replaces the ~25 attributes
+  copied onto every graph (`port_map`, `virtual_port_map`, `updated_bonds`,
+  `virtual_lengths`, `directed_bond_index`, `directed_lengths`,
+  `reverse_directed_bond`, `physical_bond_arrivals`, `G`, ...): read-only
+  arrays (`bonds`, `leads`, `length`, `valency`, `positions`, `src_vertex`,
+  `src_port`, `dst_vertex`, `dst_port`, `directed_length`) and lookups
+  (`reverse`, `bond_of`, `is_forward`, `leaving`, `arriving`, `directed`, `bond_id`). Directed bond
+  `d = b` goes from (i, p) to (j, q), `d = b + B` back. Shortcuts on the
+  graph: `n_vertices`, `n_bonds`, `n_leads`, `total_length`.
+- `virtual_vertex_spacing` → `bond_spacing` (drawing only).
+- `stats.physical_bond_intensity` → `stats.bond_intensity`.
+- Periodic-orbit records: `path` holds directed-bond indices; `path_ports`
+  the same as `(i, p, j, q)` tuples. `basis_state(dbond=(i, p, j, q))`.
+- Removed: `copy_topology_kwargs` (use `graph.topology.as_dict()`), the
+  unused `open_graphs.DirectionalGraphs.get_ring` / `path_length`, and the
+  duplicated `_directional_coupler_matrix` methods.
+- Save directories are named from the topology hash (`Nv=…_Nb=…_<hash>`):
+  results cached by 1.0.0 are recomputed.
+- **networkx is no longer a dependency** (it only drew the figures).
+
+### Changed (figures)
+- One `plot_graph` for every class (`plotting.topology_plot`), drawn with
+  matplotlib along `graph.bond_paths` (`plotting.drawing.BondPaths`):
+  straight bonds, symmetric Bézier arcs for parallel bonds, teardrops of the
+  true length for self-loops, lengths written on the curves, port markers
+  tangent to the vertex disks, leads dashed. Wavefunctions, energy
+  distributions, classical ρ arrows and orbit arrows follow the curves.
+
+### Changed (results)
+- **Classical dynamics**: one step of P = |Σ_αα|² is one bond traversal.
+  With the virtual vertices a multiple bond took 2 steps and a self-loop 4,
+  which changed the Perron-Frobenius spectrum: bow tie spectral gap
+  0.1215 → 1 − 1/√2 ≈ 0.2929; flower graph eigenvalues ±i → −1 (period two).
+  The new values are those of the paper's supplementary material and of the
+  thesis (computed there without virtual vertices).
+- Entropy / IPR per level of the closed bow tie differ by ≤ 4e-6 (eigenvectors
+  at roots refined to ~1e-9, now from a smaller matrix).
+
 ## 1.0.0 — 2026-10-29
 
 Last version with the v1 API (`port_map` input, virtual vertices, historical

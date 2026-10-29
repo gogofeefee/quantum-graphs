@@ -61,13 +61,11 @@ L_ring = 2.0 * np.pi * R
 
 vertex_positions = [(0.0, 0.0)]
 
-port_map = [
-    [None, (0, 3), None, (0, 1)],
-]
+# Bond (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L (um)
+bonds = [(0, 1, 0, 3, L_ring)]
 
-lengths = {
-    tuple(sorted([(0, 1), (0, 3)])): L_ring,
-}
+# External leads (vertex, port), numbered in this order in the S-matrix
+leads = [(0, 0), (0, 2)]
 
 lead_orientations = {
     (0, 0): -150.0,
@@ -119,8 +117,8 @@ C_external       = 0.3
 
 graph = DirectionalGraphs(
     vertex_positions  = vertex_positions,
-    port_map          = port_map,
-    lengths           = lengths,
+    bonds             = bonds,
+    leads             = leads,
     internal_coupling = C_internal,
     external_coupling = C_external,
     neff              = neff,

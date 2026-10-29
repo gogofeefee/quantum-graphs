@@ -3,7 +3,7 @@
 Template for a new study — copy this file into your own folder and edit it.
 
 1. Describe the graph once (section 1): vertex positions (drawing only),
-   port connections and bond lengths in µm.
+   bonds (port connections and lengths in µm).
 2. Choose the physics (section 2): effective index, couplers, window.
 3. Run any of the analyses below; every expensive result is cached next to
    this script (``<name>/<parameters>/``) together with a ``.meta.json``
@@ -23,20 +23,19 @@ import quantum_graphs as qg
 # ============================================================================
 #  1. Graph
 # ============================================================================
-#  port_map[i][p] = (j, q): port p of vertex i <-> port q of vertex j (both ways).
+#  Bonds (i, p, j, q, L): port p of vertex i <-> port q of vertex j, length L in µm
+#  (L may be omitted: Euclidean distance between the two vertices).
 #  Directional couplers: ports (0, 1) = one arm, (2, 3) = the other arm.
-#  None = external lead (open graphs only). Lengths: one entry per bond, µm.
+#  Every port carries exactly one bond end (or one lead, for open graphs).
 #  Multiple bonds and self-loops are allowed.
 
 layout = dict(
     vertex_positions=[(0.0, 0.0), (100.0, 0.0), (50.0, 80.0)],
-    port_map=[
-        [(1, 0), (2, 0), (1, 2), (2, 2)],      # vertex 0
-        [(0, 0), (2, 1), (0, 2), (2, 3)],      # vertex 1
-        [(0, 1), (1, 1), (0, 3), (1, 3)],      # vertex 2
+    bonds=[
+        (0, 0, 1, 0, 103.0), (0, 2, 1, 2, 187.0),    # two bonds between vertices 0 and 1
+        (0, 1, 2, 0, 131.0), (0, 3, 2, 2, 211.0),    # two bonds between vertices 0 and 2
+        (1, 1, 2, 1, 97.0), (1, 3, 2, 3, 163.0),     # two bonds between vertices 1 and 2
     ],
-    lengths={((0, 0), (1, 0)): 103.0, ((0, 1), (2, 0)): 131.0, ((0, 2), (1, 2)): 187.0,
-             ((0, 3), (2, 2)): 211.0, ((1, 1), (2, 1)): 97.0, ((1, 3), (2, 3)): 163.0},
 )
 # Ready-made alternatives: qg.layouts.flower_graph(), qg.layouts.bow_tie_graph(open=True), ...
 
@@ -70,9 +69,13 @@ if True:
 # ============================================================================
 
 if False:
-    open_layout = dict(layout)
-    open_layout["port_map"] = [list(ports) for ports in layout["port_map"]]
-    # ... replace two connections by None (and remove their lengths) ...
+    # an access coupler (vertex 3) inserted on bond (0, 0, 1, 0), leads on its ports 0 and 2
+    open_layout = dict(
+        vertex_positions=layout["vertex_positions"] + [(50.0, -40.0)],
+        bonds=[(0, 0, 3, 1, 60.0), (3, 3, 1, 0, 43.0)] + layout["bonds"][1:],
+        leads=[(3, 0), (3, 2)],
+        lead_orientations={(3, 0): -150.0, (3, 2): -30.0},    # drawing only
+    )
     o = qg.OpenDirectionalGraphs(**open_layout, internal_coupling=0.5, external_coupling=0.3,
                                  **physics, name="my_graph_open")
     resonances, _ = o.find_resonances(N_re=200_000, N_im=15, im_min=-1e-4, im_max=0.0)
