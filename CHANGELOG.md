@@ -1,12 +1,18 @@
 # Changelog
 
-## Unreleased (2.0.0)
+## 2.0.0 — 2026-10-29
 
 Breaking change of the API (scripts written for 1.0.0 keep working on the tag
-`v1.0.0`). Physics unchanged: spectra, degeneracies, S-matrices, resonances,
-secular determinants, spectral statistics, entropy / IPR and periodic-orbit
-catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
-`tests/test_regression.py`), with matrices up to 4× smaller.
+`v1.0.0`). The model is the same; the results change only where listed
+under "changes results" below: closed spectra are complete and accurate to
+~1e-15 µm⁻¹ (levels moved by ≤ 6e-8; levels lost by the old search with a
+dispersive index are found), the classical step is one bond traversal
+(bow-tie spectral gap 1 − 1/√2), resonances stay inside the search rectangle
+and the widths of dispersive resonances follow the group index. Spectra and
+resonances are found by eigenphase crossings and Newton's method instead of
+grid scans (10–100× faster), sector by sector, and the bond matrices are up
+to 4× smaller (no virtual vertices). The successive reference data sets and
+the tests that pin their differences are in `tests/test_regression.py`.
 
 ### Changed (API)
 - **Graphs are described by a bond list**: `bonds=[(i, p, j, q, L), ...]`

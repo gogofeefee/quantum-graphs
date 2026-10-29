@@ -24,7 +24,7 @@ Options: ``set_options(verbose=False, show=False)`` (or the ``options``
 context manager) silences messages and ``plt.show()``.
 """
 
-__version__ = "2.0.0.dev0"
+__version__ = "2.0.0"
 
 from .core.config import get_option, options, set_options
 from .core.vertices import directional_coupler_matrix, neumann_matrix, PASS_THROUGH
