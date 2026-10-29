@@ -6,9 +6,9 @@ Random-matrix-theory reference curves.
 * :func:`sigma2_rmt` — number variance Σ²(L).
 * :func:`delta3_rmt` — spectral rigidity Δ₃(L).
 
-For Σ² and Δ₃ the Poisson case is analytic (Σ² = L, Δ₃ = L/15). The GOE and
-GUE curves are tabulated values computed by Barbara Dietz; the GSE curves come
-from the tables ``*_RP_model_N65536_gamma_0.9_GSE.txt``. Tables are
+For Σ² and Δ₃ the Poisson case is analytic (Σ² = L, Δ₃ = L/15). The GOE, GUE
+and GSE curves are tabulated values computed by Barbara Dietz (GSE: tables
+``*_RP_model_N65536_gamma_0.9_GSE.txt``). Tables are
 interpolated with cubic splines and return NaN outside their range
 (0 ≤ L ≤ 30 except Σ² GUE up to 240 and Σ² GSE from 0.2; see ``table_range``).
 

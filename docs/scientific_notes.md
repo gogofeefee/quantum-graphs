@@ -259,9 +259,9 @@ computed on the virtualised half-bonds, from one arbitrary eigenvector.
 * Open graphs: the null space of I − U_b(k) at a resonance has the
   multiplicity found by `find_resonances` (§4); a nearly degenerate pair of
   resonances closer than the threshold is treated as one degenerate level.
-* Change of values (paper BTG, tl = 85 µm, closed model, 110 levels in
-  1520–1540 nm): S_norm 0.892 ± 0.036 on the 14 half-bonds →
-  0.888 ± 0.037 on the 10 physical bonds; IPR 1.55 → 1.52. For a graph
+* Paper BTG (tl = 85 µm, closed model, 110 levels in 1520–1540 nm):
+  S_norm = 0.89 ± 0.04; going from half-bonds to physical bonds changes
+  S_norm and the IPR by less than their error bars. For a graph
   whose bonds are all split in two (closed flower graph),
   S(half-bonds) = S(physical) + ln 2 exactly.
 * Before 2026-10-24 `compute_wavefunction` returned the complex conjugate of

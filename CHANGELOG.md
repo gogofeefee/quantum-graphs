@@ -287,8 +287,9 @@ running on this tag (`pip install git+https://github.com/gogofeefee/quantum-grap
   For a degenerate level (or a resonance whose null space has dimension > 1)
   the diagonal of the eigenspace projector is used instead of one arbitrary,
   LAPACK-dependent eigenvector, and each level counts once. Paper BTG
-  (tl = 85 µm, 1520–1540 nm): ⟨S_norm⟩ 0.892 → 0.888, ⟨IPR⟩ 1.55 → 1.52;
-  graphs without self-loops or multiple bonds are unchanged. See
+  (tl = 85 µm, 1520–1540 nm): ⟨S_norm⟩ = 0.89 ± 0.04 (the change is well
+  within the error bar); graphs without self-loops or multiple bonds are
+  unchanged. See
   docs/scientific_notes.md §5. S_norm is NaN (was 0) for a single bond.
 
 ### Added

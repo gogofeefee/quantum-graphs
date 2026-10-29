@@ -306,8 +306,8 @@ organised and how to extend it.
 
 ## Acknowledgements
 
-The GOE and GUE reference tables for Σ²(L) and Δ₃(L) were computed by
-Barbara Dietz.
+The GOE, GUE and GSE reference tables for Σ²(L) and Δ₃(L) were computed by
+Barbara Dietz, who agreed to their distribution with this package.
 
 ## References
 
