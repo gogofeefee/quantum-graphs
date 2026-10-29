@@ -7,6 +7,9 @@ BowTieGraph — periodic-orbit enumeration
 Same closed graph as examples/closed_graphs/BowTieGraph (five 4-port
 directional couplers, 10 bonds, two of them doubled).
 
+Geometry of a fabricated silicon device: H. Girin et al., "Graphs on chip:
+a silicon photonics platform", arXiv:2605.12538 (2026).
+
 Every real vertex is a directional coupler: a ray entering on one arm
 (ports 0, 1) leaves on the other arm (ports 2, 3) and vice versa, so the
 periodic orbits follow from the topology and the bond lengths alone (no

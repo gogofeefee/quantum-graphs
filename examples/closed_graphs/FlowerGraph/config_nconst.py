@@ -15,7 +15,9 @@ flower:
 
 The vertex positions and bond lengths below are those of a fabricated
 silicon device (typical length 65 um, coupler length 3.5 um), written out
-explicitly; the vertex positions are only used for drawing.
+explicitly (device of H. Girin et al., "Graphs on chip: a silicon
+photonics platform", arXiv:2605.12538, 2026); the vertex positions are
+only used for drawing.
 
 Multiple bonds between the same pair of vertices are ordinary bonds of the
 list, drawn as arcs; ``bond_spacing`` only controls how far apart they are
@@ -130,8 +132,8 @@ if True:
 #  2. Spectrum
 # ============================================================================
 
-# ~1600 eigenvalues in this window. The first run takes ~9 minutes; the
-# result is then cached and re-loaded instantly.
+# ~1600 eigenvalues in this window, found in a few seconds; the result is
+# cached and re-loaded instantly afterwards.
 spectrum, degeneracies = graph.compute_spectrum(
     show_progress = True,
     save_spectrum = True,

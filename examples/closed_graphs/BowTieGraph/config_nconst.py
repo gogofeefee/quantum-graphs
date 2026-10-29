@@ -14,7 +14,9 @@ other pairs by a single bond:
 
 The vertex positions and bond lengths below are those of a fabricated
 silicon device (typical length 85 um, coupler length 2.5 um), written out
-explicitly; the vertex positions are only used for drawing. The measured
+explicitly (device of H. Girin et al., "Graphs on chip: a silicon
+photonics platform", arXiv:2605.12538, 2026); the vertex positions are
+only used for drawing. The measured
 device also has a sixth, access coupler connected to two input/output leads:
 see examples/open_graphs/BowTieGraph for the open version of the same graph.
 Here the access coupler is removed and its two bonds are merged into the
@@ -124,8 +126,8 @@ if True:
 #  2. Spectrum
 # ============================================================================
 
-# ~1600 eigenvalues in this window. The first run takes ~6 minutes; the
-# result is then cached and re-loaded instantly.
+# ~1600 eigenvalues in this window, found in a few seconds; the result is
+# cached and re-loaded instantly afterwards.
 spectrum, degeneracies = graph.compute_spectrum(
     show_progress = True,
     save_spectrum = True,

@@ -29,3 +29,6 @@ examples/**/*.csv
 examples/**/*.log
 examples/**/*.mp4
 examples/**/*.gif
+
+# Test coverage data
+.coverage

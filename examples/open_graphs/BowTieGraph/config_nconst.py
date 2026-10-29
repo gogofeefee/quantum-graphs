@@ -14,8 +14,10 @@ and 2 of the access coupler are external leads (``leads``):
     6 vertices, 11 bonds, 2 leads, total internal length L_tot = 1597.07 um.
 
 The vertex positions and bond lengths are those of a fabricated silicon
-device (typical length 85 um, coupler length 2.5 um), written out explicitly;
-the vertex positions are only used for drawing.
+device (typical length 85 um, coupler length 2.5 um), written out explicitly
+(device of H. Girin et al., "Graphs on chip: a silicon photonics
+platform", arXiv:2605.12538, 2026); the vertex positions are only used for
+drawing.
 
 Model
 -----
@@ -25,7 +27,8 @@ Model
 Analysis pipeline (each section is guarded by ``if True`` — flip to disable):
     1. Graph topology plot
     2. Loss estimation (sets the imaginary part of k used for S(k))
-    3. Complex resonances (poles of S) from a 2D scan of σ_min(I − U(k))
+    3. Complex resonances (poles of S): Newton's method, completeness
+       certified by the argument principle
     4. Resonances detected on the transmission |S_10|² ("experimental" method)
     5. S-matrix: amplitude, amplitude + phase, Fourier transform, length
        spectrum, complex-plane trajectory
@@ -33,9 +36,8 @@ Analysis pipeline (each section is guarded by ``if True`` — flip to disable):
     7. Resonance wavefunctions, entropy and IPR of every resonance
     8. Spectral statistics: staircase, NNSD, Σ²/Δ₃
 
-Runtime: ~10-15 minutes on one CPU core the
-first time; every expensive result is cached next to this script and
-re-loaded instantly afterwards.
+Runtime: ~20 s the first time; every expensive result is cached next to
+this script and re-loaded instantly afterwards.
 """
 
 # ============================================================================

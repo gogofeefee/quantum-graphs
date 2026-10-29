@@ -137,12 +137,24 @@ from them; same levels and multiplicities). When a change of results is intended
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 
+## Documentation
+
+* `README.md` (user guide and gallery), `docs/api.md` (one table per public
+  class and module), `docs/scientific_notes.md` (conventions, algorithms),
+  this file, `CHANGELOG.md`.
+* The figures of the README are made by `python docs/make_figures.py` (about
+  ten seconds) from the public API and written to `docs/images/`. Run it
+  again after a change of results or of the figure style, and update
+  `docs/api.md` with any change of the public API.
+
 ## Legacy import names
 
-Scripts written before 1.0 import `closed_graphs`, `open_graphs`,
-`classical_graphs`, `periodic_orbits` (top level) or `sigma2_RMT` /
-`delta3_RMT`. On the author's machine, small shim packages at the historical
-locations (`ClosedGraphs/closed_graphs/`, ..., `wigner/`, not versioned) alias
-them to a frozen copy of the tag `v1.0.0` (the 2.0 API is not compatible).
-Elsewhere, install `v1.0.0` for such scripts, or port them to the 2.0 API
-(`CHANGELOG.md`).
+Version 2.0 changed the API (bond lists instead of port maps, no virtual
+vertices, new method names: see `CHANGELOG.md`). Scripts written for 1.x run
+on the tag `v1.0.0`
+(`pip install git+https://github.com/gogofeefee/quantum-graphs@v1.0.0`), or
+can be ported to the 2.0 API. Older scripts that import the pre-1.0
+top-level names `closed_graphs`, `open_graphs`, `classical_graphs`,
+`periodic_orbits`, `sigma2_RMT` or `delta3_RMT` run on that tag once these
+imports point to `quantum_graphs.closed_graphs`, ...,
+`quantum_graphs.stats.rmt`.

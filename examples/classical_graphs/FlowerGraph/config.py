@@ -9,6 +9,9 @@ directional couplers, C = 0.5, each neighbouring pair joined by two bonds),
 used here for the classical (ray / probability-flow) dynamics instead of the
 quantum spectrum.
 
+Geometry of a fabricated silicon device: H. Girin et al., "Graphs on chip:
+a silicon photonics platform", arXiv:2605.12538 (2026).
+
 The Perron-Frobenius operator P = |Σ_αα|² acts on probability vectors ρ
 defined on the directed bonds; ρ_{n+1} = P ρ_n conserves total probability.
 

@@ -335,8 +335,9 @@ class SpectralPlotsMixin:
                              ignore_zero_peak=True, zero_window_um=None,
                              save_fig=False, file_format="pdf", show=None):
         """
-        Length spectrum ρ̂(ℓ) = |Σ_j exp(−i k_j n_eff(Re k_j) ℓ)| (periodic-orbit
-        lengths ℓ = n_eff × geometric length).
+        Length spectrum ρ̂(ℓ) = |Σ_j exp(−i k_j n_eff(Re k_j) ℓ)|, with peaks at
+        the geometric lengths ℓ of the periodic orbits (the optical length is
+        n_eff ℓ).
 
         Parameters
         ----------

@@ -64,7 +64,11 @@ def tetrahedron():
 def flower_graph(open=False):
     """Five directional couplers on a pentagon, each neighbouring pair joined by two
     bonds (L_tot = 1599.62 µm). ``open=True`` adds the access coupler (vertex 0)
-    of the fabricated device, with leads on its ports 0 and 2."""
+    of the fabricated device, with leads on its ports 0 and 2.
+
+    Silicon device of H. Girin et al., "Graphs on chip: a silicon photonics
+    platform", arXiv:2605.12538 (2026).
+    """
     if open:
         return dict(
             vertex_positions=[(0.000, -93.744), (0.000, 73.539), (-64.244, 20.874),
@@ -92,7 +96,11 @@ def flower_graph(open=False):
 def bow_tie_graph(open=False):
     """Five directional couplers, 10 bonds of which two are doubled
     (L_tot = 1597.07 µm). ``open=True`` adds the access coupler (vertex 0) of
-    the fabricated device, with leads on its ports 0 and 2."""
+    the fabricated device, with leads on its ports 0 and 2.
+
+    Silicon device of H. Girin et al., "Graphs on chip: a silicon photonics
+    platform", arXiv:2605.12538 (2026).
+    """
     if open:
         return dict(
             vertex_positions=[(0.000, -91.942), (0.000, 0.000), (83.283, 48.083),

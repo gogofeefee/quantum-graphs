@@ -1,11 +1,20 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
+type: software
 title: "quantum-graphs: quantum graphs of photonic waveguide networks"
+abstract: >-
+  Python tools to simulate quantum graphs (networks of one-dimensional
+  waveguides joined at vertices) in the vertex scattering-matrix formalism:
+  spectra and eigenmodes of closed graphs, scattering matrices and resonances
+  of open graphs, spectral statistics compared with random-matrix theory,
+  classical ray dynamics and periodic orbits. Written to model integrated
+  photonic circuits of waveguides and directional couplers.
 authors:
   - family-names: Girin
     given-names: Hugo
     affiliation: "Centre de Nanosciences et de Nanotechnologies (C2N), Université Paris-Saclay"
-version: 1.0.0.dev0
+    orcid: "https://orcid.org/0009-0000-5449-9917"
+version: 2.0.0.dev0
 license: MIT
 repository-code: "https://github.com/gogofeefee/quantum-graphs"
 keywords:
@@ -13,3 +22,32 @@ keywords:
   - quantum chaos
   - integrated photonics
   - random matrix theory
+  - scattering matrix
+  - periodic orbits
+references:
+  - type: article
+    title: "Graphs on chip: a silicon photonics platform"
+    authors:
+      - family-names: Girin
+        given-names: H.
+      - family-names: Chécoury
+        given-names: X.
+      - family-names: Odouard
+        given-names: B.
+      - family-names: Bittner
+        given-names: S.
+      - family-names: Coudevylle
+        given-names: J.-R.
+      - family-names: Dietz
+        given-names: B.
+      - family-names: Lafargue
+        given-names: C.
+      - family-names: Lebental
+        given-names: M.
+    year: 2026
+    url: "https://arxiv.org/abs/2605.12538"
+    identifiers:
+      - type: doi
+        value: 10.48550/arXiv.2605.12538
+        description: arXiv:2605.12538
+    notes: "Silicon photonic graphs simulated with this software (flower and bow-tie graphs)."

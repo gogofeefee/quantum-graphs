@@ -277,6 +277,23 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   two partner sectors (`graph.sectors`): every level is doubly degenerate and
   the desymmetrised spectrum (1909 levels in 0.8–2.0 µm) follows the GUE.
 
+### Documentation
+- README rewritten as a user guide: a figure of the four points of view, a
+  gallery (closed graphs, spectral statistics and sectors, open graphs,
+  classical dynamics, periodic orbits) with the corresponding calls, every
+  snippet checked to run. Figures made by `docs/make_figures.py` from the
+  public API (`docs/images/`).
+- `docs/api.md`: one table per public class and module (what each method
+  does and returns), result objects (`Topology`, `Sectors`, `ZeroCount`),
+  orbit records.
+- Citing: `CITATION.cff` (software, with the paper that used it under
+  `references`) and a README section; the flower and bow-tie examples and
+  layouts cite their device (arXiv:2605.12538).
+- Corrected: the bow-tie classical spectral gap is 1 − 1/√2 ≈ 0.29 (README
+  table said 0.12, the value of the 1.x half-bond step); the length spectrum
+  peaks at the geometric orbit lengths (docstring said optical); example
+  run times (every example now runs in less than a minute).
+
 ## 1.0.0 — 2026-10-29
 
 Last version with the v1 API (`port_map` input, virtual vertices, historical
