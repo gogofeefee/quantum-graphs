@@ -14,8 +14,10 @@ two such files with physically meaningful tolerances.
 published before the 2026-10 refactor), ``reference_v1``-``v3`` with the v1 API
 (``port_map`` + virtual vertices, tag v1.0.0), ``reference_v4`` with
 the bond-list API (no virtual vertices), ``reference_v5`` with the sector
-analysis (statistics on the desymmetrised spectrum), ``reference_v6`` and later
-with the bounded resonance refinement and the argument-principle count.
+analysis (statistics on the desymmetrised spectrum), ``reference_v6`` with the
+bounded resonance refinement and the argument-principle count, ``reference_v7``
+and later with the Newton resonance search and the first-order continuation of
+a dispersive index off the real axis.
 
 Only quantities that do not depend on internal ordering conventions are
 stored as raw arrays (spectra, S-matrix entries, eigenvalues, sorted bond
@@ -187,7 +189,7 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
 
 def run_open():
     k_probe = [4.0 - 1e-5j, 4.05 + 0.0j, 4.1003 - 3e-6j]
-    res_small = dict(N_re=40_000, N_im=8, im_min=-3e-4, im_max=0.0)
+    res_small = dict(im_min=-3e-4, im_max=0.0)
 
     g = OpenDG(**G.RING_1ACCESS, couplings=0.5,
                access_couplings=0.3, neff=2.41, wavelength_range=(1.54, 1.56),
@@ -205,12 +207,15 @@ def run_open():
     for name, geom in (("flower", G.FG_OPEN), ("bowtie", G.BTG_OPEN)):
         g = OpenDG(**geom, couplings=0.5, access_couplings=0.3, neff=3.97,
                    wavelength_range=(1.550, 1.552), name=f"ref_open_{name}", save_path=tmp("o" + name))
-        open_case(f"open/{name}", g, k_probe, dict(N_re=8_000, N_im=8, im_min=-1e-4, im_max=0.0))
+        open_case(f"open/{name}", g, k_probe, dict(im_min=-1e-4, im_max=0.0))
 
     g = OpenDG(**G.FG_OPEN, couplings=G.coupling_dispersive, access_couplings=0.3,
                neff=G.neff_dispersive, wavelength_range=(1.550, 1.552), name="ref_open_flower_disp",
                save_path=tmp("ofd"))
     store("open/flower_dispersive", S=np.array([g.S(k) for k in k_probe]))
+    if hasattr(g, "_complex_k_params"):                     # reference_v7 and later
+        spectrum, deg = g.find_resonances(im_min=-2e-4, im_max=0.0, verbose=False)
+        store("open/flower_dispersive", resonances=spectrum, degeneracies=deg)
 
 
 # ---------------------------------------------------------------------------

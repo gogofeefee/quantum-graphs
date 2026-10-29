@@ -14,12 +14,13 @@ merged by a search.
 
 Dispersion
 ----------
-The propagation phases are k n_eff(Re k) L, not holomorphic when n_eff
-depends on k. They are F(φ(k)) with F holomorphic and
-φ(x + iy) = (x + iy) n_eff(x) a map of Jacobian n_eff n_g > 0, so the winding
-still counts every zero of the function the search actually solves, with its
-multiplicity (topological degree). The same argument holds for vertex
-matrices σ(Re k) that vary slowly over the width of a resonance.
+A dispersive n_eff is continued to first order off the real axis
+(:mod:`.scattering`): the phase φ(x + iy) = (x + iy)(n_eff(x) + iy n_eff'(x))
+is holomorphic up to terms of order y n_eff'', and the map k ↦ φ has the
+Jacobian n_g² + O(y) > 0, so the winding (topological degree) counts every
+zero of the function the search actually solves, with its multiplicity. The
+same argument holds for vertex matrices σ(Re k) that vary slowly over the
+width of a resonance.
 
 Sampling
 --------
@@ -31,7 +32,7 @@ near the contour turns the phase by ≈ 2π within one interval, which the
 first condition cannot see; |d log det/dk| ≈ m / distance near a zero of
 multiplicity m forces the bisection down to its scale. The initial density
 resolves the phase advance of the longest term of the determinant,
-Σ_d n_eff L_d per unit of k. Sharing the bottom and top edges, the
+Σ_d n_g L_d per unit of k. Sharing the bottom and top edges, the
 sub-rectangles between vertical ``cuts`` are counted for the price of their
 vertical edges, which localises a discrepancy with a search.
 """
@@ -40,7 +41,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .scattering import index_function
 
 #: largest phase change of det(I − U) allowed between two samples
 MAX_PHASE_STEP = np.pi / 8
@@ -128,9 +128,9 @@ def _phase_increments(model, z, max_step, max_points):
 
 def _phase_rate(model, k_min, k_max):
     """Largest phase advance per unit of k of the terms of det(I − U):
-    Σ_d n_eff L_d (maximum of n_eff over the window)."""
-    n = index_function(model.neff, np.linspace(k_min, k_max, 16))
-    return float(np.max(np.abs(n)) * np.sum(model.lengths))
+    Σ_d n_g L_d (maximum of n_g over the window)."""
+    n_g = model.phase_rate(np.linspace(k_min, k_max, 16))
+    return float(np.max(np.abs(n_g)) * np.sum(model.lengths))
 
 
 def count_zeros(model, k_min, k_max, im_min, im_max, cuts=(),

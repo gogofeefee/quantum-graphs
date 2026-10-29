@@ -57,7 +57,7 @@ def test_reference_data_set_is_reproduced(tmp_path):
     env = dict(os.environ, MPLBACKEND="Agg")
     subprocess.run([sys.executable, os.path.join(REF, "generate_reference.py"), str(out)],
                    check=True, env=env, capture_output=True)
-    problems = compare(np.load(os.path.join(REF, "reference_v6.npz")), np.load(out))
+    problems = compare(np.load(os.path.join(REF, "reference_v7.npz")), np.load(out))
     assert not problems, "\n".join(problems)
 
 
@@ -122,3 +122,26 @@ def test_v5_to_v6_differences_are_the_documented_ones():
     assert len(problems) == len(changed) + len(added)
     for case in ("ring_1access", "ring_2access", "flower", "bowtie"):
         assert v6[f"open/{case}/resonance_count"] == v6[f"open/{case}/degeneracies"].sum()
+
+
+def test_v6_to_v7_differences_are_the_documented_ones():
+    """reference_v6 -> reference_v7: Newton resonance search and first-order
+    continuation of a dispersive index off the real axis. The resonances of the
+    four open cases (constant index) are unchanged (|dk| < 1e-15). With a
+    dispersive index, U(k) at complex k used n_eff(Re k); it now uses
+    n_eff(x) + iy n_eff'(x), so S at the complex probe wavenumbers of the
+    dispersive flower graph changes (3e-4) and its resonances, added, have the
+    widths of the group index (n_eff(Re k) gave Im k larger by n_g / n_eff)."""
+    v6 = np.load(os.path.join(REF, "reference_v6.npz"))
+    v7 = np.load(os.path.join(REF, "reference_v7.npz"))
+    problems = compare(v6, v7)
+    changed = {line.split(":")[1].strip() for line in problems if line.startswith("VALUE")}
+    added = {line.split(":")[1].strip() for line in problems if line.startswith("EXTRA")}
+    assert changed == {"open/flower_dispersive/S"}
+    assert added == {"open/flower_dispersive/resonances", "open/flower_dispersive/degeneracies"}
+    assert len(problems) == len(changed) + len(added)
+    # the real-axis probe of S is unchanged
+    assert np.allclose(v6["open/flower_dispersive/S"][1], v7["open/flower_dispersive/S"][1],
+                       atol=1e-13)
+    for case in ("ring_1access", "ring_2access", "flower", "bowtie"):
+        assert np.max(np.abs(v6[f"open/{case}/resonances"] - v7[f"open/{case}/resonances"])) < 1e-15

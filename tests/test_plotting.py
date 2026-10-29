@@ -40,7 +40,7 @@ def test_open_plots(save):
                                  access_couplings=0.3, neff=3.97, wavelength_range=(1.550, 1.553),
                                  **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True)
-    g.find_resonances(N_re=6_000, N_im=6, im_min=-1e-4, im_max=0.0, plot=True)
+    g.find_resonances(im_min=-1e-4, im_max=0.0, plot=True)
     g.find_experimental_resonances(n_points=20_000, k_imag=2e-7, amp_threshold=0, plot=True)
     kw = dict(lambda_min=1.550, lambda_max=1.553, n_points=3000, components=(1, 0), k_imag=2e-6,
               save_fig=True)

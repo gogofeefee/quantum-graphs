@@ -147,15 +147,50 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   counts below; nothing else changes (flower and bow tie over 1.48–1.64 µm:
   every resonance inside the rectangle identical to ≤ 2e-15).
 
+### Changed (resonance search)
+- **`find_resonances` uses Newton's method instead of the σ_min grid**
+  (`quantum_graphs.core.zero_search`, `find_zeros`), sector by sector (one
+  per pair of reciprocal partners, multiplicity by construction, as
+  `compute_spectrum`): the zeros of det(I − U_s) in the rectangle are counted
+  by the argument principle in sub-windows of ~20 resonances, found by
+  batched Newton iterations on log det(I − U_s) from a lattice of seeds, then
+  by deflation (zeros found divided out) in the sub-windows where fewer are
+  found than counted. Flower graph, 1.48–1.64 µm, im_min = −1e-4: the same
+  828 resonances as the grid search (≤ 1.8e-15) in ~1 s instead of 90 s.
+  Resonances of reference_v6 unchanged (≤ 9e-16).
+- New signature: `find_resonances(im_min, im_max, seeds_per_spacing=4,
+  tol=1e-14, maxiter=100, max_rounds=6, eps_accept=1e-4, nullity_tol,
+  overwrite=False, plot=False, verbose)`. Gone: `N_re`, `N_im`,
+  `peak_prominence`, `neighbor_rows`, `box_re`, `box_im`, `tol_step`,
+  `grid_dtype`, `certify` (the count is part of the search),
+  `overwrite_grid` / `overwrite_refined` / `overwrite_spectrum` (→
+  `overwrite`); no refined-candidate cache; the spectrum cache is
+  `resonances_*.npz`. `plot_resonances_sigma(N_re=None)` sizes its heatmap
+  grid from the mean spacing (20 points per spacing).
+
+### Changed (dispersive index off the real axis, changes results)
+- **A dispersive n_eff is continued to first order at complex k**:
+  n_eff(x + iy) = n_eff(x) + iy n_eff'(x) (`ScatteringModel.index`,
+  `phase_rate`), instead of n_eff(Re k). Resonance widths now follow the
+  group index, Im k ≈ ln t/(n_g L) for a ring, as the real-axis line shape
+  of S does; with n_eff(Re k) they were too large by n_g/n_eff (×1.133 for
+  the dispersive flower graph of the reference set). Re k is unchanged to
+  ~1e-9; nothing changes on the real axis or for a constant index. S(k),
+  σ_min heatmaps and transmission caches at complex k (k_imag ≠ 0) of
+  dispersive graphs change accordingly; their caches carry the parameter
+  `index_continuation` and older ones are recomputed. reference_v7: S of the
+  dispersive flower graph at the complex probe wavenumbers (3e-4) and its
+  resonances (added).
+
 ### Added
 - **Completeness certificate for resonances**
   (`quantum_graphs.core.argument_principle`): `count_zeros(model, ...)` counts
   the zeros of det(I − U) in a rectangle of the complex k-plane, with
   multiplicity, by the argument principle on an adaptively sampled contour,
-  in sub-rectangles if `cuts` are given (`ZeroCount`). `find_resonances(...,
-  certify=True)` counts every independent sector in sub-windows of ~20
-  resonances and warns where the count differs from the roots found (missed
-  or merged roots, wrong multiplicity); the counts are stored in
+  in sub-rectangles if `cuts` are given (`ZeroCount`). `find_resonances`
+  counts every independent sector in sub-windows of ~20 resonances and warns
+  where the count differs from the roots found (missed roots, wrong
+  multiplicity); the counts are stored in
   `graph.resonance_counts` and in the spectrum cache, and the warnings come
   back when it is loaded. `graph.count_resonances(im_min, im_max, sector=None,
   cuts=())` gives the count alone (flower graph over 1.48–1.64 µm: 0.4 s).
@@ -164,9 +199,6 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   falls short of the Weyl law of the sector (all Im k) by more than
   max(5 %, 3), i.e. when broader resonances lie below im_min (skipped for a
   non-Weyl sector, det Σ_s = 0).
-- Caches of refined resonance candidates and spectra written before this
-  change are recomputed (parameters `refinement`, `certify`); σ_min grids are
-  reused.
 
 ## 1.0.0 — 2026-10-29
 

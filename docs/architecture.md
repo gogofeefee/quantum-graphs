@@ -15,11 +15,16 @@ quantum_graphs/
     vertices.py        directional_coupler_matrix, neumann_matrix, PASS_THROUGH,
                        couplings_for_vertices, shape / unitarity validation
     scattering.py      ScatteringModel: D(k), Σ blocks (constant ones cached), U(k),
-                       batched sigma_min_many / log_det_many / S_many (threaded),
+                       n_eff continued to first order off the real axis (index,
+                       phase_rate), batched sigma_min_many / singular_values_many /
+                       log_det_many / S_many (threaded),
                        internal_amplitudes, model.sector(directed) (U restricted to a
                        sector), NULLITY_TOL
     argument_principle.py  count_zeros -> ZeroCount: zeros of det(I − U) in a rectangle
                        of the complex k-plane and its sub-rectangles (adaptive contour)
+    zero_search.py     find_zeros -> ZeroSearch: the zeros themselves (batched Newton on
+                       log det(I − U) from a lattice of seeds, deflation until the
+                       count of each sub-rectangle is reached)
     sectors.py         find_sectors: strongly connected components of the pattern of Σ,
                        reversed partners, expected ensemble (graph.sectors)
     spectral_stats.py  SpectralStatsMixin (closed and open): selected levels, Weyl law
@@ -114,7 +119,10 @@ specific to their point of view.
   the bond lists without virtual vertices, reference_v5 the sector structure
   (`test_v4_to_v5_...`, nothing else changed), reference_v6 the bounded
   resonance refinement (the two ring resonance sets, which v5 got wrong) and
-  the argument-principle counts (`test_v5_to_v6_...`). When a change of results is intended,
+  the argument-principle counts (`test_v5_to_v6_...`), reference_v7 the
+  Newton resonance search and the continuation of a dispersive index off the
+  real axis (`test_v6_to_v7_...`: only the dispersive S at complex k changes,
+  and the dispersive resonances are added). When a change of results is intended,
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 

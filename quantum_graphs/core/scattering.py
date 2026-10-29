@@ -4,7 +4,13 @@ Bond scattering model: propagation D(k), vertex blocks Σ(k), U(k), S(k).
 Notation (Kottos-Smilansky / Gnutzmann-Smilansky)
 --------------------------------------------------
 * α = directed bonds (2B of them, numbered as in :mod:`.topology`), β = leads.
-* ``D(k)`` diagonal, ``D_bb = exp(i k n_eff(Re k) L_b)``.
+* ``D(k)`` diagonal, ``D_bb = exp(i k n_eff(k) L_b)``. A dispersive n_eff is
+  given on the real axis; at complex k = x + iy it is continued to first
+  order, n_eff(x + iy) = n_eff(x) + iy n_eff'(x), so that D is holomorphic
+  up to O(y² n_eff'') and a resonance k = x + iy has the width set by the
+  group index, Im k ≈ ln|t| / (n_g L) for a ring of round-trip transmission
+  t (with n_eff(Re k) it would be ln|t| / (n_eff L)). The vertex matrices
+  σ(k) are evaluated at Re k.
 * ``Σ_αα[b', b]`` = σ_v[port where b' leaves v, port where b arrives at v].
   ``Σ_αβ`` (lead -> bond), ``Σ_βα`` (bond -> lead), ``Σ_ββ`` (lead -> lead)
   are the other blocks of the vertex matrices.
@@ -125,10 +131,24 @@ class ScatteringModel:
     # -- propagation ----------------------------------------------------------
 
     def phases(self, k):
-        """exp(i k n_eff(Re k) L_b) for scalar k (shape (n,)) or an array of k (shape (m, n))."""
+        """exp(i k n_eff(k) L_b) for scalar k (shape (n,)) or an array of k (shape (m, n))."""
         k = np.asarray(k, dtype=complex)
-        n_eff = index_function(self.neff, np.real(k))
-        return np.exp(1j * (k * n_eff)[..., None] * self.lengths)
+        return np.exp(1j * (k * self.index(k))[..., None] * self.lengths)
+
+    def index(self, k):
+        """n_eff at (complex) k: n_eff(x) + iy n_eff'(x) for k = x + iy (module docstring)."""
+        k = np.asarray(k, dtype=complex)
+        n = index_function(self.neff, np.real(k))
+        if not callable(self.neff) or not np.any(np.imag(k)):
+            return n
+        return n + 1j * np.imag(k) * self._index_slope(np.real(k))
+
+    def _index_slope(self, x):
+        """n_eff'(x) at real x (central differences; 0 for a constant index)."""
+        if not callable(self.neff):
+            return np.zeros(np.shape(x))
+        h = 1e-6 * np.maximum(np.abs(x), 1.0)
+        return (index_function(self.neff, x + h) - index_function(self.neff, x - h)) / (2 * h)
 
     def D(self, k):
         return np.diag(self.phases(k))
@@ -147,6 +167,11 @@ class ScatteringModel:
     def singular_values(self, k):
         """Singular values of I − U(k), in decreasing order."""
         return np.linalg.svd(np.eye(self.n) - self.U(k), compute_uv=False)
+
+    def singular_values_many(self, ks):
+        """Singular values of I − U(k) for an array of k, shape (m, n), decreasing."""
+        ks = np.atleast_1d(np.asarray(ks, dtype=complex))
+        return np.linalg.svd(np.eye(self.n) - self._U_many(ks), compute_uv=False)
 
     def nullity(self, k, tol=NULLITY_TOL):
         """Number of singular values of I − U(k) at or below ``tol``."""
@@ -183,9 +208,9 @@ class ScatteringModel:
         array of (real or complex) k; −inf where det = 0.
 
         With ``derivative``, returns an array of shape (m, 2) whose second
-        column is d/dk log det(I − U) = −tr((I − U)⁻¹ U'), U' = i n_g L U with
-        n_g = d(k n_eff)/dk at Re k (central differences); the k-dependence of
-        the vertex matrices is neglected (inf where I − U is singular)."""
+        column is d/dk log det(I − U) = −tr((I − U)⁻¹ U'), U' = i (k n_eff)' L U
+        (:meth:`phase_rate`); the k-dependence of the vertex matrices is
+        neglected (inf where I − U is singular)."""
         ks = np.atleast_1d(np.asarray(ks, dtype=complex))
         eye = np.eye(self.n)
 
@@ -199,7 +224,7 @@ class ScatteringModel:
             ok = sign != 0
             try:
                 X = np.linalg.solve(eye - U[ok], U[ok])
-                d[ok] = -1j * self._phase_rate(np.real(kc[ok])) * (
+                d[ok] = -1j * self.phase_rate(kc[ok]) * (
                     np.einsum("mdd,d->m", X, self.lengths))
             except np.linalg.LinAlgError:
                 pass
@@ -207,14 +232,16 @@ class ScatteringModel:
 
         return _map_chunks(work, ks, chunk)
 
-    def _phase_rate(self, k):
-        """n_g(k) = d(k n_eff)/dk at real k (exact for a constant index)."""
-        k = np.asarray(k, dtype=float)
+    def phase_rate(self, k):
+        """d(k n_eff(k))/dk at (complex) k = x + iy: n_g(x) + 2iy n_eff'(x),
+        the derivative of the first-order continuation of the index (n_g at
+        real k; exact for a constant index)."""
+        k = np.asarray(k, dtype=complex)
+        x = np.real(k)
         if not callable(self.neff):
-            return np.full(k.shape, float(self.neff))
-        h = 1e-6 * np.maximum(np.abs(k), 1.0)
-        return ((k + h) * index_function(self.neff, k + h)
-                - (k - h) * index_function(self.neff, k - h)) / (2 * h)
+            return np.full(k.shape, float(self.neff), dtype=complex)
+        slope = self._index_slope(x)
+        return index_function(self.neff, x) + (x + 2j * np.imag(k)) * slope
 
     def S(self, k):
         return self.S_many(np.atleast_1d(k))[0]

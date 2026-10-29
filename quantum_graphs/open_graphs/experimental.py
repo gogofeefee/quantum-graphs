@@ -338,7 +338,8 @@ class ExperimentalMixin:
         S_filename = f"cache_Sij__S{i}{j}__{lam_tag}__{N_tag}__{kim_tag}.npz"
         S_path     = os.path.join(workdir, S_filename)
         S_params   = dict(component=[i, j], wavelength_range=list(self.wavelength_range),
-                          n_points=int(n_points), k_imag=float(k_imag))
+                          n_points=int(n_points), k_imag=float(k_imag),
+                          **(self._complex_k_params() if k_imag else {}))
         res_params = dict(S_params, prominence=prominence, distance=int(distance),
                           amp_threshold=float(amp_threshold),
                           manual_lambda_peaks=sorted(manual_lambda_peaks or []),

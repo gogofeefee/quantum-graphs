@@ -192,22 +192,15 @@ print(f"  Total                k_imag     = {k_imag:.3e} µm⁻¹\n")
 
 if True:
     spectrum, degeneracies = graph.find_resonances(
-        N_re = 1_000_000,
-        N_im = 25,
-        im_min = -2e-4,     # the poles lie at Im k = ln(√(1−C)) / (n L) ≈ −1.2e-4
+        im_min = -2e-4,     # the poles lie at Im k = ln(√(1−C)) / (n_g L), n_g the group index
         im_max =  0.0,
-        peak_prominence = 0.0,
-        neighbor_rows   = 1,
-        box_re   = 3,
-        box_im   = 3,
-        tol_step = 1e-13,
-        maxiter  = 500,
+        seeds_per_spacing = 4,    # Newton seeds per mean spacing of the resonances
+        tol         = 1e-14,
+        maxiter     = 100,
+        max_rounds  = 6,        # deflation rounds
         eps_accept  = 1e-4,
         nullity_tol = 1e-4,
-        grid_dtype         = "float32",
-        overwrite_grid     = False,
-        overwrite_refined  = False,
-        overwrite_spectrum = False,
+        overwrite   = False,
         plot    = True,
         verbose = True,
     )

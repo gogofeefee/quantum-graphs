@@ -44,41 +44,69 @@ refines each strict local minimum by bounded Brent minimisation.
 
 ## 3. Resonances (open graphs)
 
-* `find_resonances` returns the poles inside the rectangle
-  R = [k_min, k_max] × [im_min, im_max], and only those: each grid candidate is
-  refined (L-BFGS-B, then Nelder-Mead) inside a box of ±`box_re` × ±`box_im`
-  grid steps that may cross the edges of R, and roots outside R (beyond 1e-6
-  grid step) are left out, with a warning for those below im_min. Up to the
-  2.0 development version the Nelder-Mead stage was unbounded: on the flower
-  graph (1.48–1.64 µm, im_min = −1e-4) it returned 9 resonances at
-  Im k = −1.004e-4 … −1.050e-4; on the rings of the reference set, whose
-  resonances all lie below im_min, it returned them, plus two roots far
-  outside the window (Re k = 3.456, −0.610), and missed one
-  (reference_v5 → v6). Grid minima in the end columns are now candidates too.
+* **Search** (`core/zero_search.py`, 2.0). `find_resonances` returns the poles
+  inside the rectangle R = [k_min, k_max] × [im_min, im_max], sector by
+  sector (one sector per pair of reciprocal partners, multiplicity known by
+  construction, §4). For each sector the zeros of det(I − U_s) in R are first
+  counted by the argument principle (below), in sub-windows of ~20 resonances.
+  Newton's method on log det, k ← k − 1/(d/dk log det(I − U_s)),
+  d/dk log det = −tr((I − U_s)⁻¹ U_s'), runs batched from a lattice of seeds
+  (4 per mean spacing Δ in Re k and Im k, at least the middle row of R;
+  steps capped at Δ; stop at |step| ≤ 1e-14 |k|); converged points with
+  σ_min ≤ `eps_accept` are zeros, points closer than 1e-6 Δ the same zero.
+  In every sub-window where fewer zeros are found than counted, Newton is run
+  again on det(I − U_s)/Π_i (k − z_i)^{m_i} (deflation: the zeros found repel
+  the iterates) from a lattice twice as dense, up to `max_rounds` rounds.
+  Newton converges quadratically to a simple zero (1e-15) and linearly to a
+  double one. Zeros found below im_min are left out with a warning (the
+  rectangle cuts through the resonances). Benchmark (flower graph, 1.48–1.64
+  µm, im_min = −1e-4): 828 resonances, identical to the 2D grid search of
+  2.0.dev0 (≤ 1.8e-15), in ~1 s instead of 90 s; one seed per 4 Δ still
+  finds all 828 after 3 deflation rounds.
+  History: up to 2.0.dev0 the search minimised σ_min(I − U) on an N_re × N_im
+  grid (L-BFGS-B then Nelder-Mead from every grid minimum) over the whole U,
+  then assigned each root to a sector; close pairs merged below ~2 grid
+  steps. Before reference_v6 the Nelder-Mead stage was unbounded: on the
+  flower graph it returned 9 resonances at Im k = −1.004e-4 … −1.050e-4
+  < im_min; on the rings of the reference set, whose resonances all lie
+  below im_min, it returned them, plus two roots far outside the window
+  (Re k = 3.456, −0.610), and missed one.
+* **Dispersion off the real axis** (2.0, reference_v7). n_eff is given on the
+  real axis; at k = x + iy the model uses n_eff(x) + iy n_eff'(x)
+  (n_eff' by central differences), so that the phase k n_eff L is holomorphic
+  up to O(y n_eff''). A resonance of a ring of round-trip transmission t then
+  has Im k ≈ ln t/(n_g L), the width of the dip of |S| or of the group delay
+  on the real axis (checked: phase slope of S on a dispersive ring gives
+  |Im k| = 7.80e-5 vs ln t/(n_g L) = 7.83e-5). Up to 2.0.dev0 U(k) used
+  n_eff(Re k): Im k ≈ ln t/(n_eff L), too large by n_g/n_eff (×1.133 for the
+  dispersive flower graph of the reference set);
+  Re k is unchanged to ~1e-9. S(k), σ_min and caches at complex k (k_imag ≠ 0)
+  of graphs with a dispersive index change accordingly (cache parameter
+  `index_continuation`). Vertex matrices σ(k) are still evaluated at Re k.
 * **Completeness certificate** (`core/argument_principle.py`, 2.0). The number
   of zeros of det(I − U_s) in R, with multiplicity, is
   (1/2π) Δ arg det(I − U_s) along the boundary of R (argument principle).
-  `find_resonances` counts it for each independent sector (`certify=True`) in
-  sub-windows of ~20 resonances of the Weyl law and warns where it differs
-  from the roots found, so a missed root, two merged roots or a wrong
+  `find_resonances` counts it for each independent sector in sub-windows of
+  ~20 resonances of the Weyl law, drives the deflation with it and warns
+  where it still differs from the zeros found, so a missed zero or a wrong
   multiplicity is detected and located (`graph.resonance_counts`). The
   contour is sampled adaptively: bisection until the phase step and
   h |d log det/dk| are both ≤ π/8 (the second condition catches a double
   zero or a close pair near the contour, which turns the phase by 2π within
   one interval: without it, the single-access ring with the lower edge
   2e-6 below its double poles counted 135 of 200), from 32 samples per 2π of
-  Σ_d n_eff L_d Δk. Flower graph over 1.48–1.64 µm: ~6×10⁴ determinants and
+  Σ_d n_g L_d Δk. Flower graph over 1.48–1.64 µm: ~6×10⁴ determinants and
   log-derivatives, 0.4 s; 828 counted = 828 found for im_min = −1e-4, 837 for
   im_min = −1e-3 (Weyl: 837.2). For im_max ≥ 0 the upper edge is
   raised to im_max + (im_max − im_min)/10 so that real roots (bound states in
   the continuum of a sector without leads) are not on the contour; a passive
-  graph (‖Σ‖ ≤ 1) has no zero with Im k > 0. With a dispersive n_eff(Re k)
-  det(I − U) is not holomorphic, but it is F∘φ with F holomorphic and
-  φ(x + iy) = (x + iy) n_eff(x) orientation-preserving (Jacobian
-  n_eff n_g > 0): the winding is the topological degree and still counts the
-  zeros of the function the search solves, with multiplicity (checked on a
-  dispersive flower graph, and on the single-access ring with the MPB index:
-  198 counted = 198 analytic poles above Im k = −1.2e-4).
+  graph (‖Σ‖ ≤ 1) has no zero with Im k > 0. With a dispersive index
+  det(I − U) is F∘φ with F holomorphic and φ(x + iy) = (x + iy)(n_eff(x) +
+  iy n_eff'(x)) holomorphic up to O(y n_eff''), of Jacobian n_g² + O(y) > 0:
+  the winding is the topological degree and counts the zeros of the function
+  the search solves, with multiplicity (checked on the dispersive flower graph
+  and on a ring with a linear index, whose poles are known exactly). Up to
+  2.0.dev0, with n_eff(Re k), the same argument held with Jacobian n_eff n_g.
   `count_resonances(im_min, im_max)` gives the count alone, e.g. to choose
   im_min before a search.
 * **Weyl law for resonances.** det(I − U_s) is an exponential polynomial in k
@@ -119,8 +147,8 @@ refines each strict local minimum by bounded Brent minimisation.
 * **Spectrum per sector.** `compute_spectrum` scans one sector of each pair
   of partners; the multiplicity of a level is (number of sectors sharing the
   spectrum) × (nullity of I − U_s, threshold `nullity_tol`). `find_resonances`
-  still searches the whole U and assigns each resonance to the independent
-  sector where σ_min(I − U_s) is smallest, with the same multiplicity rule.
+  does the same in the complex plane (2.0; it searched the whole U and
+  assigned each resonance to the sector of smallest σ_min(I − U_s) before).
   A level degenerate *inside* a sector (geometric symmetry, accidental
   near-degeneracy) is reported by a warning: it gives zero spacings.
   Before 2.0 the degeneracy was measured only, and a single level found with

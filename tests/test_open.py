@@ -25,12 +25,30 @@ def test_single_access_ring_is_the_analytic_all_pass_filter(save):
 def test_single_access_ring_resonances(save):
     """Poles: exp(i k n L) = 1/t, i.e. k_m = (2π m + i ln t) / (n L)."""
     g = ring1(save)
-    spectrum, _ = g.find_resonances(N_re=20_000, N_im=12, im_min=-3e-4, im_max=0.0, plot=False)
+    spectrum, _ = g.find_resonances(im_min=-3e-4, im_max=0.0, plot=False)
     t, L = np.sqrt(1 - C_EXT), 2 * np.pi * R
     m = np.round(spectrum.real * NEFF * L / (2 * np.pi))
     expected = (2 * np.pi * m + 1j * np.log(t)) / (NEFF * L)
     assert spectrum.size >= 9
-    assert np.max(np.abs(spectrum - expected)) < 1e-8
+    assert np.max(np.abs(spectrum - expected)) < 1e-13
+
+
+def test_dispersive_ring_resonance_widths_follow_the_group_index(save):
+    """With n_eff(k) = a + b (k − k0), exactly continued off the real axis, the poles
+    solve k n_eff(k) L = 2π m + i ln t: Im k ≈ ln t / (n_g L), not ln t / (n_eff L)."""
+    a, b, k0 = 2.41, 0.3, 4.06
+    g = qg.OpenDirectionalGraphs(**qg.layouts.ring_with_access(R, 1), access_couplings=C_EXT,
+                                 couplings=0.5, neff=lambda k: a + b * (k - k0),
+                                 wavelength_range=(1.54, 1.56), **save)
+    spectrum, deg = g.find_resonances(im_min=-2e-4, im_max=0.0)
+    t, L = np.sqrt(1 - C_EXT), 2 * np.pi * R
+    m = np.round(spectrum.real * (a + b * (spectrum.real - k0)) * L / (2 * np.pi))
+    c = -(2 * np.pi * m + 1j * np.log(t)) / L
+    expected = (-(a - b * k0) + np.sqrt((a - b * k0) ** 2 - 4 * b * c)) / (2 * b)
+    assert spectrum.size >= 9 and np.all(deg == 2)
+    assert np.max(np.abs(spectrum - expected)) < 1e-12
+    n_g = a + b * (2 * spectrum.real - k0)
+    assert np.allclose(spectrum.imag, np.log(t) / (n_g * L), rtol=1e-3)
 
 
 @pytest.mark.parametrize("layout", [qg.layouts.flower_graph(open=True),
@@ -62,12 +80,13 @@ def test_coarse_S_cache_is_never_interpolated(save):
     assert np.allclose(S_fine, exact, atol=1e-12)
 
 
-def test_resonance_cache_detects_changed_detection_parameters(save):
-    g = ring1(save)
-    kw = dict(N_re=4_000, N_im=6, im_min=-3e-4, im_max=0.0, plot=False)
-    g.find_resonances(**kw)
+def test_resonance_cache_detects_a_changed_graph(save):
+    kw = dict(im_min=-3e-4, im_max=0.0, plot=False)
+    ring1(save).find_resonances(**kw)
+    other = qg.OpenDirectionalGraphs(**qg.layouts.ring_with_access(R, 1), access_couplings=0.2,
+                                     couplings=0.5, neff=NEFF, wavelength_range=(1.54, 1.56), **save)
     with pytest.warns(RuntimeWarning, match="different parameters"):
-        ring1(save).find_resonances(**kw, peak_prominence=0.5)
+        other.find_resonances(**kw)
 
 
 def test_results_do_not_depend_on_the_number_of_threads(save):

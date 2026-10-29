@@ -165,10 +165,13 @@ projector onto its eigenspace.
 
 Leads are numbered in the order of `leads`; `S[j, i]` is the amplitude
 leaving lead j for a unit amplitude
-injected in lead i. Resonances (poles of S) are minima of
-σ_min(I − D Σ_αα) on a grid of a rectangle of the complex k-plane
-(`find_resonances`); their number in the rectangle is checked by the argument
-principle (`count_resonances`), which reports missed or merged resonances;
+injected in lead i. Resonances (poles of S) are the zeros of
+det(I − D Σ_αα) in a rectangle of the complex k-plane (`find_resonances`):
+their number is counted by the argument principle (`count_resonances`) and
+they are found by Newton's method, with deflation until the count is
+reached, sector by sector (about one second for the flower graph over
+1.48–1.64 µm); a dispersive n_eff is continued off the real axis to first
+order, so that the widths follow the group index;
 `find_experimental_resonances` locates peaks of d²|S_ij|²/dk² on the real
 axis, as one would on a measured spectrum.
 

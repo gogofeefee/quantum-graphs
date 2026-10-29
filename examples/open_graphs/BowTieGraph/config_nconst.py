@@ -173,31 +173,24 @@ print(f"  Total                k_imag     = {k_imag:.3e} um^-1\n")
 # ============================================================================
 #  3. Complex resonances
 # ============================================================================
-#  σ_min(I − U(k)) is evaluated on an N_re × N_im grid of the complex k-plane,
-#  local minima are refined, deduplicated and accepted below eps_accept.
-#  Their number in the rectangle is then checked by the argument principle
-#  (a warning names the sub-windows where resonances are missed) and by the
-#  Weyl law (a warning if broader resonances lie below im_min);
-#  graph.count_resonances(im_min, im_max) gives the count alone, in < 1 s.
+#  The resonances in the rectangle are counted by the argument principle and
+#  found by Newton's method on det(I − U(k)), from a lattice of seeds, then by
+#  deflation where fewer are found than counted (a warning names the
+#  sub-windows that still differ). The Weyl law warns if broader resonances
+#  lie below im_min; graph.count_resonances(im_min, im_max) gives the count
+#  alone, in < 1 s.
 
 if True:
     spectrum, degeneracies = graph.find_resonances(
-        N_re = 200_000,
-        N_im = 15,
         im_min = -1e-4,
         im_max =  0.0,
-        peak_prominence = 0.0,
-        neighbor_rows   = 1,
-        box_re   = 3,
-        box_im   = 3,
-        tol_step = 1e-13,
-        maxiter  = 500,
+        seeds_per_spacing = 4,    # Newton seeds per mean spacing of the resonances
+        tol         = 1e-14,
+        maxiter     = 100,
+        max_rounds  = 6,        # deflation rounds
         eps_accept  = 1e-4,
         nullity_tol = 1e-4,
-        grid_dtype         = "float32",
-        overwrite_grid     = False,
-        overwrite_refined  = False,
-        overwrite_spectrum = False,
+        overwrite   = False,
         plot    = True,
         verbose = True,
     )

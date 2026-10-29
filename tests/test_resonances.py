@@ -60,13 +60,13 @@ def test_refinement_stays_in_the_rectangle(save):
     (the unbounded Nelder-Mead stage used to return them, and others far outside)."""
     g = ring1(save)
     with pytest.warns(RuntimeWarning, match="just below the search rectangle"):
-        spectrum, _ = g.find_resonances(N_re=40_000, N_im=8, im_min=-1e-4, im_max=0.0)
+        spectrum, _ = g.find_resonances(im_min=-1e-4, im_max=0.0)
     assert spectrum.size == 0
 
 
 def test_complete_search_passes_every_check(save):
     g = flower(save)
-    spectrum, deg = no_warning(g.find_resonances, N_re=4_000, N_im=8, im_min=-2e-4, im_max=0.0)
+    spectrum, deg = no_warning(g.find_resonances, im_min=-2e-4, im_max=0.0)
     count = g.resonance_counts[0]
     assert count.total == deg.sum() == spectrum.size >= 10
     k_min, k_max = g._k_range()
@@ -74,15 +74,27 @@ def test_complete_search_passes_every_check(save):
     assert np.all((spectrum.imag >= -2e-4) & (spectrum.imag <= 0))
 
 
+def test_deflation_finds_what_sparse_seeds_miss(save):
+    """One seed per four mean spacings misses most resonances; the deflation
+    rounds, driven by the count per sub-window, find all of them."""
+    g = flower(save, wavelength_range=(1.55, 1.56))
+    spectrum, deg = no_warning(g.find_resonances, im_min=-2e-4, im_max=0.0, seeds_per_spacing=0.25)
+    assert deg.sum() == g.resonance_counts[0].total == 51
+    reference = flower({"save_path": save["save_path"] + "_dense"}, wavelength_range=(1.55, 1.56))
+    dense, _ = reference.find_resonances(im_min=-2e-4, im_max=0.0)
+    assert np.max(np.abs(np.sort_complex(spectrum) - np.sort_complex(dense))) < 1e-13
+
+
 def test_missed_resonances_are_reported_by_sub_window(save):
     wr = (1.55, 1.56)
+    kw = dict(im_min=-2e-4, im_max=0.0, seeds_per_spacing=0.25, max_rounds=0)
     g = flower(save, wavelength_range=wr)
     with pytest.warns(RuntimeWarning, match=r"counts 51 in the rectangle; 3 sub-window\(s\) differ"):
-        spectrum, _ = g.find_resonances(N_re=60, N_im=3, im_min=-1e-4, im_max=0.0)
+        spectrum, _ = g.find_resonances(**kw)
     assert spectrum.size < 51 and g.resonance_counts[0].edges.size == 4
     # the warning comes back when the cached spectrum is loaded
     with pytest.warns(RuntimeWarning, match="argument principle counts 51"):
-        flower(save, wavelength_range=wr).find_resonances(N_re=60, N_im=3, im_min=-1e-4, im_max=0.0)
+        flower(save, wavelength_range=wr).find_resonances(**kw)
 
 
 def test_shallow_rectangle_is_reported_by_the_weyl_law(save):
@@ -90,7 +102,7 @@ def test_shallow_rectangle_is_reported_by_the_weyl_law(save):
     assert g.weyl_count() > 20
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        g.find_resonances(N_re=2_000, N_im=4, im_min=-1e-5, im_max=0.0)
+        g.find_resonances(im_min=-1e-5, im_max=0.0)
     messages = [str(w.message) for w in caught]
     assert any("Weyl law predicts" in m for m in messages)
     assert any("just below the search rectangle" in m for m in messages)
@@ -104,7 +116,7 @@ def test_real_roots_on_the_upper_edge_are_kept_and_counted(save):
                       [(0, 0), (0, 2)],
                       vertex_matrices={0: directional_coupler_matrix(C_EXT), 1: PASS_THROUGH},
                       neff=NEFF, wavelength_range=(1.54, 1.56), **save)
-    spectrum, deg = no_warning(g.find_resonances, N_re=40_000, N_im=8, im_min=-3e-4, im_max=0.0)
+    spectrum, deg = no_warning(g.find_resonances, im_min=-3e-4, im_max=0.0)
     k_min, k_max = g._k_range()
     m = np.arange(np.ceil(k_min * NEFF * L2 / (2 * np.pi)), np.floor(k_max * NEFF * L2 / (2 * np.pi)) + 1)
     real = spectrum[np.abs(spectrum.imag) < 1e-12]
@@ -114,5 +126,5 @@ def test_real_roots_on_the_upper_edge_are_kept_and_counted(save):
 
 def test_dispersive_index_is_counted_like_the_search(save):
     g = flower(save, neff=lambda k: 3.9 + 0.05 * (k - 4.0))
-    spectrum, deg = no_warning(g.find_resonances, N_re=4_000, N_im=6, im_min=-2e-4, im_max=0.0)
+    spectrum, deg = no_warning(g.find_resonances, im_min=-2e-4, im_max=0.0)
     assert g.resonance_counts[0].total == deg.sum() >= 10

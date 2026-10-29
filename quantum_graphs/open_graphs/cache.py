@@ -6,10 +6,11 @@ S-matrix cache utilities shared by plot_S_components and plot_S_complex_plane.
 
 from ..core.config import log
 from ..core.config import resolve
+import json
 import os
 import numpy as np
 
-from ..core.persistence import cache_status, use_cache, write_cache_meta
+from ..core.persistence import cache_status, meta_path, use_cache, write_cache_meta
 
 
 # ---------------------------------------------------------------------------
@@ -125,12 +126,23 @@ def load_full_cache_if_exact(path, lambda_req_exact):
     return S_full_cached
 
 
+def _has_params(path, required):
+    """True if the metadata of the cache at ``path`` has the items of ``required``."""
+    try:
+        with open(meta_path(path)) as fh:
+            params = json.load(fh).get("params") or {}
+    except (OSError, ValueError):
+        return False
+    return all(params.get(key) == value for key, value in required.items())
+
+
 def find_covering_cache(workdir, kim_str, lambda_min, lambda_max,
-                        max_spacing=np.inf, fingerprint=None):
+                        max_spacing=np.inf, fingerprint=None, require=None):
     """
     Search for the smallest full-S cache that covers [lambda_min, lambda_max]
     with a wavelength step ≤ ``max_spacing`` and, if ``fingerprint`` is given,
-    a matching metadata file. Returns (path, lam_src, S_src) or (None, None, None).
+    a matching metadata file whose parameters contain the items of
+    ``require``. Returns (path, lam_src, S_src) or (None, None, None).
     """
     prefix = "cache_Smatrix_full__"
     best_path = None
@@ -164,6 +176,8 @@ def find_covering_cache(workdir, kim_str, lambda_min, lambda_max,
         if float(np.max(np.diff(lam_src))) > max_spacing * (1 + 1e-9):
             continue
         if fingerprint is not None and cache_status(full_path, fingerprint) != "ok":
+            continue
+        if require and not _has_params(full_path, require):
             continue
         span = lam_hi - lam_lo
         if best_span is None or span < best_span:
@@ -209,7 +223,7 @@ def get_S_full(graph, lambda_min, lambda_max, n_points, k_imag,
     os.makedirs(workdir, exist_ok=True)
     cache_path = os.path.join(workdir, cache_filename_full(lambda_min, lambda_max, n_points, k_imag))
     params = dict(lambda_min=lambda_min, lambda_max=lambda_max, n_points=int(n_points),
-                  k_imag=k_imag)
+                  k_imag=k_imag, **(graph._complex_k_params() if k_imag else {}))
 
     if use_cache(cache_path, graph.fingerprint, params, label="S-matrix cache"):
         S_full_req = load_full_cache_if_exact(cache_path, lambda_req)
@@ -222,7 +236,8 @@ def get_S_full(graph, lambda_min, lambda_max, n_points, k_imag,
         best_path, lam_src, S_src = find_covering_cache(
             workdir, sanitize_float(k_imag), lambda_min, lambda_max,
             max_spacing=float(np.max(np.abs(np.diff(lambda_req)))),
-            fingerprint=graph.fingerprint)
+            fingerprint=graph.fingerprint,
+            require=graph._complex_k_params() if k_imag else None)
         if best_path is not None:
             if verbose:
                 print(f"✓ Reusing cached full S(λ) (finer grid) via interpolation from: {best_path}")
