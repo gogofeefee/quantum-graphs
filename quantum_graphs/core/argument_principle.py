@@ -77,6 +77,7 @@ class ZeroCount:
 
     @property
     def total(self):
+        """Number of zeros in the whole rectangle."""
         return int(self.counts.sum())
 
     @property

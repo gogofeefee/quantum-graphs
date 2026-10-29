@@ -7,29 +7,16 @@ GraphPlotMixin — plot_graph (shared, see quantum_graphs.plotting), plot_zeta_B
 ``layout="constrained"``.
 """
 
-from ...core.config import log, show_figure
-import os
+from ...core.config import show_figure
 import numpy as np
 import matplotlib.pyplot as plt
 
+from ...plotting.style import add_secondary_top_axis, box_ticks, save_figure
 from ...plotting.topology_plot import TopologyPlotMixin
-from .style import (
-    MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W,
-    add_secondary_top_axis,
-)
-
-
-def _tick_params(ax):
-    ax.minorticks_on()
-    ax.tick_params(axis="both", which="major", direction="in",
-                   length=MAJOR_TICK_LEN, width=MAJOR_TICK_W,
-                   labelsize=22, top=True, right=True)
-    ax.tick_params(axis="both", which="minor", direction="in",
-                   length=MINOR_TICK_LEN, width=MINOR_TICK_W,
-                   top=True, right=True)
 
 
 class GraphPlotMixin(TopologyPlotMixin):
+    """plot_graph (shared) and plot_zeta_B of a closed graph."""
 
     # =========================================================================
     # Secular determinant (zeta_B)
@@ -37,7 +24,7 @@ class GraphPlotMixin(TopologyPlotMixin):
 
     def plot_zeta_B(self, wavelength_range=None, N_plot=100_000, spectrum=None,
                     save_fig=False, file_format="pdf", xlim=None,
-                    ylim_real=None, ylim_imag=None, ylim_mod=None):
+                    ylim_real=None, ylim_imag=None, ylim_mod=None, show=None):
         """
         Real, imaginary, and modulus of the secular determinant f(k).
 
@@ -51,6 +38,11 @@ class GraphPlotMixin(TopologyPlotMixin):
         file_format : str
         xlim : (float, float) or None   Zoom on λ axis.
         ylim_real, ylim_imag, ylim_mod : (float, float) or None
+        show : bool or None
+
+        Returns
+        -------
+        fig, axs
         """
         if wavelength_range is None:
             wavelength_range = self.wavelength_range
@@ -81,7 +73,7 @@ class GraphPlotMixin(TopologyPlotMixin):
                 ax.set_ylim(ylim)
             if xlim:
                 ax.set_xlim(xlim)
-            _tick_params(ax)
+            box_ticks(ax)
 
         axs[-1].set_xlabel(r"Wavelength $\lambda$ (µm)", fontsize=22)
 
@@ -95,11 +87,9 @@ class GraphPlotMixin(TopologyPlotMixin):
                         "r*", markersize=10)
 
         if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
             fname = (f"zeta_B_plot_lambdamin_{lambda_min:.2f}_"
                      f"lambdamax_{lambda_max:.2f}_Nplot_{N_plot}"
                      f"{'_with_spectrum' if spectrum is not None else ''}.{file_format}")
-            fpath = os.path.join(self.save_path, fname)
-            fig.savefig(fpath, format=file_format, dpi=300)
-            log(f"✓ Zeta_B plot saved to: {fpath}")
-        show_figure()
+            save_figure(fig, self.save_path, fname, "Zeta_B plot", bbox_inches=None)
+        show_figure(fig, show)
+        return fig, axs

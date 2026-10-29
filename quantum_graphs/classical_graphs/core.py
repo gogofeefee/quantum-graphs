@@ -5,11 +5,6 @@ core.py — CoreMixin for classical_graphs: graph construction, save path and
 parameter file (topology handling is shared through GraphBase).
 """
 
-import inspect
-import datetime
-import numpy as np
-
-
 from ..core.base import GraphBase
 from ..core.persistence import topology_hash
 from ..core.vertices import resolve_vertex_matrices
@@ -34,6 +29,8 @@ class CoreMixin(GraphBase):
         Base directory for the save path. Priority: save_path > base_dir >
         sys.argv[0].parent > cwd.
     """
+
+    _parameters_title = "Classical Graph Parameters"
 
     def __init__(
         self,
@@ -62,33 +59,3 @@ class CoreMixin(GraphBase):
         else:
             spacing_str = "bs=seq"
         return f"{info_str}_{spacing_str}_{topology_hash(self.topology)}"
-
-    def _save_parameters(self):
-        filepath = self.save_path / "graph_parameters.txt"
-        t = self.topology
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write("### Classical Graph Parameters ###\n")
-            f.write(f"Graph name: {self.name}\n")
-            f.write(f"Saved on: {datetime.datetime.now()}\n\n")
-            f.write(f"Vertices: {self.n_vertices}\n")
-            f.write(f"Bonds: {self.n_bonds}\n")
-            f.write(f"Directed bonds: {t.n_directed}\n")
-            f.write(f"Total length: {self.total_length:.6f}\n\n")
-            f.write("### Vertex positions ###\n")
-            for i, pos in enumerate(t.positions):
-                f.write(f"{i}: ({pos[0]:.6f}, {pos[1]:.6f})\n")
-            f.write("\n### Bonds (i, p, j, q, L) ###\n")
-            for b, bond in enumerate(t.bonds):
-                f.write(f"{b}: {bond}\n")
-            f.write("\n### Vertex scattering matrices ###\n")
-            for v, sigma in self.vertex_scattering_matrix.items():
-                if callable(sigma):
-                    f.write(f"Vertex {v}: callable\n")
-                    try:
-                        f.write(inspect.getsource(sigma) + "\n")
-                    except Exception:
-                        f.write("(source unavailable)\n")
-                else:
-                    f.write(f"Vertex {v} (valency={t.valency[v]}):\n")
-                    np.savetxt(f, np.asarray(sigma), fmt="%-10.6f")
-                    f.write("\n")

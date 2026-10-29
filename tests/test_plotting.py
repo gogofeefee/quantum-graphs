@@ -2,6 +2,7 @@
 
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 import quantum_graphs as qg
@@ -27,6 +28,7 @@ def test_closed_plots(save):
     g.long_range_correlations(L_max=4, L_step=0.5, plot_wigner=["goe", "poissonian"], save_fig=True)
     g.plot_length_spectrum(L_max=3000, n_points=5000, save_fig=True)
     assert n_files(save["save_path"], ".pdf") >= 10
+    assert plt.get_fignums() == []                          # every figure closed (show=False)
 
 
 def test_base_closed_graph_plot(save):
@@ -59,6 +61,7 @@ def test_open_plots(save):
     g.long_range_correlations(L_max=3, L_step=0.5, save_fig=True)
     g.plot_length_spectrum(L_max=3000, n_points=5000, save_fig=True)
     assert n_files(save["save_path"], ".pdf") >= 12
+    assert plt.get_fignums() == []                          # every figure closed (show=False)
 
 
 def test_classical_plots(save):
@@ -69,6 +72,7 @@ def test_classical_plots(save):
     g.animate_rho(rho0=rho0, n_steps=2, fps=5, n_subframes_move=2, n_subframes_fade=1,
                   save_animation=True, writer="gif", filename="anim.gif")
     assert os.path.exists(os.path.join(save["save_path"], "anim.gif"))
+    assert plt.get_fignums() == []                          # every figure closed (show=False)
 
 
 def test_orbit_plots(save):
@@ -78,3 +82,4 @@ def test_orbit_plots(save):
     po.plot_orbit(sorted(irr)[0], save_fig=True)
     po.export_orbits_csv(which="irreducible")
     assert n_files(save["save_path"], ".csv") == 1
+    assert plt.get_fignums() == []                          # every figure closed (show=False)

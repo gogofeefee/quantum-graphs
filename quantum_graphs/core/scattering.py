@@ -152,9 +152,11 @@ class ScatteringModel:
         return (index_function(self.neff, x + h) - index_function(self.neff, x - h)) / (2 * h)
 
     def D(self, k):
+        """Diagonal propagation matrix D(k) = diag(exp(i k n_eff L_d))."""
         return np.diag(self.phases(k))
 
     def U(self, k):
+        """Bond evolution map U(k) = D(k) Σ_αα(k), shape (2B, 2B)."""
         return self.phases(k)[:, None] * self.block("aa", k)
 
     # -- many wavenumbers -------------------------------------------------------
@@ -250,6 +252,7 @@ class ScatteringModel:
         return index_function(self.neff, x) + (x + 2j * np.imag(k)) * slope
 
     def S(self, k):
+        """Scattering matrix S(k) at one wavenumber, shape (n_leads, n_leads)."""
         return self.S_many(np.atleast_1d(k))[0]
 
     def S_many(self, ks, chunk=2048):
@@ -296,6 +299,7 @@ class _SectorModel(ScatteringModel):
         self._const_blocks = {}
 
     def block(self, name, k=None):
+        """The bond block Σ_αα of the sector (the only block it has)."""
         if name != "aa":
             raise ValueError("A sector model only has the bond block 'aa'.")
         if self.constant and name in self._const_blocks:

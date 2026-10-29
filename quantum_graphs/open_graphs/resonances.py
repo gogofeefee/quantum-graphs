@@ -35,8 +35,7 @@ Checks (warnings, repeated when a cached spectrum is loaded)
   (smaller) and no check is made.
 """
 
-from ..core.config import show_figure
-from ..core.config import resolve
+from ..core.config import resolve, show_figure
 import os
 import warnings
 import numpy as np
@@ -47,6 +46,7 @@ from ..core.argument_principle import ZeroCount, count_zeros
 from ..core.persistence import use_cache, write_cache_meta
 from ..core.scattering import NULLITY_TOL
 from ..core.zero_search import find_zeros, mean_spacing
+from ..plotting.style import save_figure
 
 #: target number of resonances per sub-window of the count (and of the deflation)
 COUNT_WINDOW = 20
@@ -55,6 +55,7 @@ NON_WEYL_TOL = 1e-8
 
 
 class ResonancesMixin:
+    """Complex resonances of an open graph: search, certified counts, heatmap."""
 
     # ── Cache paths ───────────────────────────────────────────────────────────
 
@@ -142,7 +143,7 @@ class ResonancesMixin:
                 print(f"\r[grid]  {done}/{N_im} rows ({100*done/N_im:.1f}%)", end="", flush=True)
         mem.flush()
         if verbose:
-            print(f"\r[grid] Done – grid complete.              ")
+            print("\r[grid] Done – grid complete.              ")
 
     # ── Public methods ────────────────────────────────────────────────────────
 
@@ -422,7 +423,8 @@ class ResonancesMixin:
                               max_cols: int = None,
                               save_fig: bool = False,
                               file_format: str = "pdf",
-                              verbose: bool = None):
+                              verbose: bool = None,
+                              show: bool = None):
         """
         Plot complex resonances in the k-plane, optionally overlaying the
         σ_min(I − U(k)) heatmap.
@@ -457,6 +459,12 @@ class ResonancesMixin:
             Figure format (``"pdf"``, ``"png"``, …).
         verbose : bool
             Print progress messages.
+        show : bool
+            Show the figure (default: the ``show`` option); otherwise it is closed.
+
+        Returns
+        -------
+        fig, ax
         """
         verbose = resolve("verbose", verbose)
         from matplotlib.ticker import ScalarFormatter
@@ -545,17 +553,13 @@ class ResonancesMixin:
         ax.tick_params(axis="both", which="major", labelsize=18,
                        direction="in", top=True, right=True)
 
-        plt.tight_layout()
+        fig.tight_layout()
 
         if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
             tag = "heatmap" if plot_heatmap else "crossesOnly"
-            fname = (f"ResonancesSigma_{tag}"
-                     f"_lam{lam_min:.3f}-{lam_max:.3f}.{file_format}")
-            fig_path = os.path.join(self.save_path, fname)
-            fig.savefig(fig_path, format=file_format, dpi=300,
-                        bbox_inches="tight")
-            if verbose:
-                print(f"✓ Figure saved to {fig_path}")
+            save_figure(fig, self.save_path,
+                        f"ResonancesSigma_{tag}_lam{lam_min:.3f}-{lam_max:.3f}.{file_format}",
+                        "Figure", verbose)
 
-        show_figure()
+        show_figure(fig, show)
+        return fig, ax

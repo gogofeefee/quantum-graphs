@@ -56,7 +56,8 @@ Results (figures, cached computations, a `graph_parameters.txt` summary) are
 written to `<script folder>/<name>/<parameters>/`. To start a study on your
 own graph, copy [`examples/new_study_template.py`](examples/new_study_template.py).
 
-**Options.** Every plotting method calls `plt.show()` and computations print
+**Options.** Every plotting method returns its figure and calls `plt.show()`
+(or closes that figure when display is off), and computations print
 progress messages. For batch runs:
 
 ```python

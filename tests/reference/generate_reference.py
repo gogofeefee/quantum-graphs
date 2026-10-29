@@ -115,7 +115,7 @@ def closed_case(prefix, graph, k_probe, wf_levels=(0,), stats=True):
             store(f"{prefix}/wf{i}", loc_entropy=S, loc_S_norm=S_norm, loc_ipr=ipr)
     if hasattr(graph, "localization_measures"):
         # entropy / IPR of every level (per bond, eigenspace projector)
-        _, _, S_norm, ipr = graph._compute_mode_quantities()
+        _, S_norm, ipr = graph.mode_localization()
         store(prefix, loc_S_norm_levels=S_norm, loc_ipr_levels=ipr)
     sectors(prefix, graph)
     if stats and spectrum.size > 20:
@@ -180,7 +180,7 @@ def open_case(prefix, graph, k_probe, resonances_kw, exp_kw=None):
         store(prefix, res_wf_residual=np.linalg.norm(vecs[0] - U @ vecs[0]))
         if hasattr(graph, "localization_measures"):        # reference_v3 and later
             # multiplicity of find_resonances (reference_v5; up to v4 a relative 1e-3 threshold)
-            _, S_norm, ipr = graph._compute_all_resonance_quantities()
+            _, S_norm, ipr = graph.mode_localization()
             store(prefix, loc_S_norm_resonances=S_norm, loc_ipr_resonances=ipr)
     if exp_kw is not None:
         exp = graph.find_experimental_resonances(**exp_kw, plot=False, cache=False,

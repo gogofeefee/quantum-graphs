@@ -141,6 +141,7 @@ class _Phases:
         return N, Z
 
     def Z(self, k):
+        """Z(k) = Π 2 sin(θ_j/2) at one wavenumber (real, zero at the levels)."""
         return float(self(k)[1][0])
 
 

@@ -57,21 +57,20 @@ Records
 # Imports
 # ======================================================================
 
-from ..core.config import log
-from ..core.config import resolve
+from ..core.config import log, resolve, show_figure
 from ..core.base import GraphBase
 from ..core.persistence import topology_hash
+from ..plotting.style import save_figure
 from ..plotting.topology_plot import TopologyPlotMixin
-import os
 import warnings
 import csv
-import datetime
 
 from pathlib import Path
 from collections import OrderedDict
 
 import numpy as np
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 from matplotlib.path import Path as MplPath
 
 
@@ -99,6 +98,11 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
     Periodic-orbit enumeration on a closed graph of 4-port directional
     couplers (see module docstring for the exact vertex model).
     """
+
+    _parameters_title = "PeriodicOrbits Graph Parameters"
+
+    def _extra_parameter_lines(self):
+        return ["Vertex model: directional coupler only (ports 0,1 <-> ports 2,3)"]
 
     # ==================================================================
     # Construction
@@ -203,30 +207,6 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
         ng_str = f"ng={_format_float_for_name(self.ng, ndigits=3)}"
         return f"{info_str}_{spacing_str}_{ng_str}_{topology_hash(self.topology)}"
 
-    def _save_parameters(self):
-        filepath = self.save_path / "graph_parameters.txt"
-        t = self.topology
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write("### PeriodicOrbits Graph Parameters ###\n")
-            f.write(f"Graph name: {self.name}\n")
-            f.write(f"Saved on: {datetime.datetime.now()}\n")
-            f.write("Vertex model: directional coupler only (ports 0,1 <-> ports 2,3)\n\n")
-            f.write(f"Group index ng: {self.ng}\n\n")
-
-            f.write("### Counts ###\n")
-            f.write(f"Vertices: {self.n_vertices}\n")
-            f.write(f"Bonds: {self.n_bonds}\n")
-            f.write(f"Directed bonds: {t.n_directed}\n")
-            f.write(f"Total physical length: {self.total_length:.6f}\n\n")
-
-            f.write("### Vertex positions ###\n")
-            for i, pos in enumerate(t.positions):
-                f.write(f"{i}: ({pos[0]:.6f}, {pos[1]:.6f})\n")
-
-            f.write("\n### Bonds (i, p, j, q, L) ###\n")
-            for b, bond in enumerate(t.bonds):
-                f.write(f"{b}: {bond}\n")
-
     # ==================================================================
     # Graph plotting
     # ==================================================================
@@ -239,6 +219,7 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
         save_fig: bool = False,
         file_format: str = "svg",
         title=None,
+        show=None,
         **kwargs,
     ):
         """
@@ -262,7 +243,8 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
             vertex_radius_frac=0.065 * scale, marker_radius_frac=0.03 * scale,
             vertex_fontsize=20 * scale, length_fontsize=14 * scale,
             bond_linewidth=1.5 * scale, bond_color="lightgray", ax=ax, title=title,
-            save_fig=save_fig, file_format=file_format, filename_suffix=suffix, **kwargs)
+            save_fig=save_fig, file_format=file_format, filename_suffix=suffix, show=show,
+            **kwargs)
 
     # ==================================================================
     # Canonicalization (rotation + reversal invariance)
@@ -631,6 +613,7 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
         shrink_frac=0.18,
         xl=False,
         title=None,
+        show=None,
     ):
         """
         Plot the graph topology with a periodic orbit overlaid as directed
@@ -672,6 +655,8 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
             markers, and the orbit arrows themselves) for figures that
             will be shrunk very small in a paper. Off by default.
         title : str or None
+        show : bool or None
+            Show the figure (default: the ``show`` option); not used with ``ax``.
 
         Returns
         -------
@@ -686,6 +671,9 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
         color = color if color is not None else "#7a1f1f"
         scale = 1.8 if xl else 1.0
 
+        created = ax is None
+        if created:
+            fig, ax = plt.subplots(figsize=(10, 8))
         fig, ax = self.plot_graph(
             ax=ax, show_lengths=show_lengths,
             show_port_markers=show_port_markers, xl=xl, save_fig=False,
@@ -723,16 +711,16 @@ class PeriodicOrbits(GraphBase, TopologyPlotMixin):
 
         if title is not None:
             ax.set_title(title, fontsize=14)
-            fig.tight_layout()
+        if created:
+            fig.tight_layout(pad=1.0)
 
         if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
             safe_name = record["name"].replace("/", "_")
             marker_tag = "port_markers" if show_port_markers else "no_markers"
             xl_tag = "_XL" if xl else ""
-            filename = f"{self.name}_orbit_{safe_name}_{marker_tag}{xl_tag}.{file_format}"
-            filepath = os.path.join(self.save_path, filename)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight", pad_inches=0)
-            log(f"Orbit plot saved to {filepath}")
-
+            save_figure(fig, self.save_path,
+                        f"{self.name}_orbit_{safe_name}_{marker_tag}{xl_tag}.{file_format}",
+                        "Orbit plot", pad_inches=0)
+        if created:
+            show_figure(fig, show)
         return fig, ax

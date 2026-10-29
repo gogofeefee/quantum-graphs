@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-S-matrix cache utilities shared by plot_S_components and plot_S_complex_plane.
+Cache of the full S(λ) on a grid uniform in k, shared by every S-matrix plot
+(``get_S_full``): exact verified caches, or a finer cache of a wider window
+interpolated onto the requested grid.
 """
 
-from ..core.config import log
 from ..core.config import resolve
 import json
 import os
@@ -18,14 +19,12 @@ from ..core.persistence import cache_status, meta_path, use_cache, write_cache_m
 # ---------------------------------------------------------------------------
 
 def sanitize_float(x: float) -> str:
+    """Compact file-name form of a float (1.55 → 1p55, -2e-07 → m2em07)."""
     return f"{x:.12g}".replace(".", "p").replace("+", "").replace("-", "m")
 
 
-def comp_tag(comps):
-    return "_".join([f"S{i}{j}" for i, j in comps])
-
-
 def cache_filename_full(lmin: float, lmax: float, N: int, kim: float) -> str:
+    """File name of the full-S cache of a grid."""
     tag = (
         f"cache_Smatrix_full"
         f"__lam{sanitize_float(lmin)}-{sanitize_float(lmax)}"
@@ -40,6 +39,7 @@ def cache_filename_full(lmin: float, lmax: float, N: int, kim: float) -> str:
 # ---------------------------------------------------------------------------
 
 def interp_complex(lam_src, y_src, lam_tgt):
+    """Linear interpolation of a complex curve (real and imaginary parts)."""
     re = np.interp(lam_tgt, lam_src, np.real(y_src))
     im = np.interp(lam_tgt, lam_src, np.imag(y_src))
     return re + 1j * im
@@ -66,31 +66,11 @@ def interp_S_cube(lam_src, S_src, lam_tgt):
 
 
 # ---------------------------------------------------------------------------
-# Progress printing helpers
-# ---------------------------------------------------------------------------
-
-def progress_print(idx, total, last_pct, verbose=None, prefix="Computing S..."):
-    verbose = resolve("verbose", verbose)
-    if not verbose:
-        return last_pct
-    pct = int(100 * (idx + 1) / total)
-    if pct != last_pct:
-        log(f"\r{prefix} {pct:3d}%", end="", flush=True)
-        return pct
-    return last_pct
-
-
-def finish_progress(verbose=None, prefix="Computing S..."):
-    verbose = resolve("verbose", verbose)
-    if verbose:
-        print(f"\r{prefix} 100%")
-
-
-# ---------------------------------------------------------------------------
 # Cache I/O
 # ---------------------------------------------------------------------------
 
 def save_full_cache(path, lambda_values, S_full, k_imag=0.0):
+    """Write the S cube and its grid to ``path`` (.npz)."""
     payload = {
         "lambda_values": np.asarray(lambda_values, dtype=float),
         "S_full":        np.asarray(S_full, dtype=np.complex128),

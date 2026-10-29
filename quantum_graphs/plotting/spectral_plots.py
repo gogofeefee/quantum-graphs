@@ -7,10 +7,9 @@ Every method takes the selection of :mod:`quantum_graphs.core.spectral_stats`:
 ``spectrum`` (e.g. measured peaks ``graph.exp_spectrum``) and
 ``wavelength_range`` (µm) to restrict the levels to a sub-window. The default
 random-matrix curves are Poisson and the ensemble expected for the selected
-sectors (GOE with time-reversal symmetry, GUE otherwise).
+sectors (GOE with time-reversal symmetry, GUE otherwise). ``show`` (default:
+the ``show`` option) shows the figures, which are closed otherwise.
 """
-
-import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,20 +19,10 @@ from ..core.config import log, show_figure
 from ..core.scattering import index_function
 from ..stats.rmt import delta3_rmt, nnsd, sigma2_rmt
 from ..stats.spectral import number_variance, spectral_rigidity
-from .style import MAJOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_LEN, MINOR_TICK_W
+from .style import MAJOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_LEN, MINOR_TICK_W, box_ticks, save_figure
 
 WIGNER_LABELS = {"poissonian": "Poisson", "goe": "GOE", "gue": "GUE", "gse": "GSE"}
 DEFAULT_STYLES = ["r-", "b-.", "g--", "orange", "purple"]
-
-
-def _tick_params(ax):
-    ax.minorticks_on()
-    ax.tick_params(axis="both", which="major", direction="in",
-                   length=MAJOR_TICK_LEN, width=MAJOR_TICK_W,
-                   labelsize=22, top=True, right=True)
-    ax.tick_params(axis="both", which="minor", direction="in",
-                   length=MINOR_TICK_LEN, width=MINOR_TICK_W,
-                   top=True, right=True)
 
 
 def _file_tag(spectrum, sector, wavelength_range):
@@ -47,12 +36,11 @@ def _file_tag(spectrum, sector, wavelength_range):
 
 
 def _save(fig, graph, fname, file_format, what):
-    fpath = os.path.join(graph.save_path, f"{fname}.{file_format}")
-    fig.savefig(fpath, format=file_format, dpi=300, bbox_inches="tight")
-    log(f"✓ {what} saved to: {fpath}")
+    save_figure(fig, graph.save_path, f"{fname}.{file_format}", what)
 
 
 class SpectralPlotsMixin:
+    """Figures of the spectral statistics (see the module docstring)."""
 
     # =========================================================================
     # Selection
@@ -82,7 +70,7 @@ class SpectralPlotsMixin:
 
     def plot_staircase_function(self, plot_weyl=True, weyl_diff=False,
                                 spectrum=None, sector=None, wavelength_range=None,
-                                save_fig=False, file_format="pdf"):
+                                save_fig=False, file_format="pdf", show=None):
         """
         Spectral staircase N(k) of the selected levels with the Weyl law
         N(k) = (L_sel/2π) ∫ n_g dk.
@@ -96,6 +84,11 @@ class SpectralPlotsMixin:
             Selection (see the module docstring).
         save_fig : bool
         file_format : str
+        show : bool or None
+
+        Returns
+        -------
+        fig, ax of the staircase.
         """
         k = self._plot_levels(spectrum, sector, wavelength_range, 1, "Staircase")
         tag = _file_tag(spectrum, sector, wavelength_range)
@@ -128,13 +121,14 @@ class SpectralPlotsMixin:
         ax.set_ylabel(r"$N(k)$", fontsize=22)
         ax.set_xlim(k[0], k[-1])
         ax.set_ylim(0, n)
-        _tick_params(ax)
+        box_ticks(ax)
         if save_fig:
             _save(fig, self, f"staircase_function{tag}", file_format, "Staircase plot")
-        show_figure()
+        show_figure(fig, show)
 
         if not weyl_diff:
-            return
+            return fig, ax
+        main = fig, ax
         delta = self.weyl_staircase(k, sector, k0=k[0]) + 0.5 - np.arange(1, n + 1)
         for x, xlabel, xlim, name in (
                 (np.arange(n), "Mode index", (0, n - 1), "index"),
@@ -146,12 +140,13 @@ class SpectralPlotsMixin:
             ax.set_xlabel(xlabel, fontsize=22)
             ax.set_ylabel(r"$N_{\mathrm{Weyl}}(k) - N(k)$", fontsize=22)
             ax.set_xlim(*xlim)
-            _tick_params(ax)
+            box_ticks(ax)
             fig.tight_layout()
             if save_fig:
                 _save(fig, self, f"staircase_diff_{name}{tag}", file_format,
                       f"Staircase difference ({name})")
-            show_figure()
+            show_figure(fig, show)
+        return main
 
     # =========================================================================
     # Short-range correlations (NNSD)
@@ -160,7 +155,7 @@ class SpectralPlotsMixin:
     def short_range_correlations(self, width=0.1, xlim=None, plot_wigner=None,
                                  cumulative_spacing=False, color_list=None,
                                  spectrum=None, sector=None, wavelength_range=None,
-                                 yscale="linear", save_fig=False, file_format="pdf"):
+                                 yscale="linear", save_fig=False, file_format="pdf", show=None):
         """
         Nearest-neighbour spacing distribution of the unfolded selection.
 
@@ -177,6 +172,7 @@ class SpectralPlotsMixin:
         yscale : str             'linear' or 'log'.
         save_fig : bool
         file_format : str
+        show : bool or None
 
         Returns
         -------
@@ -225,7 +221,7 @@ class SpectralPlotsMixin:
         else:
             ax.set_ylim(-0.04 * ymax if cumulative_spacing else 0.0, max(ymax * 1.05, 1e-9))
         ax.legend(fontsize=16, loc="upper right")
-        _tick_params(ax)
+        box_ticks(ax)
 
         if cumulative_spacing:
             s_sorted = np.sort(spacings)
@@ -242,7 +238,7 @@ class SpectralPlotsMixin:
             ax_cdf.set_xlim(xlim)
             ax_cdf.set_ylim(0, 1.1)
             ax_cdf.legend(fontsize=14, loc="lower right")
-            _tick_params(ax_cdf)
+            box_ticks(ax_cdf)
 
         fig.tight_layout()
         if save_fig:
@@ -251,7 +247,7 @@ class SpectralPlotsMixin:
             yscale_part = "_log" if yscale == "log" else ""
             _save(fig, self, f"NNSD_{wigner_part}_bin{width:.2f}{cumul_part}{yscale_part}"
                   f"{_file_tag(spectrum, sector, wavelength_range)}", file_format, "NNSD plot")
-        show_figure()
+        show_figure(fig, show)
         return spacings
 
     # =========================================================================
@@ -261,7 +257,7 @@ class SpectralPlotsMixin:
     def long_range_correlations(self, L_max=10, L_step=0.2, plot_wigner=None,
                                 correlation_type="both", color_list=None,
                                 spectrum=None, sector=None, wavelength_range=None,
-                                save_fig=False, file_format="pdf"):
+                                save_fig=False, file_format="pdf", show=None):
         """
         Number variance Σ²(L) and / or spectral rigidity Δ₃(L) of the unfolded
         selection, with random-matrix curves.
@@ -276,6 +272,7 @@ class SpectralPlotsMixin:
             Selection (see the module docstring).
         save_fig : bool
         file_format : str
+        show : bool or None
 
         Returns
         -------
@@ -318,7 +315,7 @@ class SpectralPlotsMixin:
             ax.set_xlim(0.0, L_max)
             ax.set_ylim(0.0, max(ymax, 0.1))
             ax.legend(fontsize=18, loc="lower right")
-            _tick_params(ax)
+            box_ticks(ax)
         axes[-1].set_xlabel("Interval length $L$", fontsize=22)
 
         fig.tight_layout()
@@ -327,7 +324,7 @@ class SpectralPlotsMixin:
             _save(fig, self, f"LongRange_{correlation_type}_{wigner_part}_Lmax{L_max}"
                   f"_Lstep{L_step}{_file_tag(spectrum, sector, wavelength_range)}",
                   file_format, "Long-range correlation plot")
-        show_figure()
+        show_figure(fig, show)
         return {name: data for name, data, _, _ in panels}
 
     # =========================================================================
@@ -336,7 +333,7 @@ class SpectralPlotsMixin:
 
     def plot_length_spectrum(self, L_max=5000, n_points=100_000, spectrum=None, sector="all",
                              ignore_zero_peak=True, zero_window_um=None,
-                             save_fig=False, file_format="pdf"):
+                             save_fig=False, file_format="pdf", show=None):
         """
         Length spectrum ρ̂(ℓ) = |Σ_j exp(−i k_j n_eff(Re k_j) ℓ)| (periodic-orbit
         lengths ℓ = n_eff × geometric length).
@@ -356,6 +353,7 @@ class SpectralPlotsMixin:
             Width of that exclusion (default max(100, 50 Δℓ)).
         save_fig : bool
         file_format : str
+        show : bool or None
 
         Returns
         -------
@@ -392,11 +390,11 @@ class SpectralPlotsMixin:
         ax.set_ylim(0.0, 1.05 * ymax)
         ax.set_xlabel(r"Length $\ell$ ($\mu$m)", fontsize=22)
         ax.set_ylabel(r"$|\hat{\rho}(\ell)|$", fontsize=22)
-        _tick_params(ax)
+        box_ticks(ax)
         fig.tight_layout()
         if save_fig:
             tag = _file_tag(spectrum, None if sector == "all" else sector, None)
             _save(fig, self, f"LengthSpectrum_Lmax{L_max}_N{n_points}{tag}", file_format,
                   "Length spectrum")
-        show_figure()
+        show_figure(fig, show)
         return ell, rho_hat

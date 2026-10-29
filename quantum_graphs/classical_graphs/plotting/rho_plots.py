@@ -7,12 +7,13 @@ Arrow-style helpers and static rho visualisation methods:
   plot_rho, plot_rho_after_steps.
 """
 
-from ...core.config import log
+from ...core.config import show_figure
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-from .._utils import _normalize, _perpendicular, _clip01
+from ...plotting.style import save_figure
+from .._utils import _perpendicular, _clip01
 
 
 class RhoPlotMixin:
@@ -275,11 +276,14 @@ class RhoPlotMixin:
         save_fig=False,
         filename="rho_on_graph.pdf",
         dpi=300,
+        show=None,
     ):
         """
         Plot the probability vector rho on the directed bonds.
 
         Arrow width encodes rho; centred arrows (tau=0.5) for a clear snapshot.
+        The figure is shown (``show``, default: the ``show`` option) only when
+        it is created here (``ax`` None).
 
         Returns
         -------
@@ -331,10 +335,9 @@ class RhoPlotMixin:
             fig.tight_layout()
 
         if save_fig:
-            out = self.save_path / filename
-            fig.savefig(out, dpi=dpi, bbox_inches="tight")
-            log(f"✓ Figure saved to: {out}")
-
+            save_figure(fig, self.save_path, filename, "Figure", dpi=dpi)
+        if created_fig:
+            show_figure(fig, show)
         return fig, ax
 
     def plot_rho_after_steps(
@@ -364,6 +367,7 @@ class RhoPlotMixin:
         save_fig=False,
         filename=None,
         dpi=300,
+        show=None,
     ):
         """
         Evolve rho0 for n_steps and call plot_rho on the result.
@@ -401,5 +405,6 @@ class RhoPlotMixin:
             save_fig=save_fig,
             filename=filename,
             dpi=dpi,
+            show=show,
         )
         return rho_n, fig, ax

@@ -110,6 +110,7 @@ def fingerprint(spec):
 # ---------------------------------------------------------------------------
 
 def meta_path(path):
+    """Path of the metadata file (.meta.json) of the cache file ``path``."""
     return str(path) + META_SUFFIX
 
 

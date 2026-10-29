@@ -191,3 +191,55 @@ def test_save_path_can_be_redirected(tmp_path):
     g.plot_graph(save_fig=True, file_format="png")
     assert not (tmp_path / "a").exists()
     assert (tmp_path / "b" / "graph_parameters.txt").exists() and any((tmp_path / "b").glob("*.png"))
+
+
+def test_parameter_file_describes_the_graph(save):
+    g = qg.OpenDirectionalGraphs(**qg.layouts.bow_tie_graph(open=True), couplings=0.5,
+                                 access_couplings=0.3, neff=lambda k: 3.9 + 0.01 * k, **WINDOW,
+                                 **save)
+    text = (g.save_path / "graph_parameters.txt").read_text(encoding="utf-8")
+    assert text.startswith("### Open Quantum Graph Parameters ###")
+    assert f"Physics fingerprint: {g.fingerprint}" in text
+    assert f"Bonds: {g.n_bonds}" in text and f"Leads: {g.n_leads}" in text
+    assert "Effective index neff: function of k" in text and "3.9 + 0.01 * k" in text
+    assert "+0.836660+0.000000j" in text                      # √(1 − 0.3) of the access coupler
+    assert all(f"{b}: " in text for b in range(g.n_bonds))
+    po = qg.PeriodicOrbits(**qg.layouts.bow_tie_graph(), ng=3.97, **save)
+    po.save_path = g.save_path / "orbits"
+    assert "Vertex model: directional coupler" in (po.save_path / "graph_parameters.txt").read_text()
+
+
+def test_figures_are_closed_unless_shown(save):
+    import matplotlib.pyplot as plt
+    from quantum_graphs.core.config import show_figure
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, **WINDOW, **save)
+    mine = plt.figure()
+    fig, ax = g.plot_graph()
+    assert plt.get_fignums() == [mine.number]                 # only the graph's figure is closed
+    fig.savefig(g.save_path / "after_close.png")              # a closed figure can still be saved
+    _, ax_bg = plt.subplots()
+    g.plot_graph(ax=ax_bg)                                    # drawn into the caller's axes: left open
+    assert ax_bg.figure.number in plt.get_fignums()
+    show_figure()
+    assert plt.get_fignums() == []
+
+
+def test_mpb_indices_are_interpolated(tmp_path):
+    from pathlib import Path
+    from quantum_graphs.dispersion import apply_index_scaling, load_mpb_indices, plot_mpb_indices_vs_k
+    folder = Path(__file__).parents[1] / "data/mpb/shallow_etched_si_on_sio2_w0.40_h0.22_rib0.08"
+    out = load_mpb_indices(folder / "neff_vs_kvac_band1_full.npz",
+                           folder / "group_index_vs_kvac_band1_full.npz")
+    k_neff, neff_raw, neff, k_ng, ng_raw, ng = out
+    assert np.allclose(neff(k_neff), neff_raw) and np.allclose(ng(k_ng), ng_raw)
+    k = np.linspace(3.9, 4.2, 200)                       # n_g = n_eff + k dn_eff/dk
+    assert np.max(np.abs(ng(k) - (neff(k) + k * np.gradient(neff(k), k)))) < 0.02
+    neff2, ng2 = apply_index_scaling(neff, 3.0, scale=1.1)
+    assert np.isclose(neff2(4.0), 1.1 * neff(4.0)) and ng2 == pytest.approx(3.3)
+    fig, axes = plot_mpb_indices_vs_k(*out, n_plot=500)
+    assert len(axes) == 2
+    with pytest.raises(FileNotFoundError):
+        load_mpb_indices(tmp_path / "missing.npz", folder / "group_index_vs_kvac_band1_full.npz")
+    np.savez(tmp_path / "bad.npz", k=[1.0], n=[2.0])
+    with pytest.raises(KeyError, match="k_vac"):
+        load_mpb_indices(tmp_path / "bad.npz", folder / "group_index_vs_kvac_band1_full.npz")

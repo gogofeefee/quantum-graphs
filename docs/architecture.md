@@ -46,7 +46,9 @@ quantum_graphs/
   stats/               spectral.py (pure functions: weyl_staircase, unfold, number_variance,
                        spectral_rigidity), rmt.py (nnsd, tabulated and exact RMT curves, data/),
                        localization.py (bond intensities, entropy, IPR)
-  plotting/            style.py (figure style, axis helpers); drawing.py (BondPaths: one
+  plotting/            style.py (figure style, axis helpers, save_figure, box_ticks);
+                       localization_plots.py (plot_entropy / plot_ipr of closed and open
+                       graphs from their mode_localization); drawing.py (BondPaths: one
                        curve per bond -- segment, Bézier arcs for parallel bonds, teardrops
                        for loops -- and the draw_* primitives); topology_plot.py (the
                        single plot_graph shared by every class); spectral_plots.py
@@ -78,8 +80,11 @@ specific to their point of view.
    overwrite)` before loading, `write_cache_meta(...)` after writing. The
    fingerprint samples every function of k at 9 wavenumbers of the window.
 4. **Plots** draw every bond along `graph.bond_paths` (geometry only, for
-   figures; the physics uses the bond lengths) and end with `show_figure()`
-   (respects the `show` option); messages go through `log()` or `print`
+   figures; the physics uses the bond lengths). Every plotting method takes
+   `show=None`, saves with `plotting.style.save_figure` and, when it created
+   the figure, ends with `show_figure(fig, show)`: shown, or that figure
+   closed (never the caller's); given an `ax`, it neither saves nor shows.
+   It returns its figure(s). Messages go through `log()` or `print`
    guarded by a resolved `verbose`.
 
 ## Extending
@@ -107,7 +112,7 @@ specific to their point of view.
 * `pytest -m slow` — GOE ensemble validation of the Δ₃ estimators and
   non-regression: `tests/reference/generate_reference.py` recomputes 271
   quantities on nine reference graphs and `compare_reference.py` compares them
-  with `reference_v6.npz` using per-quantity tolerances.
+  with `reference_v8.npz` using per-quantity tolerances.
 * Only basis- and platform-independent quantities are compared: eigenvectors
   of degenerate levels through the diagonal of the eigenspace projector,
   eigenvalue lists through their power sums Σλⁿ (a defective eigenvalue, such
@@ -138,5 +143,6 @@ Scripts written before 1.0 import `closed_graphs`, `open_graphs`,
 `classical_graphs`, `periodic_orbits` (top level) or `sigma2_RMT` /
 `delta3_RMT`. On the author's machine, small shim packages at the historical
 locations (`ClosedGraphs/closed_graphs/`, ..., `wigner/`, not versioned) alias
-them to `quantum_graphs.*`. Elsewhere, replace `from closed_graphs import X`
-by `from quantum_graphs.closed_graphs import X`.
+them to a frozen copy of the tag `v1.0.0` (the 2.0 API is not compatible).
+Elsewhere, install `v1.0.0` for such scripts, or port them to the 2.0 API
+(`CHANGELOG.md`).

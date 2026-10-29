@@ -11,13 +11,11 @@ plot_S_amplitude_phase  — combined two-panel figure.
 plot_S_fourier          — Fourier transform of |S_ij|² (optical-length domain).
 plot_S_complex_plane    — S_ij trajectory in the complex plane.
 
-All methods share the same S-matrix cache via ``open_graphs.cache.get_S_full``.
-Style helpers are imported from ``open_graphs.plotting.style``.
+All methods share the same S-matrix cache via ``open_graphs.cache.get_S_full``
+and return the figure and its axes.
 """
 
-from ...core.config import show_figure
-from ...core.config import resolve
-import os
+from ...core.config import resolve, show_figure
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
@@ -25,12 +23,12 @@ from scipy.fft import fft, fftfreq, next_fast_len
 from scipy.signal import windows
 
 from ..cache import get_S_full
-from .style import (
-    lambda_to_freq, freq_to_lambda,
+from ...plotting.style import (
+    lambda_to_freq,
     validate_x_axis, format_bottom_xlabel,
     configure_y_axis, configure_phase_y_axis_pi,
     configure_primary_x_axis, add_secondary_top_axis,
-    set_x_limits, break_wrapped_phase_curve,
+    set_x_limits, break_wrapped_phase_curve, save_figure, box_ticks,
     MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W,
 )
 
@@ -249,7 +247,7 @@ class SMatrixPlotsMixin:
     def plot_S_amplitude(self, lambda_min, lambda_max, n_points, components,
                          spectrum=None, k_imag=0.0, x_axis="wavelength",
                          save_fig=False, file_format="pdf",
-                         reuse_if_included=True, verbose=None):
+                         reuse_if_included=True, verbose=None, show=None):
         """
         Plot |S_ij|² versus wavelength or frequency.
 
@@ -275,6 +273,12 @@ class SMatrixPlotsMixin:
             Re-use a broader cached S(λ) if it covers the range.
         verbose : bool
             Print progress.
+        show : bool or None
+            Show the figure (default: the ``show`` option); otherwise it is closed.
+
+        Returns
+        -------
+        fig, ax
         """
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
@@ -305,14 +309,11 @@ class SMatrixPlotsMixin:
             ax.legend(fontsize=18, frameon=False)
 
         if save_fig:
-            fname    = _plot_filename("Samp", components, spectrum, x_axis,
-                                      lambda_min, lambda_max, n_points, k_imag, file_format)
-            filepath = os.path.join(self.save_path, fname)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            if verbose:
-                print(f"✓ Amplitude figure saved to {filepath}")
-
-        show_figure()
+            fname = _plot_filename("Samp", components, spectrum, x_axis,
+                                   lambda_min, lambda_max, n_points, k_imag, file_format)
+            save_figure(fig, self.save_path, fname, "Amplitude figure", verbose)
+        show_figure(fig, show)
+        return fig, ax
 
     # ------------------------------------------------------------------
     # plot_S_phase
@@ -321,16 +322,14 @@ class SMatrixPlotsMixin:
     def plot_S_phase(self, lambda_min, lambda_max, n_points, components,
                      spectrum=None, k_imag=0.0, x_axis="wavelength",
                      save_fig=False, file_format="pdf",
-                     reuse_if_included=True, verbose=None):
+                     reuse_if_included=True, verbose=None, show=None):
         """
         Plot arg(S_ij) versus wavelength or frequency.
 
         Phase is wrapped to [−π, π] and branch jumps appear as
         discontinuities (no spurious vertical lines).
 
-        Parameters
-        ----------
-        (same as ``plot_S_amplitude``)
+        Parameters and returns: as ``plot_S_amplitude``.
         """
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
@@ -362,14 +361,11 @@ class SMatrixPlotsMixin:
             ax.legend(fontsize=18, frameon=False)
 
         if save_fig:
-            fname    = _plot_filename("Sphase", components, spectrum, x_axis,
-                                      lambda_min, lambda_max, n_points, k_imag, file_format)
-            filepath = os.path.join(self.save_path, fname)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            if verbose:
-                print(f"✓ Phase figure saved to {filepath}")
-
-        show_figure()
+            fname = _plot_filename("Sphase", components, spectrum, x_axis,
+                                   lambda_min, lambda_max, n_points, k_imag, file_format)
+            save_figure(fig, self.save_path, fname, "Phase figure", verbose)
+        show_figure(fig, show)
+        return fig, ax
 
     # ------------------------------------------------------------------
     # plot_S_amplitude_phase
@@ -378,13 +374,11 @@ class SMatrixPlotsMixin:
     def plot_S_amplitude_phase(self, lambda_min, lambda_max, n_points, components,
                                 spectrum=None, k_imag=0.0, x_axis="wavelength",
                                 save_fig=False, file_format="pdf",
-                                reuse_if_included=True, verbose=None):
+                                reuse_if_included=True, verbose=None, show=None):
         """
         Two-panel figure: |S_ij|² (top) and arg(S_ij) (bottom), shared x-axis.
 
-        Parameters
-        ----------
-        (same as ``plot_S_amplitude``)
+        Parameters: as ``plot_S_amplitude``. Returns ``fig, (ax_top, ax_bot)``.
         """
         verbose = resolve("verbose", verbose)
         x_axis     = validate_x_axis(x_axis)
@@ -438,14 +432,11 @@ class SMatrixPlotsMixin:
             ax_bot.legend(fontsize=16, frameon=False)
 
         if save_fig:
-            fname    = _plot_filename("SampPhase", components, spectrum, x_axis,
-                                      lambda_min, lambda_max, n_points, k_imag, file_format)
-            filepath = os.path.join(self.save_path, fname)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            if verbose:
-                print(f"✓ Amplitude+phase figure saved to {filepath}")
-
-        show_figure()
+            fname = _plot_filename("SampPhase", components, spectrum, x_axis,
+                                   lambda_min, lambda_max, n_points, k_imag, file_format)
+            save_figure(fig, self.save_path, fname, "Amplitude+phase figure", verbose)
+        show_figure(fig, show)
+        return fig, (ax_top, ax_bot)
 
     # ------------------------------------------------------------------
     # plot_S_fourier
@@ -454,7 +445,7 @@ class SMatrixPlotsMixin:
     def plot_S_fourier(self, lambda_min, lambda_max, n_points, components,
                        k_imag=0.0, xlim_um=(0, 8000),
                        save_fig=False, file_format="pdf",
-                       reuse_if_included=True, verbose=None):
+                       reuse_if_included=True, verbose=None, show=None):
         """
         Fourier transform of |S_ij|² in the optical-length domain.
 
@@ -481,6 +472,12 @@ class SMatrixPlotsMixin:
             Re-use broader cached S(λ) if available.
         verbose : bool
             Print progress.
+        show : bool or None
+            Show the figure (default: the ``show`` option); otherwise it is closed.
+
+        Returns
+        -------
+        fig, axs : one axes per component
         """
         verbose = resolve("verbose", verbose)
         components = _components_to_list(components)
@@ -555,14 +552,11 @@ class SMatrixPlotsMixin:
                      va="center", rotation="vertical")
 
         if save_fig:
-            fname    = _plot_filename("Sfourier", components, None, "wavelength",
-                                      lambda_min, lambda_max, n_points, k_imag, file_format)
-            filepath = os.path.join(self.save_path, fname)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            if verbose:
-                print(f"✓ Fourier figure saved to {filepath}")
-
-        show_figure()
+            fname = _plot_filename("Sfourier", components, None, "wavelength",
+                                   lambda_min, lambda_max, n_points, k_imag, file_format)
+            save_figure(fig, self.save_path, fname, "Fourier figure", verbose)
+        show_figure(fig, show)
+        return fig, axs
 
     # ------------------------------------------------------------------
     # plot_S_complex_plane
@@ -571,7 +565,7 @@ class SMatrixPlotsMixin:
     def plot_S_complex_plane(self, lambda_min, lambda_max, n_points, components,
                               spectrum=None, k_imag=0.0,
                               save_fig=False, file_format="pdf",
-                              reuse_if_included=False, verbose=None):
+                              reuse_if_included=False, verbose=None, show=None):
         """
         Plot S_ij(λ) as a curve in the complex plane.
 
@@ -600,6 +594,8 @@ class SMatrixPlotsMixin:
             to avoid inadvertently mixing different ``k_imag`` values.
         verbose : bool
             Print crossing info.
+        show : bool or None
+            Show the figure (default: the ``show`` option); otherwise it is closed.
 
         Returns
         -------
@@ -648,23 +644,13 @@ class SMatrixPlotsMixin:
             ax.set_xlabel(r"$\mathrm{Re}(S_{ij})$", fontsize=18)
             ax.set_ylabel(r"$\mathrm{Im}(S_{ij})$", fontsize=18)
             ax.set_aspect("equal")
-            ax.tick_params(axis="both", which="major", direction="in",
-                           length=MAJOR_TICK_LEN, width=MAJOR_TICK_W,
-                           labelsize=14, top=True, right=True)
-            ax.minorticks_on()
-            ax.tick_params(axis="both", which="minor", direction="in",
-                           length=MINOR_TICK_LEN, width=MINOR_TICK_W,
-                           top=True, right=True)
+            box_ticks(ax, labelsize=14)
 
-        plt.tight_layout()
+        fig.tight_layout()
 
         if save_fig:
-            fname    = _plot_filename("ScomplexPlane", components, spectrum, "wavelength",
-                                      lambda_min, lambda_max, n_points, k_imag, file_format)
-            filepath = os.path.join(self.save_path, fname)
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            if verbose:
-                print(f"✓ Complex-plane figure saved to {filepath}")
-
-        show_figure()
+            fname = _plot_filename("ScomplexPlane", components, spectrum, "wavelength",
+                                   lambda_min, lambda_max, n_points, k_imag, file_format)
+            save_figure(fig, self.save_path, fname, "Complex-plane figure", verbose)
+        show_figure(fig, show)
         return fig, axs

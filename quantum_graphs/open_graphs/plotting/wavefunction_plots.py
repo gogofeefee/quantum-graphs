@@ -1,64 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-WavefunctionPlotsMixin — plot_resonance_wavefunction, plot_entropy, plot_ipr.
+WavefunctionPlotsMixin — resonance_vectors, mode_localization and
+plot_resonance_wavefunction of an open graph; plot_entropy and plot_ipr come
+from :class:`quantum_graphs.plotting.localization_plots.LocalizationPlotsMixin`.
 
-For open graphs the "wavefunction" at a complex resonance k is the null-space
-of (I − U_b(k)), where U_b = D(k) Σ_αα(k) is the internal bond-scattering
-evolution operator.  Energy density on bond b is |a_fwd[b]|² + |a_bwd[b]|².
-Entropy and IPR are computed per bond (amplitudes arriving at its two end
-vertices), on the projector onto the null-space when it has dimension > 1
-(:mod:`quantum_graphs.stats.localization`).
-
-Helpers
--------
-resonance_vectors(index)                     null-space of (I − U_b(k)) at a resonance
-_compute_all_resonance_quantities()          iterate spectrum → (S_norm, I) arrays
+The "wavefunction" at a complex resonance k is the null space of I − U(k),
+U = D(k) Σ_αα(k) being the internal bond-scattering operator (leads closed).
 """
 
-from ...core.config import log, show_figure
-import os
 import numpy as np
-import matplotlib.pyplot as plt
 
-from ...plotting.drawing import (add_colorbar, draw_bond_values, draw_vertices, finish_axes,
-                                size_scale)
-from .style import MAJOR_TICK_LEN, MINOR_TICK_LEN, MAJOR_TICK_W, MINOR_TICK_W
-
-
-def _tick_params(ax):
-    ax.minorticks_on()
-    ax.tick_params(axis="both", which="major", direction="in",
-                   length=MAJOR_TICK_LEN, width=MAJOR_TICK_W,
-                   labelsize=18, top=True, right=True)
-    ax.tick_params(axis="both", which="minor", direction="in",
-                   length=MINOR_TICK_LEN, width=MINOR_TICK_W,
-                   top=True, right=True)
+from ...core.config import show_figure
+from ...plotting.localization_plots import LocalizationPlotsMixin, plot_bond_intensity, select_modes
+from ...plotting.style import save_figure
 
 
-def _moving_average(y, window):
-    if y.size < 3:
-        return None
-    w = int(window)
-    if w < 3:
-        w = 3
-    if w % 2 == 0:
-        w += 1
-    if w > y.size:
-        w = y.size if y.size % 2 == 1 else y.size - 1
-        if w < 3:
-            return None
-    kernel = np.ones(w, dtype=float) / w
-    pad    = w // 2
-    ypad   = np.pad(y, (pad, pad), mode="edge")
-    return np.convolve(ypad, kernel, mode="valid")
+class WavefunctionPlotsMixin(LocalizationPlotsMixin):
+    """Localisation of the resonances of an open graph and their bond intensities."""
 
-
-class WavefunctionPlotsMixin:
-
-    # =========================================================================
-    # Shared internal helpers
-    # =========================================================================
+    def _require_resonances(self):
+        if not hasattr(self, "spectrum") or np.asarray(self.spectrum).size == 0:
+            raise AttributeError("No complex spectrum available. Run find_resonances() first.")
 
     def resonance_vectors(self, index):
         """Orthonormal basis of ker(I − U(k)) at resonance ``self.spectrum[index]``,
@@ -66,243 +29,66 @@ class WavefunctionPlotsMixin:
         g = max(int(self.degeneracies[index]), 1)
         return self.null_vectors(complex(self.spectrum[index]), multiplicity=g)
 
-    def _compute_all_resonance_quantities(self):
+    def mode_localization(self, wavelength_range=None):
         """
-        Iterate over self.spectrum and compute per-resonance entropy and IPR.
-
-        Per bond; for a degenerate resonance (multiplicity from
-        ``find_resonances``) the diagonal of the eigenspace projector is used,
-        not one arbitrary basis vector.
+        Normalised entropy and IPR of every resonance of ``find_resonances``
+        (optionally restricted to ``wavelength_range`` on Re k), per bond; a
+        degenerate resonance counts once, through the diagonal of the
+        projector onto its null space.
 
         Returns
         -------
-        k_vals    : ndarray (complex)
-        S_norm    : ndarray (float)
-        I_vals    : ndarray (float)
+        k (complex), S_norm, ipr : ndarray, sorted by Re k
         """
-        if not hasattr(self, "spectrum") or np.asarray(self.spectrum).size == 0:
-            raise AttributeError(
-                "No complex spectrum available. Run find_resonances() first.")
+        self._require_resonances()
+        spectrum = np.asarray(self.spectrum, dtype=complex)
+        index = np.flatnonzero(select_modes(spectrum, wavelength_range))
+        index = index[np.argsort(np.real(spectrum[index]), kind="stable")]
+        measures = [self.localization_measures(self.resonance_vectors(i)) for i in index]
+        return (spectrum[index],
+                np.asarray([m[1] for m in measures], dtype=float),
+                np.asarray([m[2] for m in measures], dtype=float))
 
-        spectrum = np.asarray(self.spectrum)
-
-        k_list = []
-        S_list = []
-        I_list = []
-
-        for i, k in enumerate(spectrum):
-            vecs = self.resonance_vectors(i)
-            _, S_norm, I = self.localization_measures(vecs)
-            k_list.append(k)
-            S_list.append(S_norm)
-            I_list.append(I)
-
-        return (np.asarray(k_list, dtype=complex),
-                np.asarray(S_list, dtype=float),
-                np.asarray(I_list, dtype=float))
-
-    # =========================================================================
-    # 2a — plot_resonance_wavefunction
-    # =========================================================================
-
-    def plot_resonance_wavefunction(self, index, cmap=None,
-                                    save_fig=False, file_format="pdf"):
+    def plot_resonance_wavefunction(self, index, cmap=None, save_fig=False, file_format="pdf",
+                                    show=None):
         """
-        Plot the wavefunction(s) at complex resonance self.spectrum[index].
-
-        Computes the null-space of (I − U_b(k)) at the selected resonance (as
-        many vectors as its multiplicity): one plot per kernel vector.
-        Leads are not shown. Each bond is coloured by its intensity; S_norm in
-        the title is that of the vector.
+        Plot the wavefunction(s) at the complex resonance ``self.spectrum[index]``:
+        one figure per vector of the null space of I − U(k) (as many as its
+        multiplicity), each bond coloured by its intensity. Leads are not
+        shown; S_norm in the title is that of the vector.
 
         Parameters
         ----------
         index : int
             Index into self.spectrum.
         cmap : str, Colormap, or None
-        save_fig : bool
-        file_format : str
+        save_fig, file_format, show
+
+        Returns
+        -------
+        list of (fig, ax), one per vector.
         """
-        if not hasattr(self, "spectrum") or np.asarray(self.spectrum).size == 0:
-            raise AttributeError(
-                "No complex spectrum available. Run find_resonances() first.")
+        self._require_resonances()
+        k = complex(self.spectrum[index])
+        wavelength = 2 * np.pi / k.real
+        Q = k.real / (2 * abs(k.imag)) if k.imag != 0 else np.inf
+        Q_str = f"{Q:.1f}" if np.isfinite(Q) else r"\infty"
 
-        k          = complex(self.spectrum[index])
-        wavelength = 2 * np.pi / float(np.real(k))
-        im_k       = float(np.imag(k))
-        Q          = float(np.real(k)) / (2 * abs(im_k)) if im_k != 0 else np.inf
-
-        vecs    = self.resonance_vectors(index)
-        N_modes = len(vecs)
-        paths   = self.bond_paths
-        radius  = 0.065 * size_scale(self.topology)
-
-        for mode_idx, a in enumerate(vecs):
-            rho          = self.bond_intensities(a)
+        vecs = self.resonance_vectors(index)
+        figures = []
+        for mode, a in enumerate(vecs):
             _, S_norm, _ = self.localization_measures(a)
-
-            max_e            = np.max(rho) if rho.size else 1.0
-            energy_densities = rho / max_e if max_e > 0 else rho
-
-            fig, ax = plt.subplots(figsize=(10, 8))
-            edges = draw_bond_values(ax, paths, energy_densities, cmap=cmap)
-            draw_vertices(ax, self.topology, radius)
-            add_colorbar(ax, edges, "Energy Density")
-
-            Q_str      = f"{Q:.1f}" if np.isfinite(Q) else r"\infty"
-            mode_label = f"Mode {mode_idx + 1}, " if N_modes > 1 else ""
+            mode_label = f"Mode {mode + 1}, " if len(vecs) > 1 else ""
             title = (f"{mode_label}"
                      f"$\\lambda = {wavelength:.3f}\\,\\mu m$, "
                      f"$Q = {Q_str}$, "
                      f"$S_{{\\rm norm}} = {S_norm:.3f}$")
-            ax.set_title(title, fontsize=20)
-            finish_axes(ax, paths)
-            plt.tight_layout(pad=3.0)
-
+            fig, ax = plot_bond_intensity(self, a, title, cmap)
             if save_fig:
-                base_str = f"resonance_wf_mode{mode_idx+1}" if N_modes > 1 \
-                    else "resonance_wf"
-                fname = (f"{base_str}_idx{index}_lambda{wavelength:.3f}"
-                         f"_Q{Q:.0f}_Snorm{S_norm:.3f}.{file_format}")
-                fpath = os.path.join(self.save_path, fname)
-                plt.savefig(fpath, format=file_format, dpi=300,
-                            bbox_inches="tight")
-                log(f"✓ Resonance wavefunction saved to {fpath}")
-            show_figure()
-
-    # =========================================================================
-    # 2c — plot_entropy
-    # =========================================================================
-
-    def plot_entropy(self, show_smooth=False, smooth_window=11,
-                     show_mean_hline=True,
-                     save_fig=False, file_format="pdf"):
-        """
-        Normalised Shannon entropy S_norm vs Re(k)·L_tot and vs mode index.
-
-        Per bond; see ``_compute_all_resonance_quantities``.
-
-        Parameters
-        ----------
-        show_smooth : bool     Overlay a moving-average curve.
-        smooth_window : int
-        show_mean_hline : bool  Draw a red dashed horizontal line at the mean value.
-        save_fig : bool
-        file_format : str
-        """
-        k_vals, S_norm_vals, _ = self._compute_all_resonance_quantities()
-
-        if S_norm_vals.size == 0:
-            raise ValueError("No valid resonances for entropy plot.")
-
-        x_kL_vals = np.real(k_vals) * self.total_length
-        order      = np.argsort(np.real(k_vals))
-        x_kL_vals  = x_kL_vals[order]
-        S_norm_vals = S_norm_vals[order]
-
-        Sn_mean = float(np.mean(S_norm_vals))
-        Sn_std  = float(np.std(S_norm_vals, ddof=1)) if S_norm_vals.size >= 2 else 0.0
-        log(f"⟨S_norm⟩ = {Sn_mean:.6f} ± {Sn_std:.6f}   (N={S_norm_vals.size})")
-
-        smooth_y   = _moving_average(S_norm_vals, smooth_window) if show_smooth else None
-        smooth_tag = f"__smoothW{smooth_window}" if show_smooth and smooth_y is not None else ""
-        stats_title = fr"$\langle S_{{\rm norm}}\rangle = {Sn_mean:.3f}\ \pm\ {Sn_std:.3f}$"
-
-        for fig_type, xdata, xlabel, xlim, xtag in [
-            ("kL",    x_kL_vals,                 r"$\mathrm{Re}(k)\,L_{\rm tot}$",
-             (float(x_kL_vals.min()), float(x_kL_vals.max())), "kL"),
-            ("index", np.arange(S_norm_vals.size), "Mode index",
-             (0, max(1, S_norm_vals.size - 1)), "index"),
-        ]:
-            fig, ax = plt.subplots(figsize=(10, 8))
-            ax.plot(xdata, S_norm_vals, "ko-", markersize=5, linewidth=1)
-            ax.axhline(0.0, color="black", linestyle="-.", linewidth=1.5)
-            ax.axhline(1.0, color="black", linestyle="-.", linewidth=1.5)
-            if show_mean_hline:
-                ax.axhline(Sn_mean, color="red", linestyle="--", linewidth=1.5)
-            if smooth_y is not None:
-                ax.plot(xdata, smooth_y, "b-", linewidth=2)
-            ax.set_title(stats_title, fontsize=20)
-            ax.set_xlabel(xlabel, fontsize=22)
-            ax.set_ylabel(r"$S_{\rm norm}$", fontsize=22)
-            ax.set_xlim(*xlim)
-            ax.set_ylim(-0.03, 1.03)
-            _tick_params(ax)
-            fig.tight_layout()
-            if save_fig:
-                fname = f"entropy_vs_{xtag}{smooth_tag}.{file_format}"
-                fpath = os.path.join(self.save_path, fname)
-                fig.savefig(fpath, format=file_format, dpi=300,
-                            bbox_inches="tight")
-                log(f"✓ Entropy ({xtag}) saved to: {fpath}")
-            show_figure()
-
-    # =========================================================================
-    # 2c — plot_ipr
-    # =========================================================================
-
-    def plot_ipr(self, show_smooth=False, smooth_window=20,
-                 show_mean_hline=True,
-                 save_fig=False, file_format="pdf"):
-        """
-        Inverse participation ratio I = N_b · Σ p_b² vs Re(k)·L_tot and mode index.
-
-        Per bond (N_b = number of bonds).
-
-        Parameters
-        ----------
-        show_smooth : bool
-        smooth_window : int
-        show_mean_hline : bool  Draw a red dashed horizontal line at the mean value.
-        save_fig : bool
-        file_format : str
-        """
-        k_vals, _, I_vals = self._compute_all_resonance_quantities()
-
-        if I_vals.size == 0:
-            raise ValueError("No valid resonances for IPR plot.")
-
-        x_kL_vals = np.real(k_vals) * self.total_length
-        order     = np.argsort(np.real(k_vals))
-        x_kL_vals = x_kL_vals[order]
-        I_vals    = I_vals[order]
-
-        I_mean = float(np.mean(I_vals))
-        I_std  = float(np.std(I_vals, ddof=1)) if I_vals.size >= 2 else 0.0
-        log(f"⟨I⟩ = {I_mean:.6f} ± {I_std:.6f}   (N={I_vals.size})")
-
-        smooth_y   = _moving_average(I_vals, smooth_window) if show_smooth else None
-        smooth_tag = f"__smoothW{smooth_window}" if show_smooth and smooth_y is not None else ""
-        stats_title = fr"$\langle I\rangle = {I_mean:.3f}\ \pm\ {I_std:.3f}$"
-
-        y_min = float(np.min(I_vals))
-        y_max = float(np.max(I_vals))
-        pad   = 0.05 * (y_max - y_min) if y_max > y_min else 0.1
-
-        for fig_type, xdata, xlabel, xlim, xtag in [
-            ("kL",    x_kL_vals,                 r"$\mathrm{Re}(k)\,L_{\rm tot}$",
-             (float(x_kL_vals.min()), float(x_kL_vals.max())), "kL"),
-            ("index", np.arange(I_vals.size), "Mode index",
-             (0, max(1, I_vals.size - 1)), "index"),
-        ]:
-            fig, ax = plt.subplots(figsize=(10, 8))
-            ax.plot(xdata, I_vals, "ko-", markersize=5, linewidth=1)
-            ax.axhline(2.0, color="black", linestyle="--", linewidth=2.0)
-            if show_mean_hline:
-                ax.axhline(I_mean, color="red", linestyle="--", linewidth=1.5)
-            if smooth_y is not None:
-                ax.plot(xdata, smooth_y, "b-", linewidth=3.0)
-            ax.set_title(stats_title, fontsize=20)
-            ax.set_xlabel(xlabel, fontsize=22)
-            ax.set_ylabel(r"$IPR$", fontsize=22)
-            ax.set_xlim(*xlim)
-            ax.set_ylim(max(0.0, y_min - pad), y_max + pad)
-            _tick_params(ax)
-            fig.tight_layout()
-            if save_fig:
-                fname = f"ipr_vs_{xtag}{smooth_tag}.{file_format}"
-                fpath = os.path.join(self.save_path, fname)
-                fig.savefig(fpath, format=file_format, dpi=300,
-                            bbox_inches="tight")
-                log(f"✓ IPR ({xtag}) saved to: {fpath}")
-            show_figure()
+                base = f"resonance_wf_mode{mode + 1}" if len(vecs) > 1 else "resonance_wf"
+                save_figure(fig, self.save_path,
+                            f"{base}_idx{index}_lambda{wavelength:.3f}_Q{Q:.0f}"
+                            f"_Snorm{S_norm:.3f}.{file_format}", "Resonance wavefunction")
+            show_figure(fig, show)
+            figures.append((fig, ax))
+        return figures

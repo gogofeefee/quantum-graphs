@@ -53,7 +53,7 @@ def test_degenerate_level_measures_do_not_depend_on_the_basis(save):
         u, _ = np.linalg.qr(rng.normal(size=(2, 2)) + 1j * rng.normal(size=(2, 2)))
         assert np.allclose(g.localization_measures(a), g.localization_measures(u @ a))
     g.spectrum = spectrum
-    _, _, S_norm, ipr = g._compute_mode_quantities()
+    _, S_norm, ipr = g.mode_localization()
     assert S_norm.size == spectrum.size                               # one value per level
 
 
@@ -78,3 +78,22 @@ def test_bond_intensity_does_not_depend_on_an_extra_pass_through_vertex(save):
     expected = abs(amp_b[tb.arriving(0, 3)]) ** 2 + abs(amp_b[tb.arriving(0, 1)]) ** 2
     assert np.isclose(a.bond_intensities(amp_a)[0], expected, rtol=1e-10)
     assert np.allclose(a.S(k), b.S(k))
+
+
+def test_moving_average_and_windowed_entropy_plot(save):
+    from quantum_graphs.plotting.localization_plots import moving_average
+    y = np.arange(10.0)
+    assert np.allclose(moving_average(y, 3)[1:-1], y[1:-1])         # linear data unchanged
+    assert moving_average(y, 4).size == y.size and moving_average(y[:2], 3) is None
+    assert moving_average(np.arange(4.0), 11).size == 4             # window clipped to 3
+    g = qg.ClosedDirectionalGraphs(**qg.layouts.flower_graph(), couplings=0.5, neff=3.97,
+                                   wavelength_range=(1.50, 1.51), **save)
+    g.compute_spectrum()
+    k, S_norm, ipr = g.mode_localization(wavelength_range=(1.50, 1.505))
+    assert np.all(2 * np.pi / k <= 1.505) and k.size == S_norm.size == ipr.size
+    (fig, ax), _ = g.plot_entropy(wavelength_range=(1.50, 1.505), show_smooth=True, save_fig=True)
+    assert len(ax.lines) == 5                                       # data, 0, 1, mean, smooth
+    assert any(p.name.startswith("entropy_vs_kL__lam1.500-1.505__smoothW11") for p in
+               g.save_path.iterdir())
+    with pytest.raises(ValueError, match="No level"):
+        g.mode_localization(wavelength_range=(1.6, 1.7))

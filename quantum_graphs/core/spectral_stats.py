@@ -38,6 +38,7 @@ from ..stats.spectral import number_variance, spectral_rigidity, weyl_staircase
 
 
 class SpectralStatsMixin:
+    """Level selection, Weyl law, unfolding, Σ² and Δ₃ (closed and open graphs)."""
 
     # =========================================================================
     # Levels of the computed spectrum

@@ -144,8 +144,12 @@ each independent sector (`core/level_search.py`, `find_levels`, 2.0).
 * Single-access ring test: poles agree with (2πm + i ln √(1−C)) / (n L) to
   1e-15.
 * `find_experimental_resonances` keeps the peaks of d²T/dk² above
-  `amp_threshold`, an **absolute** value whose scale depends on n_points,
-  k_imag and the graph **[open]**: check the three-panel figures.
+  `amp_threshold` (default 0: every positive-curvature peak), an **absolute**
+  value in µm². A peak height scales as T_peak / Γ² (Γ the linewidth in k),
+  so the useful scale depends on the graph and on k_imag, not on n_points
+  once the line shapes are resolved; the log prints the range of heights
+  found. A relative threshold would be dominated by the narrowest line, so
+  none is offered; check the three-panel figures.
 * S(k) caches: a cache of a wider window is only reused (by linear
   interpolation) if its grid is at least as fine as the requested one; the
   interpolated result is never written back.

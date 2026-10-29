@@ -28,10 +28,5 @@ def _clip01(x):
     return float(np.clip(x, 0.0, 1.0))
 
 
-def _safe_logical_allclose_nonnegative(arr, atol=1e-14):
-    arr = np.asarray(arr, dtype=float)
-    return bool(np.all(arr >= -atol))
-
-
 def _format_float_for_name(x, ndigits=5):
     return f"{float(x):.{ndigits}f}"

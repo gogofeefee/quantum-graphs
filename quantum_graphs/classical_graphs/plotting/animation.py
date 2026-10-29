@@ -8,7 +8,7 @@ Animated visualisation of the Perron-Frobenius evolution:
   - "flow" style: smooth motion + fade-out/fade-in between steps.
 """
 
-from ...core.config import log
+from ...core.config import log, show_figure
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter, FFMpegWriter
@@ -261,6 +261,7 @@ class AnimationMixin:
         filename=None,
         writer="mp4",
         dpi=200,
+        show=None,
     ):
         """
         Animate the Perron-Frobenius evolution of rho.
@@ -281,6 +282,9 @@ class AnimationMixin:
         save_animation : bool
         writer : "mp4" or "gif"
         filename : str or None
+        show : bool or None
+            Play the animation in a window (default: the ``show`` option);
+            otherwise its figure is closed once saved.
 
         Returns
         -------
@@ -428,4 +432,5 @@ class AnimationMixin:
                 anim.save(out, writer=PillowWriter(fps=fps), dpi=dpi)
             log(f"✓ Animation saved to: {out}")
 
+        show_figure(fig, show)
         return anim, trajectory

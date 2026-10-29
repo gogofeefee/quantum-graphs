@@ -33,6 +33,7 @@ from ..core.scattering import NULLITY_TOL
 
 
 class SpectrumMixin:
+    """Real spectrum of a closed graph (compute_spectrum) and its eigenvectors."""
 
     # =========================================================================
     # Spectrum computation

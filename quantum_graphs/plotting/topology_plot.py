@@ -3,21 +3,21 @@ TopologyPlotMixin — ``plot_graph``, the topology figure shared by every graph
 class (see :mod:`quantum_graphs.plotting.drawing`).
 """
 
-import os
-
 import matplotlib.pyplot as plt
 
-from ..core.config import log, show_figure
+from ..core.config import show_figure
 from .drawing import draw_graph
+from .style import save_figure
 
 
 class TopologyPlotMixin:
+    """The topology figure ``plot_graph`` of every graph class."""
 
     def plot_graph(self, show_lengths=False, show_port_markers=False, show_labels=True,
                    show_leads=True, vertex_radius_frac=0.065, marker_radius_frac=0.03,
                    vertex_fontsize=20, length_fontsize=16, bond_linewidth=3.0,
                    bond_color="black", ax=None, title=None, figsize=(10, 8), save_fig=False, file_format="pdf",
-                   filename_suffix=None):
+                   filename_suffix=None, show=None):
         """
         Plot the graph: bonds (parallel bonds as arcs, self-loops as teardrops),
         vertices with their labels (1..N, access couplers "A"), and optionally
@@ -26,8 +26,8 @@ class TopologyPlotMixin:
         known).
 
         Sizes are fractions of the shortest bond length. With ``ax`` the graph
-        is drawn into that axes (as a background) and not shown. Returns
-        ``(fig, ax)``.
+        is drawn into that axes (as a background) and neither saved nor
+        shown. Returns ``(fig, ax)``.
         """
         created = ax is None
         if created:
@@ -42,19 +42,16 @@ class TopologyPlotMixin:
                    bond_linewidth=bond_linewidth, bond_color=bond_color)
         if title:
             ax.set_title(title)
-        if created:
-            fig.tight_layout(pad=1.0)
+        if not created:
+            return fig, ax
+        fig.tight_layout(pad=1.0)
         if save_fig:
-            os.makedirs(self.save_path, exist_ok=True)
             tags = ["with_lengths" if show_lengths else "no_lengths"]
             if show_port_markers:
                 tags.append("port_markers")
             if filename_suffix:
                 tags.append(filename_suffix)
-            filepath = os.path.join(self.save_path,
-                                    f"{self.name}_graph_{'_'.join(tags)}.{file_format}")
-            fig.savefig(filepath, format=file_format, dpi=300, bbox_inches="tight")
-            log(f"Graph plot saved to {filepath}")
-        if created:
-            show_figure()
+            save_figure(fig, self.save_path, f"{self.name}_graph_{'_'.join(tags)}.{file_format}",
+                        "Graph plot")
+        show_figure(fig, show)
         return fig, ax

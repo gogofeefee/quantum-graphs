@@ -5,24 +5,40 @@ GraphPlotMixin — plot_graph (shared, see quantum_graphs.plotting) and
 plot_energy_distribution.
 """
 
-from ...core.config import log, show_figure
-import os
+from ...core.config import show_figure
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
 
 from ...plotting.drawing import (add_colorbar, draw_bond_values, draw_vertices, finish_axes,
                                 lead_direction, size_scale)
+from ...plotting.style import save_figure
 from ...plotting.topology_plot import TopologyPlotMixin
 
 
 class GraphPlotMixin(TopologyPlotMixin):
+    """plot_graph (shared) and plot_energy_distribution of an open graph."""
 
     def plot_energy_distribution(self, k, injection_port, show_leads=True,
-                                 cmap=None, save_fig=False, file_format="pdf"):
+                                 cmap=None, save_fig=False, file_format="pdf", show=None):
         """
-        Plot the energy distribution on the graph bonds for a given injection port
-        and wavenumber.
+        Plot the energy distribution on the bonds for a unit amplitude injected
+        in one lead at wavenumber ``k`` (real or complex), with the reflected
+        and transmitted powers |S_ji|² on the leads (``show_leads``, needs
+        ``lead_orientations``) and S_norm of the internal amplitudes.
+
+        Parameters
+        ----------
+        k : float or complex
+        injection_port : int or (vertex, port)
+            Lead index (order of ``topology.leads``) or the lead itself.
+        show_leads : bool
+        cmap : str, Colormap, or None
+        save_fig, file_format, show
+
+        Returns
+        -------
+        fig, ax
         """
         leads = list(self.topology.leads)
 
@@ -115,7 +131,7 @@ class GraphPlotMixin(TopologyPlotMixin):
 
         ax.set_title(title_str, fontsize=22)
         finish_axes(ax, paths, extra_points=arrow_tips)
-        plt.tight_layout(pad=3.0)
+        fig.tight_layout(pad=3.0)
 
         if save_fig:
             inj_label = f"lead{injection_index}"
@@ -126,8 +142,7 @@ class GraphPlotMixin(TopologyPlotMixin):
             else:
                 filename = (f"EnergyDistribution_{inj_label}_{leads_tag}_"
                             f"lambda{lambda0:.5f}.{file_format}")
-            filepath = os.path.join(self.save_path, filename)
-            plt.savefig(filepath, format=file_format, dpi=300, bbox_inches='tight')
-            log(f"✓ Energy distribution figure saved to {filepath}")
+            save_figure(fig, self.save_path, filename, "Energy distribution figure")
 
-        show_figure()
+        show_figure(fig, show)
+        return fig, ax

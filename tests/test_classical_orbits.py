@@ -68,3 +68,14 @@ def test_truncated_orbit_search_warns(save):
     with pytest.warns(RuntimeWarning, match="INCOMPLETE"):
         po.find_orbits_up_to_length(3000.0, max_orbits=50)
     assert not po.orbits_complete
+
+
+def test_drawing_helpers_of_the_arrows():
+    from quantum_graphs.classical_graphs._utils import (_clip01, _format_float_for_name,
+                                                        _is_number, _normalize, _perpendicular)
+    assert np.allclose(_normalize([3.0, 4.0]), [0.6, 0.8])
+    assert np.allclose(_normalize([0.0, 0.0]), [1.0, 0.0])           # degenerate direction
+    assert np.allclose(_perpendicular([1.0, 2.0]), [-2.0, 1.0])
+    assert _clip01(1.5) == 1.0 and _clip01(-1) == 0.0
+    assert _is_number(np.float64(2)) and not _is_number("2")
+    assert _format_float_for_name(1 / 3, ndigits=3) == "0.333"

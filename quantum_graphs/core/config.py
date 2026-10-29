@@ -14,7 +14,9 @@ variables ``QUANTUM_GRAPHS_VERBOSE=0`` and ``QUANTUM_GRAPHS_SHOW=0``.
 SVDs / solves of spectrum and resonance scans; results are identical for any
 value.
 Every plotting method also accepts ``show=`` and most computations
-``verbose=``; an explicit argument always wins over the global option.
+``verbose=``; an explicit argument always wins over the global option. A
+figure that is not shown is closed (it can still be saved through the
+returned ``fig``), so scripts and tests never accumulate open figures.
 """
 
 import contextlib
@@ -45,6 +47,7 @@ _OPTIONS = {
 
 
 def get_option(name):
+    """Current value of a global option (``verbose``, ``show``, ``n_workers``)."""
     return _OPTIONS[name]
 
 
@@ -78,11 +81,12 @@ def log(*args, verbose=None, **kwargs):
         print(*args, **kwargs)
 
 
-def show_figure(show=None):
-    """Call ``plt.show()``, or close the current figures if display is disabled
-    (they stay usable through the returned objects, e.g. ``fig.savefig``)."""
+def show_figure(fig=None, show=None):
+    """Show the figures (``plt.show()``) or, if display is disabled, close
+    ``fig`` (every figure if ``fig`` is None). A closed figure stays usable
+    through the returned object, e.g. ``fig.savefig``."""
     import matplotlib.pyplot as plt
     if resolve("show", show):
         plt.show()
     else:
-        plt.close("all")
+        plt.close("all" if fig is None else fig)

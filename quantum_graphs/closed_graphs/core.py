@@ -5,12 +5,6 @@ Topology handling (validation, directed bonds) is shared with the other
 subpackages through :class:`quantum_graphs.core.base.GraphBase`.
 """
 
-import datetime
-import inspect
-import os
-
-import numpy as np
-
 from ..core.base import GraphBase
 from ..core.optics import group_index_function
 from ..core.persistence import topology_hash
@@ -19,6 +13,8 @@ from ..core.vertices import resolve_vertex_matrices
 
 class CoreMixin(GraphBase):
     """Graph construction, save path and parameter report of a closed graph."""
+
+    _parameters_title = "Closed Quantum Graph Parameters"
 
     def __init__(self, vertex_positions, bonds, *,
                  vertex_matrices,
@@ -77,55 +73,3 @@ class CoreMixin(GraphBase):
         if coupling_info:
             return f"{info_str}_{neff_str}_{lamb_str}_{coupling_info}_{hash_digest}"
         return f"{info_str}_{neff_str}_{lamb_str}_{hash_digest}"
-
-    def _save_parameters(self):
-        """Write a human-readable description of the graph to graph_parameters.txt."""
-        filepath = os.path.join(self.save_path, "graph_parameters.txt")
-        with open(filepath, "w") as f:
-            f.write("### Closed Quantum Graph Parameters ###\n")
-            f.write(f"Graph Name: {self.name}\n")
-            f.write(f"Saved on: {datetime.datetime.now()}\n")
-            f.write(f"Physics fingerprint: {self.fingerprint}\n")
-            f.write(f"Vertices: {self.n_vertices}\n")
-            f.write(f"Bonds: {self.n_bonds}\n")
-            f.write(f"Total length: {self.total_length:.6f} µm\n")
-            f.write(f"Wavelength range (vacuum): {self.wavelength_range[0]:.3f} – "
-                    f"{self.wavelength_range[1]:.3f} µm\n\n")
-
-            if callable(self.neff):
-                f.write("Effective index: function of k\n")
-                f.write(_source_or_placeholder(self.neff))
-            else:
-                f.write(f"Effective index: {float(self.neff):.4f}\n")
-
-            if callable(self.ng):
-                f.write("\nGroup index: function of k\n")
-            else:
-                f.write(f"\nGroup index: {float(self.ng):.4f}\n")
-
-            f.write("\n### Vertex Scattering Matrices ###\n")
-            for v, sigma in self.vertex_scattering_matrix.items():
-                if callable(sigma):
-                    f.write(f"Vertex {v}: function of k\n")
-                    f.write(_source_or_placeholder(getattr(sigma, "coupling", sigma)))
-                else:
-                    f.write(f"Vertex {v} (valency {self.topology.valency[v]}):\n")
-                    np.savetxt(f, np.asarray(sigma), fmt="%-8.4f", delimiter=" ", newline="\n")
-                    f.write("\n")
-
-            f.write("\n### Vertex positions (µm) ###\n")
-            for v, (x, y) in enumerate(self.topology.positions):
-                f.write(f"Vertex {v}: ({x:.6f}, {y:.6f})\n")
-
-            f.write("\n### Bonds (i, p, j, q, L in µm) ###\n")
-            for b, (i, p, j, q, L) in enumerate(self.topology.bonds):
-                f.write(f"{b}: ({i}, {p}) — ({j}, {q}) : {L:.6f}\n")
-
-        self._log(f"Graph parameters saved to {filepath}")
-
-
-def _source_or_placeholder(func):
-    try:
-        return inspect.getsource(func) + "\n"
-    except (OSError, TypeError):
-        return "(source code unavailable)\n"

@@ -120,6 +120,45 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   true length for self-loops, lengths written on the curves, port markers
   tangent to the vertex disks, leads dashed. Wavefunctions, energy
   distributions, classical ρ arrows and orbit arrows follow the curves.
+- **Figure life cycle, the same everywhere**: every plotting method takes
+  `show=None` (default: the `show` option), saves through
+  `plotting.style.save_figure`, and, when it created the figure, shows it or
+  closes **only that figure** (`show_figure(fig, show)`; was
+  `plt.close("all")`, which also closed the caller's figures). Methods given
+  an `ax` (e.g. `plot_graph(ax=...)` as a background) neither save nor show.
+  Plotting methods return their figure: `(fig, ax)` (`plot_graph`,
+  `plot_orbit`, `plot_rho`, S-matrix plots, `plot_zeta_B`,
+  `plot_energy_distribution`, `plot_resonances_sigma`,
+  `plot_staircase_function`), a list of `(fig, ax)` (`plot_wavefunction`,
+  `plot_resonance_wavefunction`, `plot_entropy`, `plot_ipr`);
+  `find_experimental_resonances(plot=True)` still returns the resonances.
+  `dispersion.plot_mpb_indices_vs_k(show=None)` (was `show=True`, and never
+  closed its figure).
+- `plot_orbit` builds its own figure: with `show=True` it used to show the
+  bare graph before drawing the orbit.
+- **Entropy / IPR shared by closed and open graphs**
+  (`plotting.localization_plots.LocalizationPlotsMixin`): `plot_entropy` and
+  `plot_ipr` take `wavelength_range` for both (open graphs had none) and draw
+  the mean as a red dashed line (`show_mean_hline=True`, closed graphs had
+  none); files `entropy_vs_kL[__lam<a>-<b>][__smoothW<n>]` (closed graphs
+  wrote `__full` / `__range_[a-b]`). The values come from the new public
+  `graph.mode_localization(wavelength_range=None)` → `(k, S_norm, ipr)`
+  sorted by Re k (replaces `_compute_mode_quantities` /
+  `_compute_all_resonance_quantities`).
+- `find_experimental_resonances`: split into S cache / peak detection /
+  figures; the three-panel figures use the constrained layout (no more
+  tight_layout warnings); `amp_threshold` defaults to 0 (was 2e8, a value
+  tuned for one graph) and the log reports the range of peak heights (µm²) to
+  choose it. The curvature helpers are module functions
+  (`derivatives_uniform`, `derivatives_k_to_lambda`).
+- One `graph_parameters.txt` writer (`GraphBase._save_parameters`) for the
+  four classes (were four copies); complex vertex matrices are written as
+  complex numbers.
+- Removed the re-export modules `closed_graphs.plotting.style` and
+  `open_graphs.plotting.style` (use `quantum_graphs.plotting.style`) and dead
+  helpers of `open_graphs.cache` (`comp_tag`, `progress_print`,
+  `finish_progress`) and `classical_graphs._utils`.
+- CI: actions/checkout@v7, actions/setup-python@v7, Python 3.14 added.
 
 ### Changed (results)
 - **Classical dynamics**: one step of P = |Σ_αα|² is one bond traversal.

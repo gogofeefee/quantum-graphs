@@ -3,6 +3,9 @@ GraphBase — what every graph class shares: topology, vertex matrices, save
 path, physics fingerprint and the bond scattering model.
 """
 
+import datetime
+import inspect
+
 import numpy as np
 
 from ..stats.localization import bond_intensity, eigenspace_intensity, localization_measures
@@ -19,6 +22,8 @@ class GraphBase:
 
     #: subclasses set True if the graph may have leads
     _allow_leads = False
+    #: first line of ``graph_parameters.txt``
+    _parameters_title = "Quantum Graph Parameters"
 
     # -- construction ---------------------------------------------------------
 
@@ -39,14 +44,17 @@ class GraphBase:
 
     @property
     def n_vertices(self):
+        """Number of vertices."""
         return self.topology.n_vertices
 
     @property
     def n_bonds(self):
+        """Number of (undirected) bonds B; U has 2B rows."""
         return self.topology.n_bonds
 
     @property
     def n_leads(self):
+        """Number of leads (0 for a closed graph)."""
         return self.topology.n_leads
 
     @property
@@ -76,6 +84,62 @@ class GraphBase:
         from pathlib import Path
         self._save_path = Path(path)
         self._parameters_written = False
+
+    def _save_parameters(self):
+        """Write a human-readable description of the graph to graph_parameters.txt."""
+        t = self.topology
+        lines = [f"### {self._parameters_title} ###",
+                 f"Graph name: {self.name}",
+                 f"Saved on: {datetime.datetime.now()}",
+                 f"Physics fingerprint: {self.fingerprint}",
+                 "",
+                 f"Vertices: {self.n_vertices}",
+                 f"Bonds: {self.n_bonds}",
+                 f"Directed bonds: {t.n_directed}"]
+        if self._allow_leads:
+            lines.append(f"Leads: {self.n_leads}")
+        lines.append(f"Total length: {self.total_length:.6f} µm")
+        if getattr(self, "wavelength_range", None) is not None:
+            lam_min, lam_max = self.wavelength_range
+            lines.append(f"Wavelength range (vacuum): {lam_min:.3f} – {lam_max:.3f} µm")
+        lines.append("")
+        for label, value in (("Effective index neff", getattr(self, "neff", None)),
+                             ("Group index ng", getattr(self, "ng", None))):
+            if callable(value):
+                lines += [f"{label}: function of k", _source_or_placeholder(value)]
+            elif value is not None:
+                lines.append(f"{label}: {float(value):.6f}")
+        lines += self._extra_parameter_lines()
+
+        matrices = getattr(self, "vertex_scattering_matrix", None)
+        if matrices:
+            lines += ["", "### Vertex scattering matrices ###"]
+            for v, sigma in matrices.items():
+                if callable(sigma):
+                    lines += [f"Vertex {v} (valency {t.valency[v]}): function of k",
+                              _source_or_placeholder(getattr(sigma, "coupling", sigma))]
+                else:
+                    lines.append(f"Vertex {v} (valency {t.valency[v]}):")
+                    lines += ["  " + "  ".join(_format_entry(x) for x in row)
+                              for row in np.real_if_close(np.asarray(sigma))]
+        lines += ["", "### Vertex positions (µm) ###"]
+        lines += [f"Vertex {v}: ({x:.6f}, {y:.6f})" for v, (x, y) in enumerate(t.positions)]
+        lines += ["", "### Bonds (i, p, j, q, L in µm) ###"]
+        lines += [f"{b}: ({i}, {p}) — ({j}, {q}) : {L:.6f}"
+                  for b, (i, p, j, q, L) in enumerate(t.bonds)]
+        if self._allow_leads:
+            orientations = getattr(self, "lead_orientations", None) or {}
+            lines += ["", "### Leads (vertex, port) and drawing orientation (deg) ###"]
+            lines += [f"{m}: {lead}  {orientations.get(lead, '')}".rstrip()
+                      for m, lead in enumerate(t.leads)] or ["(none)"]
+
+        filepath = self._save_path / "graph_parameters.txt"
+        filepath.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        log(f"Graph parameters saved to {filepath}")
+
+    def _extra_parameter_lines(self):
+        """Class-specific lines of graph_parameters.txt (after the indices)."""
+        return []
 
     # -- drawing ----------------------------------------------------------------
 
@@ -188,7 +252,7 @@ class GraphBase:
             "bonds": [list(b) for b in self.topology.bonds],
             "leads": [list(lead) for lead in self.topology.leads],
             "vertex_matrices": {v: sample_function(s, ks)
-                                for v, s in self.vertex_scattering_matrix.items()},
+                                for v, s in getattr(self, "vertex_scattering_matrix", {}).items()},
             "wavelength_range": list(getattr(self, "wavelength_range", None) or []),
         }
         if hasattr(self, "neff"):
@@ -208,3 +272,15 @@ class GraphBase:
     def _log(self, *args, verbose=None, **kwargs):
         log(*args, verbose=verbose, **kwargs)
 
+
+def _source_or_placeholder(func):
+    try:
+        return inspect.getsource(func).rstrip("\n")
+    except (OSError, TypeError):
+        return "(source code unavailable)"
+
+
+def _format_entry(x):
+    if np.iscomplexobj(x):
+        return f"{x.real:+.6f}{x.imag:+.6f}j"
+    return f"{x:+.6f}"

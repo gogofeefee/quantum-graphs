@@ -12,6 +12,7 @@ import numpy as np
 
 
 class ScatteringMixin:
+    """S(k) of an open graph."""
 
     def S(self, k):
         """Scattering matrix S(k): shape (n_leads, n_leads) for one k, (m, n_leads,

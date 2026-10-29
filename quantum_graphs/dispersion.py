@@ -71,17 +71,22 @@ def load_mpb_indices(neff_npz_path: str, ng_npz_path: str):
 
 def plot_mpb_indices_vs_k(k_neff, neff_raw, neff_func,
                            k_ng, ng_raw, ng_func,
-                           n_plot=10_000, show=True):
+                           n_plot=10_000, show=None):
     """
-    Two-panel figure: neff(k) on top, ng(k) on bottom, shared k-axis.
+    Two-panel figure: neff(k) on top, ng(k) on bottom, shared k-axis — the
+    tabulated points and their interpolants (outputs of ``load_mpb_indices``).
+    ``show`` (default: the ``show`` option) shows the figure, closed otherwise.
+
+    Returns
+    -------
+    fig, (ax1, ax2)
     """
     k_min = float(min(np.min(k_neff), np.min(k_ng)))
     k_max = float(max(np.max(k_neff), np.max(k_ng)))
     k_plot = np.linspace(k_min, k_max, int(n_plot))
 
     fig, (ax1, ax2) = plt.subplots(
-        2, 1, figsize=(8, 8), sharex=True,
-        gridspec_kw={"hspace": 0.05},
+        2, 1, figsize=(8, 8), sharex=True, layout="constrained",
     )
 
     ax1.plot(k_neff, neff_raw, "o", color="gray", alpha=0.5, label="MPB data")
@@ -101,15 +106,14 @@ def plot_mpb_indices_vs_k(k_neff, neff_raw, neff_func,
                        length=3, width=1.5, top=True, right=True)
         ax.legend(fontsize=18, frameon=False)
 
-    plt.tight_layout()
-    if show:
-        show_figure()
+    show_figure(fig, show)
     return fig, (ax1, ax2)
 
 
 def apply_index_scaling(neff_in, ng_in, scale: float = 1.0):
     """
-    Return (neff_scaled, ng_scaled) with both multiplied by ``scale``.
+    Return (neff_scaled, ng_scaled) with both multiplied by ``scale``; each
+    index may be a number or a function of k (the result keeps that form).
     """
     scale = float(scale)
 
