@@ -271,6 +271,11 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   falls short of the Weyl law of the sector (all Im k) by more than
   max(5 %, 3), i.e. when broader resonances lie below im_min (skipped for a
   non-Weyl sector, det Σ_s = 0).
+- **Example `examples/closed_graphs/Pentagon/config_nconst.py`**: complete
+  graph K5 of 2×2 couplers (C = 0.5, bond lengths drawn in [80, 120] µm).
+  Although every coupler matrix is symmetric, the directed bonds split into
+  two partner sectors (`graph.sectors`): every level is doubly degenerate and
+  the desymmetrised spectrum (1909 levels in 0.8–2.0 µm) follows the GUE.
 
 ## 1.0.0 — 2026-10-29
 

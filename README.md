@@ -108,6 +108,7 @@ results are cached, so a second run only redraws the figures.
 | `closed_graphs/DoubleRing/config_nconst.py`   | one coupler, two rings                 | full closed-graph pipeline, exact 2-fold degeneracies |
 | `closed_graphs/DoubleRing/config_nfunc.py`    | same                                   | dispersive index |
 | `closed_graphs/Tetrahedron/config_nconst.py`  | complete graph K₄, 3-port vertices     | arbitrary vertex matrices (Neumann-Kirchhoff) |
+| `closed_graphs/Pentagon/config_nconst.py`     | complete graph K₅ of couplers          | two partner sectors: symmetric couplers, yet GUE statistics |
 | `closed_graphs/FlowerGraph/config_nconst.py`  | 5 couplers, 10 bonds (all doubled)     | ~1600 levels, statistics on a sub-window |
 | `closed_graphs/BowTieGraph/config_nconst.py`  | 5 couplers, 10 bonds (2 doubled)       | same pipeline on a second fabricated device |
 | `open_graphs/ring/config_n*_1access.py`       | ring + 1 access coupler                | S-matrix, resonances, transmission-based detection |
