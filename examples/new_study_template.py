@@ -57,7 +57,7 @@ if True:
     g = qg.ClosedDirectionalGraphs(**layout, couplings=couplings, **physics,
                                    name="my_graph_closed")
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True)
-    spectrum, degeneracies = g.compute_spectrum(N_scan=200_000)
+    spectrum, degeneracies = g.compute_spectrum()
     print(f"{spectrum.size} levels, Weyl estimate {g.weyl_count():.1f}")
     g.plot_wavefunction(a_in=g.compute_wavefunction(spectrum[0]), k=spectrum[0], save_fig=True)
     g.short_range_correlations(plot_wigner=["goe", "gue", "poissonian"], save_fig=True)

@@ -57,8 +57,13 @@ def test_reference_data_set_is_reproduced(tmp_path):
     env = dict(os.environ, MPLBACKEND="Agg")
     subprocess.run([sys.executable, os.path.join(REF, "generate_reference.py"), str(out)],
                    check=True, env=env, capture_output=True)
-    problems = compare(np.load(os.path.join(REF, "reference_v7.npz")), np.load(out))
+    ref, new = np.load(os.path.join(REF, "reference_v8.npz")), np.load(out)
+    problems = compare(ref, new)
     assert not problems, "\n".join(problems)
+    # eigenphase crossings locate closed levels to ~1e-15 (compare() allows 1e-9)
+    for key in ref.files:
+        if key.startswith("closed/") and key.endswith("/spectrum"):
+            assert np.max(np.abs(ref[key] - new[key])) < 1e-12, key
 
 
 def test_v0_to_v1_differences_are_the_documented_ones():
@@ -145,3 +150,32 @@ def test_v6_to_v7_differences_are_the_documented_ones():
                        atol=1e-13)
     for case in ("ring_1access", "ring_2access", "flower", "bowtie"):
         assert np.max(np.abs(v6[f"open/{case}/resonances"] - v7[f"open/{case}/resonances"])) < 1e-15
+
+
+def test_v7_to_v8_differences_are_the_documented_ones():
+    """reference_v7 -> reference_v8: closed spectra from the eigenphase
+    crossings of U(k) instead of the minima of σ_min(I − U(k)). The bounded
+    Brent minimisation stopped at ~sqrt(ε) |k| (scipy's fminbound), so the old
+    levels were off by up to 6e-8 µm⁻¹ (σ_min ~ 1e-5 at the level); the new
+    ones are exact to round-off. Same levels, same multiplicities; what moves
+    is every quantity computed from the level positions: spacings (≤ 2e-4 in
+    unfolded units), Σ² and Δ₃, entropy / IPR (≤ 5e-5), the wavefunction
+    residuals (now ≤ 2e-12) and their intensities. Σ² of the single ring (a
+    picket fence: exactly equal spacings) jumps by up to 1e-2, its windows
+    ending on levels. Open graphs, classical dynamics and orbits unchanged."""
+    v7 = np.load(os.path.join(REF, "reference_v7.npz"))
+    v8 = np.load(os.path.join(REF, "reference_v8.npz"))
+    problems = compare(v7, v8)
+    assert all(line.startswith("VALUE") for line in problems)
+    changed = {line.split(":")[1].strip() for line in problems}
+    assert all(key.startswith("closed/") for key in changed)
+    assert {key.rsplit("/", 1)[-1] for key in changed} <= {
+        "spectrum", "spacings", "sigma2", "delta3", "loc_S_norm_levels", "loc_ipr_levels",
+        "intensity", "residual"}
+    for key in v7.files:
+        if key.startswith("closed/") and key.endswith("/spectrum"):
+            case = key.rsplit("/", 1)[0]
+            assert np.array_equal(v7[f"{case}/degeneracies"], v8[f"{case}/degeneracies"])
+            assert np.max(np.abs(v7[key] - v8[key])) < 1e-7
+        if key.endswith("/residual") and key.startswith("closed/"):
+            assert v8[key] < 1e-11 < v7[key]

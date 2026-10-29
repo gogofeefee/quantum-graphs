@@ -168,6 +168,39 @@ catalogues are those of 1.0.0 (reference_v4 vs reference_v3, see
   `resonances_*.npz`. `plot_resonances_sigma(N_re=None)` sizes its heatmap
   grid from the mean spacing (20 points per spacing).
 
+### Changed (closed spectrum, changes results)
+- **`compute_spectrum` finds the eigenphase crossings of U(k)**
+  (`quantum_graphs.core.level_search`, `find_levels` → `LevelSearch`)
+  instead of the minima of σ_min(I − U(k)) on a grid. The number of levels in
+  any interval is computed exactly from the eigenphases at its ends (counting
+  function N(k) = Σ_j ⌊θ_j/2π⌋, no tracking), so the search is complete by
+  construction and close levels are not merged; each level is located by
+  Brent's method on the real secular function Z(k) = Π_j 2 sin(θ_j/2), and
+  its multiplicity is the number of eigenphases crossing there. Levels are
+  now accurate to ~1e-15 µm⁻¹: the bounded Brent minimisation of σ_min
+  stopped at ~sqrt(ε)|k| (scipy's `fminbound`, whatever `tol`), i.e. ~4e-8
+  µm⁻¹ (σ_min ~ 1e-5 at the level). Flower graph over 1.48–1.64 µm: same 837
+  levels in 1.4 s instead of 18 s (N_scan = 3e6).
+- **Fixed: levels silently lost with a large group index × length.** The
+  refined σ_min (slope ~ n_g L, times the ~sqrt(ε)|k| accuracy of
+  `fminbound`) could exceed `eps_accept` = 1e-4 and the level was rejected:
+  the dispersive examples (MPB index) lost 14 of 160 levels (single ring) and
+  11 of 272 (double ring), only flagged by the Weyl warning. Every paper
+  spectrum (constant index, σ_min ≤ 2.4e-5) was complete: same levels and
+  multiplicities, moved by ≤ 6.2e-8 µm⁻¹.
+- New signature `compute_spectrum(tol=1e-15, show_progress=False,
+  save_spectrum=True, overwrite=False)`; gone: `N_scan`, `maxiter`,
+  `nullity_tol`, `eps_accept`. Cache `spectrum_lamMin_*_lamMax_*_tol*.npz`
+  (older `spectrum_sigmaMin_*` caches are not read). A closed graph whose U is
+  not unitary (lossy vertices) raises ValueError. The Weyl warning now means
+  a group index inconsistent with the effective index (the count is exact).
+  `ScatteringModel.eigenvalues_many`. Removed `_classify_levels`.
+- reference_v8: closed spectra move by ≤ 6e-8 µm⁻¹ (same levels and
+  multiplicities in every case), and with them spacings (≤ 2e-4 unfolded),
+  Σ², Δ₃, entropy / IPR (≤ 5e-5), wavefunction residuals (1e-5 → 1e-12) and
+  intensities; Σ² of the single ring (equal spacings) by up to 1e-2. Open
+  graphs, classical dynamics and orbits unchanged.
+
 ### Changed (dispersive index off the real axis, changes results)
 - **A dispersive n_eff is continued to first order at complex k**:
   n_eff(x + iy) = n_eff(x) + iy n_eff'(x) (`ScatteringModel.index`,

@@ -8,7 +8,7 @@ One graph, four points of view::
     layout = qg.layouts.flower_graph()                 # vertex_positions, bonds
     closed = qg.ClosedDirectionalGraphs(**layout, couplings=0.5, neff=3.97,
                                         wavelength_range=(1.50, 1.53))
-    spectrum, degeneracies = closed.compute_spectrum(N_scan=150_000)
+    spectrum, degeneracies = closed.compute_spectrum()
 
 Subpackages
 -----------

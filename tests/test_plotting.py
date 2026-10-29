@@ -16,7 +16,7 @@ def test_closed_plots(save):
                                    wavelength_range=(1.50, 1.51), bond_spacing=[40, -40],
                                    **save)
     g.plot_graph(show_lengths=True, show_port_markers=True, save_fig=True, file_format="png")
-    spectrum, _ = g.compute_spectrum(N_scan=40_000)
+    spectrum, _ = g.compute_spectrum()
     g.plot_zeta_B(wavelength_range=(1.50, 1.502), N_plot=2000, spectrum=spectrum, save_fig=True)
     g.plot_wavefunction(a_in=g.compute_wavefunction(spectrum[0]), k=spectrum[0], save_fig=True)
     g.plot_entropy(save_fig=True)

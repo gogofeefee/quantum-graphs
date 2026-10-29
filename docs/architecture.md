@@ -17,9 +17,12 @@ quantum_graphs/
     scattering.py      ScatteringModel: D(k), Σ blocks (constant ones cached), U(k),
                        n_eff continued to first order off the real axis (index,
                        phase_rate), batched sigma_min_many / singular_values_many /
-                       log_det_many / S_many (threaded),
+                       eigenvalues_many / log_det_many / S_many (threaded),
                        internal_amplitudes, model.sector(directed) (U restricted to a
                        sector), NULLITY_TOL
+    level_search.py    find_levels -> LevelSearch: real levels of a unitary U(k) (closed
+                       graphs) = eigenphase crossings, exact count per interval,
+                       Brent on Z(k) = Π 2 sin(θ_j/2), multiplicity = simultaneous crossings
     argument_principle.py  count_zeros -> ZeroCount: zeros of det(I − U) in a rectangle
                        of the complex k-plane and its sub-rectangles (adaptive contour)
     zero_search.py     find_zeros -> ZeroSearch: the zeros themselves (batched Newton on
@@ -122,7 +125,10 @@ specific to their point of view.
   the argument-principle counts (`test_v5_to_v6_...`), reference_v7 the
   Newton resonance search and the continuation of a dispersive index off the
   real axis (`test_v6_to_v7_...`: only the dispersive S at complex k changes,
-  and the dispersive resonances are added). When a change of results is intended,
+  and the dispersive resonances are added), reference_v8 the closed spectra
+from the eigenphase crossings (`test_v7_to_v8_...`: the levels move by
+≤ 6e-8, the accuracy of the old σ_min minimisation, with everything computed
+from them; same levels and multiplicities). When a change of results is intended,
   regenerate a new reference, document the differences in `CHANGELOG.md` and
   add the corresponding test.
 

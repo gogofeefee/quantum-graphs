@@ -47,7 +47,7 @@ graph = qg.ClosedDirectionalGraphs(
     wavelength_range=(1.48, 1.64),             # vacuum wavelength window, µm
     name="MyDoubleRing",
 )
-spectrum, degeneracies = graph.compute_spectrum(N_scan=200_000)
+spectrum, degeneracies = graph.compute_spectrum()
 graph.plot_graph(show_lengths=True, save_fig=True)
 graph.short_range_correlations(save_fig=True)  # NNSD vs Poisson / GOE
 ```
@@ -140,11 +140,14 @@ wavenumber k = 2π/λ:
 * `U(k) = D(k) Σ(k)` is the quantum evolution map.
 
 **Closed graphs.** The spectrum is the set of real roots of
-`det(I − U(k)) = 0`. `compute_spectrum()` evaluates `σ_min(I − U(k))` on
-`N_scan` points, refines every local minimum (bounded Brent minimisation) and
-takes the degeneracy of each root as the number of singular values of
-`I − U(k*)` below `nullity_tol`; it warns if the number of levels departs from
-the Weyl law. The scan runs sector by sector (see *Spectral statistics*): the
+`det(I − U(k)) = 0`, i.e. the k at which an eigenphase of the unitary U(k)
+crosses 0 mod 2π. `compute_spectrum()` counts these crossings exactly in any
+interval from the eigenphases at its ends, isolates every level and locates
+it by Brent's method on the real secular function Π_j 2 sin(θ_j/2) (to
+~1e-15 µm⁻¹): no level is missed and close levels are not merged. The
+degeneracy of a level is the number of eigenphases crossing there. It warns
+if the number of levels departs from the Weyl law (group index inconsistent
+with the effective index). The search runs sector by sector (see *Spectral statistics*): the
 levels of two partner sectors are computed once and are exactly doubly
 degenerate by construction. `compute_wavefunction(k*)` returns an orthonormal basis of the
 null space of `I − U(k*)`: component b is the amplitude of the wave on

@@ -53,7 +53,7 @@ class SpectralStatsMixin:
         zero = spectrum[self.degeneracies == 0]
         if zero.size:
             warnings.warn(
-                f"{zero.size} level(s) have multiplicity 0 (no singular value of I − U below "
+                f"{zero.size} resonance(s) have multiplicity 0 (no singular value of I − U below "
                 f"nullity_tol): loosen nullity_tol or tighten the refinement. Examples: k = "
                 f"{', '.join(f'{k:.8g}' for k in zero[:5])}.", RuntimeWarning, stacklevel=3)
         inner = self.degeneracies // np.array([self.sectors.multiplicity(s)
@@ -62,26 +62,11 @@ class SpectralStatsMixin:
         if multiple.size:
             warnings.warn(
                 f"{multiple.size} level(s) are degenerate inside their sector (geometric "
-                "symmetry, or two levels closer than nullity_tol): they give zero spacings in "
-                "the statistics; desymmetrise by the geometric symmetry if needed. Examples: "
+                "symmetry, or levels closer than the resolution of the search): they give zero "
+                "spacings in the statistics; desymmetrise by the geometric symmetry if needed. "
+                "Examples: "
                 f"k = {', '.join(f'{k:.8g}' for k in np.real(multiple[:5]))}.",
                 RuntimeWarning, stacklevel=3)
-
-    def _classify_levels(self, ks, nullity_tol):
-        """Representative sector and full multiplicity of each level found in
-        the whole U: the multiplicity is Σ over the independent sectors of
-        (number of sectors sharing its spectrum) × (nullity of I − U_s)."""
-        secs = self.sectors
-        reps = secs.independent
-        models = [self.model.sector(s.directed) for s in reps]
-        level_sectors = np.empty(len(ks), dtype=int)
-        degeneracies = np.empty(len(ks), dtype=int)
-        for i, k in enumerate(ks):
-            sv = [m.singular_values(k) for m in models]
-            nullity = [int(np.sum(s <= nullity_tol)) for s in sv]
-            level_sectors[i] = reps[int(np.argmin([s[-1] for s in sv]))].index
-            degeneracies[i] = sum(secs.multiplicity(s.index) * n for s, n in zip(reps, nullity))
-        return level_sectors, degeneracies
 
     def _selection(self, sector):
         """{representative sector: number of times each of its levels counts}."""

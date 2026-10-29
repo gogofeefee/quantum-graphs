@@ -34,7 +34,7 @@ def test_flower_and_bow_tie_are_one_time_reversal_sector(layout, save):
 def test_desymmetrised_spectrum_and_weyl_law(save):
     g = qg.ClosedDirectionalGraphs(**qg.layouts.double_ring(), couplings=0.5, neff=1.0,
                                    wavelength_range=(1.48, 1.64), **save)
-    spectrum, deg = g.compute_spectrum(N_scan=60_000, save_spectrum=False)
+    spectrum, deg = g.compute_spectrum(save_spectrum=False)
     assert np.all(deg == 2) and np.all(g.level_sectors == 0)
     assert np.array_equal(g.levels(), spectrum)               # one level per pair
     assert np.array_equal(g.levels("all"), np.repeat(spectrum, 2))
@@ -58,7 +58,7 @@ def test_non_reciprocal_partners_are_independent(save):
                         neff=2.0, wavelength_range=(1.50, 1.60), **save)
     assert len(g.sectors.independent) == 2
     assert all(s.ensemble == "GUE" for s in g.sectors)
-    spectrum, deg = g.compute_spectrum(N_scan=20_000, save_spectrum=False)
+    spectrum, deg = g.compute_spectrum(save_spectrum=False)
     assert np.all(deg == 1) and set(g.level_sectors) == {0, 1}
     with pytest.warns(RuntimeWarning, match="superpose 2 sector spectra"):
         g.unfolded_spectrum()
@@ -72,7 +72,7 @@ def test_degeneracy_inside_a_sector_is_reported(save):
                         wavelength_range=(1.50, 1.60), **save)
     assert len(g.sectors) == 1 and g.sectors[0].time_reversal
     with pytest.warns(RuntimeWarning, match="degenerate inside their sector"):
-        g.compute_spectrum(N_scan=20_000, save_spectrum=False)
+        g.compute_spectrum(save_spectrum=False)
 
 
 def test_resonances_are_assigned_to_sectors(save):

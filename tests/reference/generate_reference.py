@@ -16,8 +16,9 @@ published before the 2026-10 refactor), ``reference_v1``-``v3`` with the v1 API
 the bond-list API (no virtual vertices), ``reference_v5`` with the sector
 analysis (statistics on the desymmetrised spectrum), ``reference_v6`` with the
 bounded resonance refinement and the argument-principle count, ``reference_v7``
-and later with the Newton resonance search and the first-order continuation of
-a dispersive index off the real axis.
+with the Newton resonance search and the first-order continuation of a
+dispersive index off the real axis, ``reference_v8`` and later with the closed
+spectra from the eigenphase crossings of U(k).
 
 Only quantities that do not depend on internal ordering conventions are
 stored as raw arrays (spectra, S-matrix entries, eigenvalues, sorted bond
@@ -91,13 +92,13 @@ def topology(prefix, graph):
 # Closed graphs
 # ---------------------------------------------------------------------------
 
-def closed_case(prefix, graph, k_probe, n_scan, wf_levels=(0,), stats=True):
+def closed_case(prefix, graph, k_probe, wf_levels=(0,), stats=True):
     topology(prefix, graph)
     U = [graph.U(k) for k in k_probe]
     # eigenvalues of U are basis-independent
     store(prefix, U_eigvals=np.array([np.sort_complex(np.linalg.eigvals(u)) for u in U]),
           secular_det=np.array([graph.secular_det(k) for k in k_probe]))
-    spectrum, deg = graph.compute_spectrum(N_scan=n_scan, save_spectrum=False)
+    spectrum, deg = graph.compute_spectrum(save_spectrum=False)
     store(prefix, spectrum=spectrum, degeneracies=deg)
     labels = bond_labels(graph)
     for i in wf_levels:
@@ -133,30 +134,30 @@ def run_closed():
     g = ClosedGraphs(**G.SINGLE_RING, vertex_matrices={0: G.neumann(2)}, neff=2.41,
                      wavelength_range=(1.50, 1.60), name="ref_single_ring",
                      save_path=tmp("single"))
-    closed_case("closed/single_ring", g, k_probe, 20_000)
+    closed_case("closed/single_ring", g, k_probe)
 
     g = ClosedDG(**G.DOUBLE_RING, couplings=0.5, neff=1.0,
                  wavelength_range=(1.48, 1.64), name="ref_double_ring", save_path=tmp("dr"))
-    closed_case("closed/double_ring", g, k_probe, 60_000)
+    closed_case("closed/double_ring", g, k_probe)
 
     g = ClosedDG(**G.DOUBLE_RING, couplings=G.coupling_dispersive, neff=G.neff_dispersive,
                  wavelength_range=(1.48, 1.64), name="ref_double_ring_disp", save_path=tmp("drd"))
-    closed_case("closed/double_ring_dispersive", g, k_probe, 60_000)
+    closed_case("closed/double_ring_dispersive", g, k_probe)
     store("closed/double_ring_dispersive", ng=np.array([g.ng(k) for k in k_probe]))
 
     g = ClosedGraphs(**G.TETRAHEDRON, vertex_matrices={v: G.neumann(3) for v in range(4)},
                      neff=2.41, wavelength_range=(1.50, 1.56), name="ref_tetra", save_path=tmp("tet"))
-    closed_case("closed/tetrahedron", g, k_probe, 60_000)
+    closed_case("closed/tetrahedron", g, k_probe)
 
     for name, geom in (("flower", G.FG_CLOSED), ("bowtie", G.BTG_CLOSED)):
         g = ClosedDG(**geom, couplings=0.5, neff=3.97,
                      wavelength_range=(1.50, 1.53), name=f"ref_{name}", save_path=tmp(name))
-        closed_case(f"closed/{name}", g, k_probe, 150_000, wf_levels=(0, 50))
+        closed_case(f"closed/{name}", g, k_probe, wf_levels=(0, 50))
 
     # dict couplings
     g = ClosedDG(**G.FG_CLOSED, couplings={0: 0.5, 1: 0.3, 2: 0.5, 3: 0.7, 4: 0.5},
                  neff=3.97, wavelength_range=(1.55, 1.56), name="ref_flower_dict", save_path=tmp("fgd"))
-    closed_case("closed/flower_dict_couplings", g, k_probe, 60_000, stats=False)
+    closed_case("closed/flower_dict_couplings", g, k_probe, stats=False)
 
 
 # ---------------------------------------------------------------------------

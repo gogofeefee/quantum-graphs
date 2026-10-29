@@ -26,9 +26,10 @@ The constant parts of Σ are computed once; ``sigma_min_many``, ``log_det_many``
 and ``S_many`` evaluate many wavenumbers at once with batched LAPACK calls.
 ``model.sector(directed)`` restricts U to one sector (see :mod:`.sectors`).
 
-Multiplicity of a level k*: the number of singular values of I − U(k*) below
-``NULLITY_TOL`` (one threshold for the spectra, the resonances and the
-wavefunctions).
+Multiplicity of a resonance k*: the number of singular values of I − U(k*)
+below ``NULLITY_TOL`` (one threshold for the resonances and the
+wavefunctions; the levels of a closed graph are counted by their eigenphase
+crossings, :mod:`.level_search`).
 """
 
 import numpy as np
@@ -172,6 +173,11 @@ class ScatteringModel:
         """Singular values of I − U(k) for an array of k, shape (m, n), decreasing."""
         ks = np.atleast_1d(np.asarray(ks, dtype=complex))
         return np.linalg.svd(np.eye(self.n) - self._U_many(ks), compute_uv=False)
+
+    def eigenvalues_many(self, ks, chunk=2048):
+        """Eigenvalues of U(k) for an array of k, shape (m, n), unordered."""
+        ks = np.atleast_1d(np.asarray(ks, dtype=complex))
+        return _map_chunks(lambda kc: np.linalg.eigvals(self._U_many(kc)), ks, chunk)
 
     def nullity(self, k, tol=NULLITY_TOL):
         """Number of singular values of I − U(k) at or below ``tol``."""

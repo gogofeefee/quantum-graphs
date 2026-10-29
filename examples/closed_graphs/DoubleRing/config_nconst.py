@@ -124,13 +124,9 @@ if True:
 
 if True:
     spectrum, degeneracies = graph.compute_spectrum(
-        N_scan        = 1_000_000,
-        tol           = 1e-16,
         show_progress = True,
         save_spectrum = True,
         overwrite     = False,
-        maxiter       = 500,
-        nullity_tol   = 1e-4,
     )
     print(f"\nSpectrum: {len(spectrum)} eigenvalues found.")
     for idx, (k, d) in enumerate(zip(spectrum[:10], degeneracies[:10])):

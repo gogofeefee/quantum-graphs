@@ -27,20 +27,43 @@ changed, to keep published results reproducible).
 
 ## 2. Closed spectrum
 
-`compute_spectrum` scans σ_min(I − U(k)) on `N_scan` uniform k points and
-refines each strict local minimum by bounded Brent minimisation.
+`compute_spectrum` finds the eigenphase crossings of the unitary U_s(k) of
+each independent sector (`core/level_search.py`, `find_levels`, 2.0).
 
-* Near a simple root σ_min ≈ c |k − k*| (a V-shaped minimum), so Brent stops
-  after ~7 evaluations: the refined root has σ_min ~ 1e-6 – 1e-5 and an
-  accuracy |δk| ≈ σ_min / (n_eff L_tot) ~ 1e-9 µm⁻¹, about 10⁻⁵ of the mean
-  level spacing. Roots with σ_min > `eps_accept` (1e-4) are rejected.
-* Two levels closer than ~2 grid steps merge into one candidate. The method
-  now warns when the number of levels (with multiplicity) departs from the
-  Weyl estimate by more than 5 % (and 3 levels); choose N_scan so that the
-  mean spacing π/(n_eff L_tot) spans ≳ 20 grid points.
-* Degeneracy = number of singular values ≤ `nullity_tol` (1e-4) of
-  I − U_s(k*), times 2 for partner sectors (§4).
-* Single-ring test: levels agree with 2πm/(nL) to 5e-8 µm⁻¹.
+* **Counting.** U(k) has eigenvalues e^{iθ_j(k)}; with Σ independent of k,
+  dθ_j/dk = n_g ⟨v_j|L|v_j⟩ > 0, so every eigenphase crosses each multiple of
+  2π once, upwards, and the levels are these crossings. With Θ(k) =
+  k n_eff Σ_d L_d + arg det Σ the continuous phase of det U, the counting
+  function N(k) = Σ_j ⌊θ_j/2π⌋ = G(k) − #{φ_j < 0}, G = (Θ − Σ_j φ_j)/2π ∈ ℤ,
+  needs only the principal eigenphases φ_j at k (no tracking through avoided
+  crossings): the number of levels in (a, b] is N(b) − N(a), exact for any
+  a < b, with multiplicity. The search is complete by construction;
+  `LevelSearch.defect` (distance of G to an integer before rounding, ~1e-12)
+  checks the lift of arg det Σ, unwrapped on the grid for k-dependent σ.
+* **Location.** N on a grid of 2 points per mean spacing; one level per
+  interval: Brent's method on the real secular function Z(k) = Π_j 2
+  sin(θ_j/2) = (−1)^G Π_j 2 sin(φ_j/2) (|Z| = |det(I − U)|, sign change at
+  each simple level), accuracy ~1e-15 µm⁻¹ (σ_min(I − U) ~ 1e-13 at the
+  level); several levels: bisection on N until they are isolated.
+* **Degeneracy** = number of eigenphases crossing at the same k (bisection
+  down to max(tol, 4ε|k|), then crossings closer than 1e-9 mean spacings
+  merged), times 2 for partner sectors (§4). Two loops of 300 µm on a
+  Neumann vertex: multiplicity 3 every other level; lengths 300 and 300 +
+  1e-7 µm: the triplets split into levels 1e-9 µm⁻¹ apart, all found.
+* **Cost.** ~12 eigenvalue decompositions per level (flower graph over
+  1.48–1.64 µm, 837 levels: 1.4 s).
+* **Limits.** U must be unitary (a lossy closed graph raises ValueError: its
+  zeros are complex, see `core/zero_search.py`). A σ(k) varying fast enough
+  to make an eigenphase decrease gives a negative count (warning): the
+  levels are then the net crossings.
+* **Before 2.0** (up to reference_v7): σ_min(I − U) on `N_scan` grid points,
+  each local minimum refined by bounded Brent minimisation. scipy's
+  `fminbound` stops at ~sqrt(ε)|k| whatever `xatol`, so the levels were only
+  accurate to ~4e-8 µm⁻¹ (σ_min ~ 1e-5 at the level, 2e-4 of a mean
+  spacing); two levels closer than ~2 grid steps merged; degeneracy =
+  singular values ≤ `nullity_tol` (1e-4). Same levels and multiplicities in
+  every reference case and in the paper spectra.
+* Single-ring test: levels agree with 2πm/(nL) to 1e-15 µm⁻¹.
 
 ## 3. Resonances (open graphs)
 
@@ -144,9 +167,9 @@ refines each strict local minimum by bounded Brent minimisation.
   expected). Measured: double ring and single ring = two partner sectors;
   flower and bow-tie graphs (closed and open), tetrahedron = one
   self-reverse sector.
-* **Spectrum per sector.** `compute_spectrum` scans one sector of each pair
+* **Spectrum per sector.** `compute_spectrum` searches one sector of each pair
   of partners; the multiplicity of a level is (number of sectors sharing the
-  spectrum) × (nullity of I − U_s, threshold `nullity_tol`). `find_resonances`
+  spectrum) × (number of eigenphases of U_s crossing there, §2). `find_resonances`
   does the same in the complex plane (2.0; it searched the whole U and
   assigned each resonance to the sector of smallest σ_min(I − U_s) before).
   A level degenerate *inside* a sector (geometric symmetry, accidental

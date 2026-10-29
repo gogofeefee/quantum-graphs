@@ -127,13 +127,9 @@ if True:
 # ~1600 eigenvalues in this window. The first run takes ~6 minutes; the
 # result is then cached and re-loaded instantly.
 spectrum, degeneracies = graph.compute_spectrum(
-    N_scan        = 3_000_000,
-    tol           = 1e-16,
     show_progress = True,
     save_spectrum = True,
     overwrite     = False,
-    maxiter       = 500,
-    nullity_tol   = 1e-4,
 )
 print(f"\nSpectrum: {len(spectrum)} eigenvalues found.")
 print(f"Degeneracies present: {sorted(set(np.asarray(degeneracies).tolist()))}")
