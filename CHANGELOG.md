@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-10-29
+
+Last version with the v1 API (`port_map` input, virtual vertices, historical
+method names). The next version breaks the API; scripts written for v1 keep
+running on this tag (`pip install git+https://github.com/gogofeefee/quantum-graphs@v1.0.0`).
 
 ### Changed (changes results)
 - **Entropy and IPR** (`plot_entropy`, `plot_ipr`, wavefunction titles,
