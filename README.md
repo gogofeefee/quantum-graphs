@@ -3,6 +3,7 @@
 [![Tests](https://github.com/gogofeefee/quantum-graphs/actions/workflows/tests.yml/badge.svg)](https://github.com/gogofeefee/quantum-graphs/actions/workflows/tests.yml)
 [![Python ≥ 3.10](https://img.shields.io/badge/python-%E2%89%A5%203.10-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23812663.svg)](https://doi.org/10.5281/zenodo.23812663)
 
 Python tools to simulate **quantum graphs** — networks of one-dimensional
 waveguides joined at vertices — in the vertex scattering-matrix formalism of
@@ -446,8 +447,11 @@ If you use quantum-graphs in your work, please cite the software (GitHub:
 *Cite this repository*, from [CITATION.cff](CITATION.cff)):
 
 > H. Girin, *quantum-graphs: quantum graphs of photonic waveguide networks*,
-> version 2.0.0 (2026), https://github.com/gogofeefee/quantum-graphs.
-> DOI: to be added with the first archived release.
+> version 2.0.0 (2026), https://github.com/gogofeefee/quantum-graphs,
+> [doi:10.5281/zenodo.23812663](https://doi.org/10.5281/zenodo.23812663).
+
+This DOI always points to the latest version; each release also has its own
+DOI, listed on the [Zenodo record](https://doi.org/10.5281/zenodo.23812663).
 
 ```bibtex
 @software{girin_quantum_graphs,
@@ -455,6 +459,7 @@ If you use quantum-graphs in your work, please cite the software (GitHub:
   title   = {quantum-graphs: quantum graphs of photonic waveguide networks},
   version = {2.0.0},
   year    = {2026},
+  doi     = {10.5281/zenodo.23812663},
   url     = {https://github.com/gogofeefee/quantum-graphs}
 }
 ```
