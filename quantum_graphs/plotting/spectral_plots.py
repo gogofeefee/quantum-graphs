@@ -302,7 +302,7 @@ class SpectralPlotsMixin:
             axes = [ax]
 
         L_plot = np.linspace(0.0, L_max, 1000)
-        for ax, (_, (L_vals, values), rmt, ylabel) in zip(axes, panels):
+        for ax, (_, (L_vals, values), rmt, ylabel) in zip(axes, panels, strict=True):
             ax.scatter(L_vals, values, edgecolor="black", facecolor="white",
                        s=60, linewidth=1.5, zorder=1)
             ymax = max([float(np.max(values))] +
@@ -371,7 +371,7 @@ class SpectralPlotsMixin:
         d_ell = float(ell[1] - ell[0]) if ell.size >= 2 else float(L_max)
         n_eff = index_function(self.neff, np.real(k_vals))
         rho_hat = np.zeros(ell.size, dtype=np.complex128)
-        for kj, nj in zip(k_vals, n_eff):
+        for kj, nj in zip(k_vals, n_eff, strict=True):
             rho_hat += np.exp(-1j * kj * nj * ell)
         rho_hat = np.abs(rho_hat)
 

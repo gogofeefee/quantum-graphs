@@ -345,7 +345,7 @@ class ResonancesMixin:
         return {int(s): ZeroCount(edges=npz["count_edges"], im_min=im_lo, im_max=im_hi,
                                   winding=w, n_samples=int(n))
                 for s, w, n in zip(npz["count_sectors"], npz["count_winding"],
-                                   npz["count_samples"])}
+                                   npz["count_samples"], strict=True)}
 
     def _check_resonances(self, im_min, below, verbose=False):
         """Warn about resonances found below im_min, counts that differ from the

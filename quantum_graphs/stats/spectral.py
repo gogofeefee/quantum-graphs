@@ -138,6 +138,6 @@ def spectral_rigidity(unfolded, dE, L_max, windows="level", n_windows=None):
         else:
             raise ValueError("windows must be 'level' or 'uniform'.")
         hi = np.searchsorted(eig, starts + L, side="right")       # levels <= x + L
-        vals = [_delta3_window(eig[a:b], x, L) for x, a, b in zip(starts, lo, hi)]
+        vals = [_delta3_window(eig[a:b], x, L) for x, a, b in zip(starts, lo, hi, strict=True)]
         out[i] = np.mean(vals) if vals else np.nan
     return np.insert(L_vals, 0, 0.0), np.insert(out, 0, 0.0)

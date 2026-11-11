@@ -236,7 +236,7 @@ def fig_statistics():
             text = f"{title}\none sector, its own reverse\n→ time-reversal symmetry"
         else:
             draw_plain_graph(ax, graph, color=GRID)
-            for sec, c in zip(sectors, SECTOR_COLORS):
+            for sec, c in zip(sectors, SECTOR_COLORS, strict=False):
                 for d in sec.directed:
                     draw_directed(ax, graph, d, c, lw=2.5)
             text = (f"{title}\ntwo partner sectors (blue / orange)\n"
@@ -327,7 +327,7 @@ def fig_closed():
     irreducible = sorted(orbits.find_irreducible_orbits().values(),
                          key=lambda r: r["physical_length_um"])
     top = rho[ell > 100].max()
-    for rec, dy in zip(irreducible, (0.0, 0.11, 0.0, 0.0, 0.0)):
+    for rec, dy in zip(irreducible, (0.0, 0.11, 0.0, 0.0, 0.0), strict=False):
         lo = rec["physical_length_um"]
         peak = rho[np.abs(ell - lo) < 3].max()
         ax.annotate(rec["name"], xy=(lo, peak), xytext=(lo, peak + (0.08 + dy) * top),
@@ -421,7 +421,7 @@ def fig_orbits():
     orbits = sorted(graph.find_irreducible_orbits().values(),
                     key=lambda r: r["physical_length_um"])
     fig, axes = plt.subplots(1, 5, figsize=(15, 3.4), gridspec_kw=dict(wspace=0.05))
-    for ax, rec, color in zip(axes, orbits, ORBIT_COLORS * 2):
+    for ax, rec, color in zip(axes, orbits, ORBIT_COLORS * 2, strict=False):
         draw_orbit(ax, graph, rec, color)
         ax.set_title(f"{rec['name']}\n{rec['physical_length_um']:.1f} µm", fontsize=11)
     save(fig, "periodic_orbits")

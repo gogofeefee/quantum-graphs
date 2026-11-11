@@ -48,7 +48,7 @@ def tolerance(key):
 def wavefunction_by_label(data, key):
     """Return {bond label: intensity} so that a change of bond indexing is not a difference."""
     labels = data[key.replace("/intensity", "/labels")]
-    return {tuple(row): val for row, val in zip(labels, data[key])}
+    return {tuple(row): val for row, val in zip(labels, data[key], strict=True)}
 
 
 def power_sums(eigvals):

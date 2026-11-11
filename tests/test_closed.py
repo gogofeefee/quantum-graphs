@@ -98,7 +98,7 @@ def test_count_is_exact_on_any_interval():
     k_min, k_max = g._k_range()
     whole = find_levels(g.model, k_min, k_max)
     parts = [find_levels(g.model, a, b) for a, b in
-             zip(np.linspace(k_min, k_max, 4)[:-1], np.linspace(k_min, k_max, 4)[1:])]
+             zip(np.linspace(k_min, k_max, 4)[:-1], np.linspace(k_min, k_max, 4)[1:], strict=True)]
     assert whole.count == whole.multiplicities.sum() == sum(p.count for p in parts)
     assert np.allclose(whole.levels, np.concatenate([p.levels for p in parts]), atol=1e-14)
     assert whole.defect < 1e-6

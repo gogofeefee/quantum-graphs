@@ -92,7 +92,7 @@ class SpectralStatsMixin:
         secs = self.sectors
         counts = np.array([
             sel.get(s, 0) * (g // secs.multiplicity(s))
-            for s, g in zip(self.level_sectors, self.degeneracies)], dtype=int)
+            for s, g in zip(self.level_sectors, self.degeneracies, strict=True)], dtype=int)
         k = np.repeat(np.asarray(self.spectrum), counts)
         return k[np.argsort(np.real(k), kind="stable")]
 

@@ -147,10 +147,9 @@ print(f"  Leads     : {graph.n_leads}")
 print(f"  Total length: {graph.total_length:.3f} µm")
 print(f"  Save path : {graph.save_path}\n")
 
-if hasattr(graph, "leads"):
-    print("Lead order:")
-    for i, ld in enumerate(graph.leads):
-        print(f"  lead {i}: {ld}")
+print("Lead order (S-matrix index: (vertex, port)):")
+for i, ld in enumerate(graph.topology.leads):
+    print(f"  lead {i}: {ld}")
 
 
 # ============================================================================
@@ -219,7 +218,7 @@ if True:
     )
 
     print(f"\nAccepted resonances ({len(spectrum)} total):")
-    for idx, (k, d) in enumerate(zip(spectrum, degeneracies)):
+    for idx, (k, d) in enumerate(zip(spectrum, degeneracies, strict=True)):
         print(f"  {idx:4d}  Re(k) = {np.real(k):.10e}  "
               f"Im(k) = {np.imag(k):.10e}  deg = {d}")
 

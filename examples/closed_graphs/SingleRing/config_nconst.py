@@ -139,7 +139,7 @@ if True:
         overwrite     = False,
     )
     print(f"\nSpectrum: {len(spectrum)} eigenvalues found.")
-    for idx, (k, d) in enumerate(zip(spectrum[:10], degeneracies[:10])):
+    for idx, (k, d) in enumerate(zip(spectrum[:10], degeneracies[:10], strict=True)):
         print(f"  {idx:4d}  k = {k:.10f}  deg = {d}")
 
 

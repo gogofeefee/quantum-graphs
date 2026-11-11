@@ -66,7 +66,7 @@ class GraphPlotMixin(TopologyPlotMixin):
         subplot_ylims  = [ylim_real, ylim_imag, ylim_mod]
 
         for ax, data, ylabel, ylim in zip(axs, subplot_data,
-                                          subplot_ylabels, subplot_ylims):
+                                          subplot_ylabels, subplot_ylims, strict=True):
             ax.plot(lambda_vals, data, "k-", lw=1.0)
             ax.set_ylabel(ylabel, fontsize=22)
             if ylim:

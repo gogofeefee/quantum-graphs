@@ -117,7 +117,7 @@ class Topology:
 
         # (v, p) -> directed bond leaving / arriving through that port; leads absent
         self._leaving = {(int(v), int(p)): d
-                         for d, (v, p) in enumerate(zip(self.src_vertex, self.src_port))}
+                         for d, (v, p) in enumerate(zip(self.src_vertex, self.src_port, strict=True))}
         self._lead_index = {lead: m for m, lead in enumerate(lead_list)}
 
     # -- lookups ----------------------------------------------------------------

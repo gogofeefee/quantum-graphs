@@ -101,7 +101,7 @@ def _three_panel(x, T, d1, d2, component, peaks=None, title=None, xlim=None,
                              gridspec_kw={"height_ratios": [2, 1, 1]}, layout="constrained")
     fig.get_layout_engine().set(hspace=0.0)
     curves = [np.asarray(c, dtype=float).ravel() for c in (T, d1, d2)]
-    for ax, y, ylabel in zip(axes, curves, (rf"$|S_{{{i}{j}}}|^2$", d1label, d2label)):
+    for ax, y, ylabel in zip(axes, curves, (rf"$|S_{{{i}{j}}}|^2$", d1label, d2label), strict=True):
         ax.plot(x, y, "k-", lw=1.5)
         ax.set_ylabel(ylabel, fontsize=22)
         lo, hi = float(np.nanmin(y)), float(np.nanmax(y))

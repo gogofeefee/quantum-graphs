@@ -37,7 +37,7 @@ class WavefunctionPlotsMixin(LocalizationPlotsMixin):
         k_all, g_all = k_all[keep][order], g_all[keep][order]
 
         k_list, S_list, I_list = [], [], []
-        for k, g in zip(k_all, g_all):
+        for k, g in zip(k_all, g_all, strict=True):
             vecs = self.null_vectors(k, multiplicity=g)
             if vecs.size == 0:
                 continue
