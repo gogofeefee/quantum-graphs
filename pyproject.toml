@@ -45,3 +45,19 @@ testpaths = ["tests"]
 markers = ["slow: long scientific validation (run with -m slow)"]
 addopts = "-m 'not slow'"
 filterwarnings = ["ignore:FigureCanvasAgg is non-interactive:UserWarning"]
+
+# Lint only (no formatter): real errors and silent-bug patterns.
+[tool.ruff.lint]
+select = ["F", "B", "NPY", "E9", "PLE"]
+
+# Static checks, also used by the editor / Claude Code LSP. The package is built from
+# mixins, so attribute checks are switched off inside it but kept for scripts using the API.
+[tool.pyright]
+typeCheckingMode = "basic"
+include = ["quantum_graphs", "examples", "tests", "docs"]
+reportArgumentType = "none"
+reportOptionalMemberAccess = "none"
+executionEnvironments = [
+    { root = "quantum_graphs", extraPaths = ["."], reportAttributeAccessIssue = "none" },
+    { root = "." },
+]
